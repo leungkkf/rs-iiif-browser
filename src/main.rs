@@ -1,26 +1,12 @@
-use crate::image::ImageBundle;
+use crate::app_state::AppState;
+use crate::image::{ImageBundle, Size};
 use bevy::prelude::*;
 
+mod app_state;
 mod image;
 mod keyboard_input;
 mod mouse_input;
 mod tile;
-
-struct Size {
-    width: u32,
-    height: u32,
-}
-
-impl Size {
-    fn new(width: u32, height: u32) -> Self {
-        Self { width, height }
-    }
-}
-
-#[derive(Component)]
-struct AppState {
-    level: usize,
-}
 
 fn main() {
     App::new()
@@ -69,7 +55,5 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
     ));
 
     // App state.
-    commands.spawn(AppState {
-        level: initial_level,
-    });
+    commands.spawn(AppState::new(initial_level));
 }

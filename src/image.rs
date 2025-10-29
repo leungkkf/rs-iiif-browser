@@ -1,8 +1,16 @@
-use crate::{
-    Size,
-    tile::{TILE_SIZE, TileIndex},
-};
+use crate::tile::{TILE_SIZE, TileIndex};
 use bevy::prelude::*;
+
+pub(crate) struct Size {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+}
+
+impl Size {
+    pub(crate) fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+}
 
 #[derive(Bundle)]
 pub(crate) struct ImageBundle {
