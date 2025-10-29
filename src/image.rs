@@ -1,4 +1,4 @@
-use crate::tile::{TILE_SIZE, TileIndex};
+use crate::tile::{TILE_SIZE, Tile, TileIndex};
 use bevy::prelude::*;
 
 pub(crate) struct Size {
@@ -46,38 +46,18 @@ impl Image {
         }
     }
 
-    /// Get display info for the image tile at the TileIndex, including the URL, mesh position and the mesh size.
-    pub(crate) fn get_image_tile_display_info(
-        &self,
-        level: usize,
-        tile_index: TileIndex,
-    ) -> (String, Vec3, Vec3) {
-        // Convert the tile index in the tile space to image space.
-        let image_pos = self.tile_to_image(level, tile_index.into());
+    /// Get URL for the image tile at the position.
+    pub(crate) fn get_image_tile_at(&self, level: usize, image_position: Rect) -> String {
+        let image_max_size = self.get_max_size();
+        let pct = 100.0 * self.levels[level].width as f32 / image_max_size.x;
 
-        // Clamp the size of the tile by the max image size.
-        let image_size = self.tile_to_image(level, Vec3::ONE);
-        let max_image_size = self.get_max_size();
-        let clamped_size = (image_pos + image_size).min(max_image_size) - image_pos;
-
-        let pct = 100.0 * self.levels[level].width as f32 / max_image_size.x;
-
-        let url = self.get_image_url(
-            image_pos.x.round() as u32,
-            image_pos.y.round() as u32,
-            clamped_size.x.round() as u32,
-            clamped_size.y.round() as u32,
+        self.get_image_url(
+            image_position.min.x.round() as u32,
+            image_position.min.y.round() as u32,
+            image_position.width().round() as u32,
+            image_position.height().round() as u32,
             pct.round() as u32,
-        );
-
-        let world_mesh_pos = self.image_to_world(
-            level,
-            self.tile_to_image(level, tile_index.into()) + clamped_size / 2.0,
-        );
-
-        let world_mesh_size = self.image_to_world(level, clamped_size).abs() - 1.0;
-
-        (url, world_mesh_pos, world_mesh_size)
+        )
     }
 
     pub(crate) fn levels(&self) -> &[Size] {
@@ -90,35 +70,50 @@ impl Image {
         level: usize,
         world_pos_min: Vec3,
         world_pos_max: Vec3,
-    ) -> (TileIndex, TileIndex) {
+    ) -> Vec<Tile> {
         // Convert from the world space to the image space, and clamp using the max image size.
-        let max_size = self.get_max_size();
+        let image_max_size = self.get_max_size();
 
         let image_min = self
             .world_to_image(level, world_pos_min)
-            .clamp(Vec3::ZERO, max_size);
+            .clamp(Vec3::ZERO, image_max_size - 1.0);
         let image_max = self
             .world_to_image(level, world_pos_max)
-            .clamp(Vec3::ZERO, max_size);
+            .clamp(Vec3::ZERO, image_max_size - 1.0);
 
         // Convert from the image space to the tile space.
         let tile_min = self.image_to_tile(level, image_min);
         let tile_max = self.image_to_tile(level, image_max);
 
-        let tile_min = TileIndex::from(tile_min);
-        let mut tile_max = TileIndex::from(tile_max);
+        // Tile size in image space.
+        let image_tile_size = self.tile_to_image(level, Vec3::ONE).round();
 
-        // No need to get the last one if the remaining is less than half a pixel.
-        let image_tile_max = self.tile_to_image(level, tile_max.into());
+        let mut tiles = Vec::new();
 
-        if f32::abs(image_tile_max.x - image_max.x) <= 0.5 {
-            tile_max.x -= 1;
+        for y in tile_min.y as u32..=tile_max.y as u32 {
+            for x in tile_min.x as u32..=tile_max.x as u32 {
+                let tile_index = TileIndex::new(x, y);
+
+                let image_top_left = self.tile_to_image(level, tile_index.into());
+                let image_bot_rght =
+                    (image_top_left + image_tile_size - 1.0).min(image_max_size - 1.0);
+
+                let image_position =
+                    Rect::from_corners(image_top_left.truncate(), image_bot_rght.truncate());
+
+                if image_position.width() > 0.5 && image_position.height() > 0.5 {
+                    // Add 1.0 to have no gaps between tiles in world space.
+                    let world_position = Rect::from_corners(
+                        self.image_to_world(level, image_top_left).truncate(),
+                        self.image_to_world(level, image_bot_rght + 1.0).truncate(),
+                    );
+
+                    tiles.push(Tile::new(tile_index, level, image_position, world_position));
+                }
+            }
         }
-        if f32::abs(image_tile_max.y - image_max.y) <= 0.5 {
-            tile_max.y -= 1;
-        }
 
-        (tile_min, tile_max)
+        tiles
     }
 
     /// Convert from world to image space.

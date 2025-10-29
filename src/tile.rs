@@ -3,14 +3,14 @@ use bevy::prelude::*;
 
 pub(crate) const TILE_SIZE: f32 = 256.0;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TileIndex {
     pub(crate) x: u32,
     pub(crate) y: u32,
 }
 
 impl TileIndex {
-    fn new(x: u32, y: u32) -> Self {
+    pub(crate) fn new(x: u32, y: u32) -> Self {
         Self { x, y }
     }
 }
@@ -35,24 +35,24 @@ impl From<Vec3> for TileIndex {
 pub(crate) struct Tile {
     pub(crate) index: TileIndex,
     pub(crate) level: usize,
+    pub(crate) image_position: Rect,
+    pub(crate) world_position: Rect,
     bevy_image: Option<Handle<bevy::image::Image>>,
 }
 
-#[derive(Bundle)]
-pub(crate) struct TileBundle {
-    tile: Tile,
-    transform: Transform,
-}
-
-impl TileBundle {
-    pub(crate) fn build(index: TileIndex, level: usize, transform: Transform) -> Self {
+impl Tile {
+    pub(crate) fn new(
+        index: TileIndex,
+        level: usize,
+        image_position: Rect,
+        world_position: Rect,
+    ) -> Self {
         Self {
-            tile: Tile {
-                index,
-                level,
-                bevy_image: None,
-            },
-            transform,
+            index,
+            level,
+            image_position,
+            world_position,
+            bevy_image: None,
         }
     }
 }
@@ -77,32 +77,29 @@ pub(crate) fn update_tiles(
         .viewport_to_world(global_transform, viewport.max)
         .unwrap();
 
-    let (clamped_tile_min, clamped_tile_max) =
+    let required_tiles =
         image.get_required_tiles(app_state.level, world_pos_min.origin, world_pos_max.origin);
 
-    for y in clamped_tile_min.y as u32..=clamped_tile_max.y {
-        for x in clamped_tile_min.x as u32..=clamped_tile_max.x as u32 {
-            if tiles
-                .iter()
-                .find(|t| t.index.x == x && t.index.y == y && t.level == app_state.level)
-                .is_none()
-            {
-                let (url, mesh_pos, mesh_size) =
-                    image.get_image_tile_display_info(app_state.level, TileIndex::new(x, y));
+    for tile in required_tiles {
+        if tiles
+            .iter()
+            .find(|t| t.index == tile.index && t.level == app_state.level)
+            .is_none()
+        {
+            let url = image.get_image_tile_at(app_state.level, tile.image_position);
 
-                commands.spawn((
-                    TileBundle::build(
-                        TileIndex::new(x, y),
-                        app_state.level,
-                        Transform::from_translation(mesh_pos),
-                    ),
-                    Mesh2d(meshes.add(Rectangle::new(mesh_size.x, mesh_size.y))),
-                    MeshMaterial2d(materials.add(ColorMaterial {
-                        texture: Some(asset_server.load(url)),
-                        ..default()
-                    })),
-                ));
-            }
+            commands.spawn((
+                Transform::from_translation(tile.world_position.center().extend(0.0)),
+                Mesh2d(meshes.add(Rectangle::new(
+                    tile.world_position.width(),
+                    tile.world_position.height(),
+                ))),
+                MeshMaterial2d(materials.add(ColorMaterial {
+                    texture: Some(asset_server.load(url)),
+                    ..default()
+                })),
+                tile,
+            ));
         }
     }
 }

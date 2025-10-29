@@ -31,10 +31,10 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
     let initial_level = 0;
 
     let levels = vec![
-        Size::new(512, 512),
-        Size::new(1024, 1024),
-        Size::new(2048, 2048),
-        Size::new(4096, 4096),
+        Size::new(640, 384),
+        Size::new(1280, 768),
+        Size::new(2560, 1536),
+        Size::new(5120, 3072),
     ];
 
     // Camera
