@@ -63,6 +63,18 @@ pub(crate) fn handle_mouse_input(
     let delta_zoom = 1.0 - mouse_wheel_input.delta.y * 0.1;
 
     if delta_zoom != 1.0 {
+        // Zoom at the mouse position.
+        if let Some(mouse_pos) = window.cursor_position() {
+            let zoom_changed = orthogonal.scale * (1.0 - delta_zoom);
+            let viewport = camera
+                .logical_viewport_rect()
+                .expect("camera should have a viewport rect");
+            let delta_x = (mouse_pos.x - viewport.center().x) * zoom_changed;
+            let delta_y = -(mouse_pos.y - viewport.center().y) * zoom_changed;
+
+            transform.translation += Vec3::new(delta_x, delta_y, 0.0);
+        }
+
         orthogonal.scale *= delta_zoom;
 
         if orthogonal.scale <= 1.0 / 2.0 && app_state.level < image_details.levels().len() - 1 {

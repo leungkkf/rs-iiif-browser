@@ -158,7 +158,9 @@ pub(crate) fn on_asset_event(
     mut tile_mod_state: ResMut<TileModState>,
 ) {
     for (entity, tile) in tiles.iter() {
-        match asset_server.get_load_state(tile.bevy_image.as_ref().expect("msg")) {
+        match asset_server
+            .get_load_state(tile.bevy_image.as_ref().expect("tile should have an image"))
+        {
             Some(LoadState::NotLoaded) => {}
             Some(LoadState::Loading) => {}
             Some(LoadState::Loaded) => {
