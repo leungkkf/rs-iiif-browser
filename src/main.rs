@@ -1,13 +1,13 @@
 use crate::app_state::AppState;
-use crate::image::{ImageBundle, Size};
 use crate::tile::{TileCache, TileModState};
+use crate::tiled_image::{ImageBundle, Size};
 use bevy::prelude::*;
 
 mod app_state;
-mod image;
 mod keyboard_input;
 mod mouse_input;
 mod tile;
+mod tiled_image;
 
 fn main() {
     App::new()

@@ -1,4 +1,4 @@
-use crate::{AppState, image::Image, tile::TileModState};
+use crate::{AppState, tile::TileModState, tiled_image::TiledImage};
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, window::PrimaryWindow};
 
 #[derive(Component)]
@@ -12,7 +12,7 @@ pub(crate) fn handle_mouse_input(
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window, With<PrimaryWindow>>,
-    image_details: Single<&Image>,
+    image_details: Single<&TiledImage>,
     mut tile_mod_state: ResMut<TileModState>,
 ) {
     let (camera, global_transform, mut transform, mut projection) = camera.into_inner();

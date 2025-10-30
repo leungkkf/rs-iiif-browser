@@ -1,4 +1,4 @@
-use crate::{AppState, image::Image};
+use crate::{AppState, tiled_image::TiledImage};
 use bevy::{asset::LoadState, platform::collections::HashMap, prelude::*};
 
 pub(crate) const TILE_SIZE: f32 = 1024.0;
@@ -44,7 +44,7 @@ impl From<Vec3> for TileIndex {
 }
 
 /// A tile of the imge.
-#[derive(Component)]
+#[derive(Debug, Component)]
 pub(crate) struct Tile {
     pub(crate) index: TileIndex,
     pub(crate) level: usize,
@@ -102,7 +102,7 @@ pub(crate) fn update_tiles(
     asset_server: Res<AssetServer>,
     tiles: Query<(Entity, &Tile, Option<&TileLoading>), With<Tile>>,
     app_state: Single<&mut AppState>,
-    image: Single<&Image>,
+    image: Single<&TiledImage>,
 ) {
     let (camera, global_transform) = camera_query.into_inner();
     let viewport = camera.logical_viewport_rect().unwrap();

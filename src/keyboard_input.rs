@@ -1,10 +1,10 @@
-use crate::{AppState, image::Image};
+use crate::{AppState, tiled_image::TiledImage};
 use bevy::prelude::*;
 
 pub(crate) fn handle_keyboard_input(
     camera: Single<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut app_state: Single<&mut AppState, With<AppState>>,
-    image_details: Single<&Image>,
+    image_details: Single<&TiledImage>,
     kb_input: Res<ButtonInput<KeyCode>>,
 ) {
     let (mut transform, mut projection) = camera.into_inner();
