@@ -1,4 +1,4 @@
-use crate::{AppState, image::Image, tile::Tile};
+use crate::{AppState, image::Image, tile::TileModState};
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, window::PrimaryWindow};
 
 #[derive(Component)]
@@ -11,9 +11,9 @@ pub(crate) fn handle_mouse_input(
     stored_mouse_pos: Query<&MousePosition>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
     mouse: Res<ButtonInput<MouseButton>>,
-    tiles: Query<(Entity, &Tile), With<Tile>>,
     window: Single<&Window, With<PrimaryWindow>>,
     image_details: Single<&Image>,
+    mut tile_mod_state: ResMut<TileModState>,
 ) {
     let (camera, global_transform, mut transform, mut projection) = camera.into_inner();
 
@@ -56,34 +56,25 @@ pub(crate) fn handle_mouse_input(
 
         if mouse.just_released(MouseButton::Left) {
             commands.entity(app_state_entity).remove::<MousePosition>();
+            tile_mod_state.invalidate();
         }
     }
 
-    let delta_zoom = -mouse_wheel_input.delta.y * 0.1;
+    let delta_zoom = 1.0 - mouse_wheel_input.delta.y * 0.1;
 
-    if delta_zoom != 0.0 {
-        orthogonal.scale += delta_zoom;
+    if delta_zoom != 1.0 {
+        orthogonal.scale *= delta_zoom;
 
         if orthogonal.scale <= 1.0 / 2.0 && app_state.level < image_details.levels().len() - 1 {
             app_state.level += 1;
             orthogonal.scale *= 2.0;
             transform.translation *= 2.0;
-
-            for (entity, tile) in tiles.iter() {
-                if tile.level != app_state.level {
-                    commands.entity(entity).despawn();
-                }
-            }
         } else if orthogonal.scale > 2.0 && app_state.level > 0 {
             app_state.level -= 1;
             orthogonal.scale /= 2.0;
             transform.translation /= 2.0;
-
-            for (entity, tile) in tiles.iter() {
-                if tile.level != app_state.level {
-                    commands.entity(entity).despawn();
-                }
-            }
         }
+
+        tile_mod_state.invalidate();
     }
 }

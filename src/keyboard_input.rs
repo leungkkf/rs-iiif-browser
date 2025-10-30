@@ -1,13 +1,11 @@
-use crate::{AppState, image::Image, tile::Tile};
+use crate::{AppState, image::Image};
 use bevy::prelude::*;
 
 pub(crate) fn handle_keyboard_input(
-    mut commands: Commands,
     camera: Single<(&mut Transform, &mut Projection), With<Camera2d>>,
     mut app_state: Single<&mut AppState, With<AppState>>,
     image_details: Single<&Image>,
     kb_input: Res<ButtonInput<KeyCode>>,
-    tiles: Query<(Entity, &Tile), With<Tile>>,
 ) {
     let (mut transform, mut projection) = camera.into_inner();
 
@@ -42,22 +40,10 @@ pub(crate) fn handle_keyboard_input(
             app_state.level += 1;
             orthogonal.scale *= 2.0;
             transform.translation *= 2.0;
-
-            for (entity, tile) in tiles.iter() {
-                if tile.level != app_state.level {
-                    commands.entity(entity).despawn();
-                }
-            }
         } else if orthogonal.scale > 2.0 && app_state.level > 0 {
             app_state.level -= 1;
             orthogonal.scale /= 2.0;
             transform.translation /= 2.0;
-
-            for (entity, tile) in tiles.iter() {
-                if tile.level != app_state.level {
-                    commands.entity(entity).despawn();
-                }
-            }
         }
     }
 }

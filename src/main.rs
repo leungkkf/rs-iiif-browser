@@ -1,5 +1,6 @@
 use crate::app_state::AppState;
 use crate::image::{ImageBundle, Size};
+use crate::tile::{TileCache, TileModState};
 use bevy::prelude::*;
 
 mod app_state;
@@ -10,18 +11,16 @@ mod tile;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins /*.set(ImagePlugin::default_nearest())*/)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (
-                (
-                    keyboard_input::handle_keyboard_input,
-                    mouse_input::handle_mouse_input,
-                ),
-                tile::update_tiles,
-            )
-                .chain(),
+                keyboard_input::handle_keyboard_input,
+                mouse_input::handle_mouse_input,
+                tile::on_asset_event,
+                tile::update_tiles.run_if(resource_changed::<TileModState>),
+            ),
         )
         .run();
 }
@@ -31,10 +30,10 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
     let initial_level = 0;
 
     let levels = vec![
-        Size::new(640, 384),
-        Size::new(1280, 768),
-        Size::new(2560, 1536),
-        Size::new(5120, 3072),
+        Size::new(678, 478),
+        Size::new(1357, 955),
+        Size::new(2713, 1910),
+        Size::new(5426, 3820),
     ];
 
     // Camera
@@ -54,6 +53,11 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
         levels,
     ));
 
+    // Tile cache resource.
+    commands.insert_resource(TileCache::new());
+
     // App state.
     commands.spawn(AppState::new(initial_level));
+
+    commands.insert_resource(TileModState::new());
 }

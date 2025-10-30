@@ -54,9 +54,9 @@ impl Image {
         self.get_image_url(
             image_position.min.x.round() as u32,
             image_position.min.y.round() as u32,
-            image_position.width().round() as u32,
-            image_position.height().round() as u32,
-            pct.round() as u32,
+            (image_position.max.x - image_position.min.x.round()).round() as u32,
+            (image_position.max.y - image_position.min.y.round()).round() as u32,
+            pct,
         )
     }
 
@@ -85,27 +85,25 @@ impl Image {
         let tile_min = self.image_to_tile(level, image_min);
         let tile_max = self.image_to_tile(level, image_max);
 
-        // Tile size in image space.
-        let image_tile_size = self.tile_to_image(level, Vec3::ONE).round();
-
         let mut tiles = Vec::new();
 
         for y in tile_min.y as u32..=tile_max.y as u32 {
             for x in tile_min.x as u32..=tile_max.x as u32 {
                 let tile_index = TileIndex::new(x, y);
+                let next_tile_index = TileIndex::new(x + 1, y + 1);
 
                 let image_top_left = self.tile_to_image(level, tile_index.into());
-                let image_bot_rght =
-                    (image_top_left + image_tile_size - 1.0).min(image_max_size - 1.0);
+                let image_bot_rght = self
+                    .tile_to_image(level, next_tile_index.into())
+                    .min(image_max_size);
 
                 let image_position =
                     Rect::from_corners(image_top_left.truncate(), image_bot_rght.truncate());
 
                 if image_position.width() > 0.5 && image_position.height() > 0.5 {
-                    // Add 1.0 to have no gaps between tiles in world space.
                     let world_position = Rect::from_corners(
                         self.image_to_world(level, image_top_left).truncate(),
-                        self.image_to_world(level, image_bot_rght + 1.0).truncate(),
+                        self.image_to_world(level, image_bot_rght).truncate(),
                     );
 
                     tiles.push(Tile::new(tile_index, level, image_position, world_position));
@@ -157,7 +155,7 @@ impl Image {
     }
 
     /// Get the image URL.
-    fn get_image_url(&self, left: u32, top: u32, width: u32, height: u32, pct: u32) -> String {
+    fn get_image_url(&self, left: u32, top: u32, width: u32, height: u32, pct: f32) -> String {
         let iif_endpoint = &self.iif_endpoint;
         let uuid = &self.uuid;
 
