@@ -12,7 +12,7 @@ pub(crate) fn handle_mouse_input(
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window, With<PrimaryWindow>>,
-    image_details: Single<&TiledImage>,
+    tiled_image: Single<&TiledImage>,
     mut tile_mod_state: ResMut<TileModState>,
 ) {
     let (camera, global_transform, mut transform, mut projection) = camera.into_inner();
@@ -30,7 +30,7 @@ pub(crate) fn handle_mouse_input(
         // then, ask bevy to convert into world coordinates, and truncate to discard Z
         if let Some(world_position) = window
             .cursor_position()
-            .and_then(|cursor| Some(camera.viewport_to_world(global_transform, cursor)))
+            .map(|cursor| camera.viewport_to_world(global_transform, cursor))
             .map(|ray| ray.unwrap().origin.truncate())
         {
             current_mouse_pos = world_position;
@@ -77,15 +77,7 @@ pub(crate) fn handle_mouse_input(
 
         orthogonal.scale *= delta_zoom;
 
-        if orthogonal.scale <= 1.0 / 2.0 && app_state.level < image_details.levels().len() - 1 {
-            app_state.level += 1;
-            orthogonal.scale *= 2.0;
-            transform.translation *= 2.0;
-        } else if orthogonal.scale > 2.0 && app_state.level > 0 {
-            app_state.level -= 1;
-            orthogonal.scale /= 2.0;
-            transform.translation /= 2.0;
-        }
+        app_state.level = tiled_image.get_level_at(orthogonal.scale);
 
         tile_mod_state.invalidate();
     }

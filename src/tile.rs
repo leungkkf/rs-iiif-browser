@@ -28,9 +28,9 @@ impl TileIndex {
     }
 }
 
-impl Into<Vec3> for TileIndex {
-    fn into(self) -> Vec3 {
-        Vec3::new(self.x as f32, self.y as f32, 0.0)
+impl From<TileIndex> for Vec3 {
+    fn from(value: TileIndex) -> Self {
+        Self::new(value.x as f32, value.y as f32, 0.0)
     }
 }
 
@@ -100,9 +100,10 @@ pub(crate) fn update_tiles(
     mut tile_cache: ResMut<TileCache>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     asset_server: Res<AssetServer>,
-    tiles: Query<(Entity, &Tile, Option<&TileLoading>), With<Tile>>,
+    tiles: Query<(Entity, &Tile, &mut MeshMaterial2d<ColorMaterial>), With<Tile>>,
     app_state: Single<&mut AppState>,
     image: Single<&TiledImage>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let (camera, global_transform) = camera_query.into_inner();
     let viewport = camera.logical_viewport_rect().unwrap();
@@ -139,11 +140,28 @@ pub(crate) fn update_tiles(
         }
     }
 
-    for (entity, tile, _) in tiles.iter() {
+    for (entity, tile, material) in tiles.iter() {
+        let color_material = materials
+            .get_mut(material.id())
+            .expect("tile should have a color material");
+
         if tile.level != app_state.level {
-            commands.entity(entity).insert(Visibility::Hidden);
+            color_material.alpha_mode = bevy::sprite_render::AlphaMode2d::Blend;
+            color_material.color = Color::srgba(1.0, 1.0, 1.0, 0.25);
+
+            commands.entity(entity).insert(Transform::from_translation(
+                tile.world_position
+                    .center()
+                    .extend(-100.0 + tile.level as f32),
+            ));
         } else {
-            commands.entity(entity).insert(Visibility::Visible);
+            color_material.alpha_mode = bevy::sprite_render::AlphaMode2d::default();
+            color_material.color = Color::default();
+
+            commands.entity(entity).insert((
+                Visibility::Visible,
+                Transform::from_translation(tile.world_position.center().extend(1.0)),
+            ));
         }
     }
 }

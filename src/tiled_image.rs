@@ -61,8 +61,20 @@ impl TiledImage {
         )
     }
 
-    pub(crate) fn levels(&self) -> &[Size] {
-        &self.levels
+    /// Get the resolution level given the world zoom scale.
+    pub(crate) fn get_level_at(&self, world_zoom_scale: f32) -> usize {
+        let max_level = self.levels.len() - 1;
+        let image_zoom_scale =
+            self.world_to_image(Vec3::splat(world_zoom_scale)) - self.world_to_image(Vec3::ZERO);
+        let image_size = self.get_max_size() / image_zoom_scale;
+
+        for level in 0..=max_level {
+            if image_size.x.abs() as u32 <= self.levels[level].width {
+                return level;
+            }
+        }
+
+        max_level
     }
 
     /// Get the required tile range to display between the world min and max.
@@ -76,10 +88,10 @@ impl TiledImage {
         let image_max_size = self.get_max_size();
 
         let image_p0 = self
-            .world_to_image(level, world_pos_min)
+            .world_to_image(world_pos_min)
             .clamp(Vec3::ZERO, image_max_size - 1.0);
         let image_p1 = self
-            .world_to_image(level, world_pos_max)
+            .world_to_image(world_pos_max)
             .clamp(Vec3::ZERO, image_max_size - 1.0);
 
         // Get them in the correct order.
@@ -107,8 +119,8 @@ impl TiledImage {
 
                 if image_position.width() > 0.5 && image_position.height() > 0.5 {
                     let world_position = Rect::from_corners(
-                        self.image_to_world(level, image_top_left).truncate(),
-                        self.image_to_world(level, image_bot_rght).truncate(),
+                        self.image_to_world(image_top_left).truncate(),
+                        self.image_to_world(image_bot_rght).truncate(),
                     );
 
                     tiles.push(Tile::new(tile_index, level, image_position, world_position));
@@ -120,17 +132,13 @@ impl TiledImage {
     }
 
     /// Convert from world to image space.
-    fn world_to_image(&self, level: usize, p: Vec3) -> Vec3 {
-        let scale = self.world_to_image_scale(level);
-
-        (p * scale).reflect(Vec3::Y)
+    fn world_to_image(&self, p: Vec3) -> Vec3 {
+        p.reflect(Vec3::Y)
     }
 
     /// Convert from image to world space.
-    fn image_to_world(&self, level: usize, p: Vec3) -> Vec3 {
-        let scale = self.world_to_image_scale(level);
-
-        (p / scale).reflect(Vec3::Y)
+    fn image_to_world(&self, p: Vec3) -> Vec3 {
+        p.reflect(Vec3::Y)
     }
 
     /// Convert from image to tile space.
@@ -234,17 +242,12 @@ mod tests {
     }
 
     #[test]
-    fn test_levels() {
+    fn test_get_level_at() {
         let image = setup();
 
-        assert_eq!(
-            image.levels(),
-            vec![
-                Size::new(678, 478),
-                Size::new(1357, 955),
-                Size::new(2713, 1910),
-            ]
-        );
+        assert_eq!(image.get_level_at(1.0), 2);
+        assert_eq!(image.get_level_at(2.0), 1);
+        assert_eq!(image.get_level_at(4.0), 0);
     }
 
     #[test]
@@ -252,18 +255,7 @@ mod tests {
         let image = setup();
         let p = Vec3::new(1.0, 2.0, 0.0);
 
-        assert_eq!(
-            image.world_to_image(0, p),
-            p.reflect(Vec3::Y) * 2713.0 / 678.0
-        );
-        assert_eq!(
-            image.world_to_image(1, p),
-            p.reflect(Vec3::Y) * 2713.0 / 1357.0
-        );
-        assert_eq!(
-            image.world_to_image(2, p),
-            p.reflect(Vec3::Y) * 2713.0 / 2713.0
-        );
+        assert_eq!(image.world_to_image(p), p.reflect(Vec3::Y));
     }
 
     #[test]
@@ -271,18 +263,7 @@ mod tests {
         let image = setup();
         let p = Vec3::new(1.0, 2.0, 0.0);
 
-        assert_eq!(
-            image.image_to_world(0, p),
-            p.reflect(Vec3::Y) / (2713.0 / 678.0)
-        );
-        assert_eq!(
-            image.image_to_world(1, p),
-            p.reflect(Vec3::Y) / (2713.0 / 1357.0)
-        );
-        assert_eq!(
-            image.image_to_world(2, p),
-            p.reflect(Vec3::Y) / (2713.0 / 2713.0)
-        );
+        assert_eq!(image.image_to_world(p), p.reflect(Vec3::Y));
     }
 
     #[test]
@@ -315,8 +296,8 @@ mod tests {
     #[test]
     fn test_get_required_tiles() {
         let image = setup();
-        let world_pos_min = Vec3::new(-2000.0, -2000.0, 0.0);
-        let world_pos_max = Vec3::new(2000.0, 2000.0, 0.0);
+        let world_pos_min = Vec3::new(-8000.0, -8000.0, 0.0);
+        let world_pos_max = Vec3::new(8000.0, 8000.0, 0.0);
 
         let tiles = image.get_required_tiles(0, world_pos_min, world_pos_max);
 
@@ -329,12 +310,11 @@ mod tests {
         );
         assert_eq!(
             tiles[0].world_position,
-            Rect::from_corners(
-                Vec2::new(0.0, 0.0),
-                Vec2::new(2713.0, -1910.0) * 678.0 / 2713.0
-            )
+            Rect::from_corners(Vec2::new(0.0, 0.0), Vec2::new(2713.0, -1910.0))
         );
 
+        let world_pos_min = Vec3::new(-4000.0, -4000.0, 0.0);
+        let world_pos_max = Vec3::new(4000.0, 4000.0, 0.0);
         let tiles = image.get_required_tiles(1, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 2);
@@ -356,28 +336,23 @@ mod tests {
                 Vec2::new(2713.0, 1910.0)
             )
         );
-        let expected = Rect::from_corners(
-            Vec2::new(0.0, 0.0),
-            Vec2::new(TILE_SIZE * 2713.0 / 1357.0, -1910.0) * 1357.0 / 2713.0,
+        assert_eq!(
+            tiles[0].world_position,
+            Rect::from_corners(
+                Vec2::new(0.0, 0.0),
+                Vec2::new(TILE_SIZE * 2713.0 / 1357.0, -1910.0)
+            )
         );
-        let calculated = tiles[0].world_position;
-
-        let diff = expected.center() - calculated.center();
-        assert!(diff.x.abs() < 0.001 && diff.y.abs() < 0.001);
-        let diff = expected.half_size() - calculated.half_size();
-        assert!(diff.x.abs() < 0.001 && diff.y.abs() < 0.001);
-
-        let expected = Rect::from_corners(
-            Vec2::new(TILE_SIZE * 2713.0 / 1357.0, 0.0) * 1357.0 / 2713.0,
-            Vec2::new(2713.0, -1910.0) * 1357.0 / 2713.0,
+        assert_eq!(
+            tiles[1].world_position,
+            Rect::from_corners(
+                Vec2::new(TILE_SIZE * 2713.0 / 1357.0, 0.0),
+                Vec2::new(2713.0, -1910.0)
+            )
         );
-        let calculated = tiles[1].world_position;
 
-        let diff = expected.center() - calculated.center();
-        assert!(diff.x.abs() < 0.001 && diff.y.abs() < 0.001);
-        let diff = expected.half_size() - calculated.half_size();
-        assert!(diff.x.abs() < 0.001 && diff.y.abs() < 0.001);
-
+        let world_pos_min = Vec3::new(-2000.0, -2000.0, 0.0);
+        let world_pos_max = Vec3::new(2000.0, 2000.0, 0.0);
         let tiles = image.get_required_tiles(2, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 4);
