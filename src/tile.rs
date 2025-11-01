@@ -16,21 +16,22 @@ impl TileModState {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) struct TileIndex {
     pub(crate) x: u32,
     pub(crate) y: u32,
+    pub(crate) z: u32,
 }
 
 impl TileIndex {
-    pub(crate) fn new(x: u32, y: u32) -> Self {
-        Self { x, y }
+    pub(crate) fn new(x: u32, y: u32, z: u32) -> Self {
+        Self { x, y, z }
     }
 }
 
 impl From<TileIndex> for Vec3 {
     fn from(value: TileIndex) -> Self {
-        Self::new(value.x as f32, value.y as f32, 0.0)
+        Self::new(value.x as f32, value.y as f32, value.z as f32)
     }
 }
 
@@ -39,6 +40,7 @@ impl From<Vec3> for TileIndex {
         Self {
             x: value.x as u32,
             y: value.y as u32,
+            z: value.z as u32,
         }
     }
 }
@@ -47,30 +49,19 @@ impl From<Vec3> for TileIndex {
 #[derive(Debug, Component)]
 pub(crate) struct Tile {
     pub(crate) index: TileIndex,
-    pub(crate) level: usize,
     pub(crate) image_position: Rect,
     pub(crate) world_position: Rect,
     bevy_image: Option<Handle<bevy::image::Image>>,
 }
 
 impl Tile {
-    pub(crate) fn new(
-        index: TileIndex,
-        level: usize,
-        image_position: Rect,
-        world_position: Rect,
-    ) -> Self {
+    pub(crate) fn new(index: TileIndex, image_position: Rect, world_position: Rect) -> Self {
         Self {
             index,
-            level,
             image_position,
             world_position,
             bevy_image: None,
         }
-    }
-
-    fn key(&self) -> String {
-        format!("{}-{}-{}", self.index.x, self.index.y, self.level)
     }
 }
 
@@ -84,7 +75,7 @@ pub(crate) struct TileCacheItem {
 
 #[derive(Resource)]
 pub(crate) struct TileCache {
-    cache: HashMap<String, TileCacheItem>,
+    cache: HashMap<TileIndex, TileCacheItem>,
 }
 
 impl TileCache {
@@ -119,19 +110,19 @@ pub(crate) fn update_tiles(
         image.get_required_tiles(app_state.level, world_pos_min.origin, world_pos_max.origin);
 
     for mut tile in required_tiles {
-        let tile_key = tile.key();
-        let entry = tile_cache.cache.get(&tile_key);
+        let entry = tile_cache.cache.get(&tile.index);
 
         if entry.is_none() {
             let url = image.get_image_tile_at(app_state.level, tile.image_position);
-
             let handle = asset_server.load(url);
+            let tile_index = tile.index;
+
             tile.bevy_image = Some(handle.clone());
 
             let id = commands.spawn((tile, TileLoading)).id();
 
             tile_cache.cache.insert(
-                tile_key,
+                tile_index,
                 TileCacheItem {
                     entity: id,
                     bevy_image: Some(handle),
@@ -145,14 +136,14 @@ pub(crate) fn update_tiles(
             .get_mut(material.id())
             .expect("tile should have a color material");
 
-        if tile.level != app_state.level {
+        if tile.index.z != app_state.level as u32 {
             color_material.alpha_mode = bevy::sprite_render::AlphaMode2d::Blend;
             color_material.color = Color::srgba(1.0, 1.0, 1.0, 0.25);
 
             commands.entity(entity).insert(Transform::from_translation(
                 tile.world_position
                     .center()
-                    .extend(-100.0 + tile.level as f32),
+                    .extend(-100.0 + tile.index.z as f32),
             ));
         } else {
             color_material.alpha_mode = bevy::sprite_render::AlphaMode2d::default();
@@ -160,7 +151,7 @@ pub(crate) fn update_tiles(
 
             commands.entity(entity).insert((
                 Visibility::Visible,
-                Transform::from_translation(tile.world_position.center().extend(1.0)),
+                Transform::from_translation(tile.world_position.center().extend(0.0)),
             ));
         }
     }
@@ -200,7 +191,7 @@ pub(crate) fn on_asset_event(
             Some(LoadState::Failed(_)) => {
                 warn!("failed to load tile at {:?}. retry...", tile.index);
                 commands.entity(entity).despawn();
-                tile_cache.cache.remove(&tile.key());
+                tile_cache.cache.remove(&tile.index);
             }
             None => {}
         }

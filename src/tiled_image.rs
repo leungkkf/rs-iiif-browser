@@ -106,8 +106,8 @@ impl TiledImage {
 
         for y in tile_min.y as u32..=tile_max.y as u32 {
             for x in tile_min.x as u32..=tile_max.x as u32 {
-                let tile_index = TileIndex::new(x, y);
-                let next_tile_index = TileIndex::new(x + 1, y + 1);
+                let tile_index = TileIndex::new(x, y, level as u32);
+                let next_tile_index = TileIndex::new(x + 1, y + 1, level as u32);
 
                 let image_top_left = self.tile_to_image(level, tile_index.into());
                 let image_bot_rght = self
@@ -123,7 +123,7 @@ impl TiledImage {
                         self.image_to_world(image_bot_rght).truncate(),
                     );
 
-                    tiles.push(Tile::new(tile_index, level, image_position, world_position));
+                    tiles.push(Tile::new(tile_index, image_position, world_position));
                 }
             }
         }
@@ -302,8 +302,7 @@ mod tests {
         let tiles = image.get_required_tiles(0, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 1);
-        assert_eq!(tiles[0].index, TileIndex::new(0, 0));
-        assert_eq!(tiles[0].level, 0);
+        assert_eq!(tiles[0].index, TileIndex::new(0, 0, 0));
         assert_eq!(
             tiles[0].image_position,
             Rect::from_corners(Vec2::new(0.0, 0.0), Vec2::new(2713.0, 1910.0))
@@ -318,10 +317,8 @@ mod tests {
         let tiles = image.get_required_tiles(1, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 2);
-        assert_eq!(tiles[0].index, TileIndex::new(0, 0));
-        assert_eq!(tiles[1].index, TileIndex::new(1, 0));
-        assert_eq!(tiles[0].level, 1);
-        assert_eq!(tiles[1].level, 1);
+        assert_eq!(tiles[0].index, TileIndex::new(0, 0, 1));
+        assert_eq!(tiles[1].index, TileIndex::new(1, 0, 1));
         assert_eq!(
             tiles[0].image_position,
             Rect::from_corners(
@@ -356,14 +353,10 @@ mod tests {
         let tiles = image.get_required_tiles(2, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 4);
-        assert_eq!(tiles[0].level, 2);
-        assert_eq!(tiles[1].level, 2);
-        assert_eq!(tiles[2].level, 2);
-        assert_eq!(tiles[3].level, 2);
-        assert_eq!(tiles[0].index, TileIndex::new(0, 0));
-        assert_eq!(tiles[1].index, TileIndex::new(1, 0));
-        assert_eq!(tiles[2].index, TileIndex::new(0, 1));
-        assert_eq!(tiles[3].index, TileIndex::new(1, 1));
+        assert_eq!(tiles[0].index, TileIndex::new(0, 0, 2));
+        assert_eq!(tiles[1].index, TileIndex::new(1, 0, 2));
+        assert_eq!(tiles[2].index, TileIndex::new(0, 1, 2));
+        assert_eq!(tiles[3].index, TileIndex::new(1, 1, 2));
 
         assert_eq!(
             tiles[0].image_position,
