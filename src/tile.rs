@@ -41,6 +41,10 @@ impl TileIndex {
     pub(crate) fn new(x: u32, y: u32, z: u32) -> Self {
         Self { x, y, z }
     }
+
+    pub(crate) fn level(&self) -> usize {
+        self.z as usize
+    }
 }
 
 impl From<TileIndex> for Vec3 {
@@ -163,7 +167,7 @@ pub(crate) fn update_tiles(
             .get_mut(material.id())
             .expect("tile should have a color material");
 
-        if tile.index.z != app_state.level as u32 {
+        if tile.index.level() != app_state.level {
             color_material.alpha_mode = bevy::sprite_render::AlphaMode2d::Blend;
             color_material.color = Color::srgba(1.0, 1.0, 1.0, 0.25);
 
@@ -238,6 +242,7 @@ pub(crate) fn prune_tiles(
     tiles: Query<&Tile>,
     app_settings: Res<AppSettings>,
     image: Single<&TiledImage>,
+    app_state: Single<&mut AppState>,
 ) {
     info!("Prune tiles");
     let num_cache_items = tile_cache.cache.len();
@@ -248,18 +253,21 @@ pub(crate) fn prune_tiles(
 
     let num_items_to_remove = num_cache_items - app_settings.max_cache_items;
     let (camera, global_transform) = camera_query.into_inner();
-    let num_levels = image.get_num_levels();
-    let all_required_tiles: Vec<_> = (0..num_levels)
+    // Only keep the tiles in view for this level and the lower-res levels.
+    let all_required_tiles: Vec<_> = (0..=app_state.level)
         .map(|level| get_required_tiles(camera, global_transform, level, *image))
         .collect();
     let mut out_of_view_tiles = Vec::new();
 
     for tile in tiles {
-        let (_, tile_range_x, tile_range_y) = &all_required_tiles[tile.index.z as usize];
+        // Out of view if the tile has a higher res or outside the range.
+        let is_out_of_view = all_required_tiles.get(tile.index.level()).is_none_or(
+            |(_, tile_range_x, tile_range_y)| {
+                !tile_range_x.contains(&tile.index.x) || !tile_range_y.contains(&tile.index.y)
+            },
+        );
 
-        if (!tile_range_x.contains(&tile.index.x) || !tile_range_y.contains(&tile.index.y))
-            && let Some(tile_in_cache) = tile_cache.cache.get(&tile.index)
-        {
+        if is_out_of_view && let Some(tile_in_cache) = tile_cache.cache.get(&tile.index) {
             out_of_view_tiles.push((tile.index, tile_in_cache.clone()));
         }
     }

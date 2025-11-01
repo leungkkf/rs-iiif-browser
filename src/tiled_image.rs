@@ -63,9 +63,9 @@ impl TiledImage {
     }
 
     /// Get number of resolution levels.
-    pub(crate) fn get_num_levels(&self) -> usize {
-        self.levels.len()
-    }
+    // pub(crate) fn get_num_levels(&self) -> usize {
+    //     self.levels.len()
+    // }
 
     /// Get the resolution level given the world zoom scale.
     pub(crate) fn get_level_at(&self, world_zoom_scale: f32) -> usize {
@@ -415,10 +415,10 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_get_num_levels() {
-        let image = setup();
+    // #[test]
+    // fn test_get_num_levels() {
+    //     let image = setup();
 
-        assert_eq!(image.get_num_levels(), 3);
-    }
+    //     assert_eq!(image.get_num_levels(), 3);
+    // }
 }
