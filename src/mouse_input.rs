@@ -18,36 +18,27 @@ pub(crate) fn handle_mouse_input(
         return;
     };
 
-    let mut current_mouse_pos = Vec2::ZERO;
-    let is_pressed = mouse.pressed(MouseButton::Left);
-
-    if is_pressed {
+    if mouse.pressed(MouseButton::Left) {
         // check if the cursor is inside the window and get its position
         // then, ask bevy to convert into world coordinates, and truncate to discard Z
-        if let Some(world_position) = window
+        if let Some(current_mouse_pos) = window
             .cursor_position()
             .map(|cursor| camera.viewport_to_world(global_transform, cursor))
             .map(|ray| ray.unwrap().origin.truncate())
         {
-            current_mouse_pos = world_position;
+            if mouse.just_pressed(MouseButton::Left) {
+                *stored_mouse_pos = Some(current_mouse_pos);
+            } else if let Some(mouse_pos) = *stored_mouse_pos {
+                transform.translation += Vec3::new(
+                    mouse_pos.x - current_mouse_pos.x,
+                    mouse_pos.y - current_mouse_pos.y,
+                    0.0,
+                );
+            }
         }
-    }
-
-    if let Some(mouse_pos) = *stored_mouse_pos {
-        if is_pressed {
-            transform.translation += Vec3::new(
-                mouse_pos.x - current_mouse_pos.x,
-                mouse_pos.y - current_mouse_pos.y,
-                0.0,
-            );
-        }
-
-        if mouse.just_released(MouseButton::Left) {
-            *stored_mouse_pos = None;
-            tile_mod_state.invalidate();
-        }
-    } else if mouse.just_pressed(MouseButton::Left) {
-        *stored_mouse_pos = Some(current_mouse_pos);
+    } else if mouse.just_released(MouseButton::Left) {
+        *stored_mouse_pos = None;
+        tile_mod_state.invalidate();
     }
 
     let delta_zoom = 1.0 - mouse_wheel_input.delta.y * 0.1;
