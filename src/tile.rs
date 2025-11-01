@@ -1,5 +1,6 @@
-use crate::{AppState, tiled_image::TiledImage};
-use bevy::{asset::LoadState, platform::collections::HashMap, prelude::*};
+use crate::{AppState, app_settings::AppSettings, tiled_image::TiledImage};
+use bevy::{asset::LoadState, prelude::*};
+use std::{collections::HashMap, ops::RangeInclusive};
 
 pub(crate) const TILE_SIZE: f32 = 1024.0;
 
@@ -7,6 +8,19 @@ pub(crate) const TILE_SIZE: f32 = 1024.0;
 pub(crate) struct TileModState(u32);
 
 impl TileModState {
+    pub(crate) fn new() -> Self {
+        Self(0)
+    }
+
+    pub(crate) fn invalidate(&mut self) {
+        self.0 = self.0.wrapping_add(1);
+    }
+}
+
+#[derive(Resource)]
+pub(crate) struct TilePruneState(u32);
+
+impl TilePruneState {
     pub(crate) fn new() -> Self {
         Self(0)
     }
@@ -68,9 +82,10 @@ impl Tile {
 #[derive(Component)]
 pub(crate) struct TileLoading;
 
-pub(crate) struct TileCacheItem {
+#[derive(Debug, Clone)]
+struct TileCacheItem {
     entity: Entity,
-    bevy_image: Option<Handle<bevy::image::Image>>,
+    last_visible_secs: f64,
 }
 
 #[derive(Resource)]
@@ -86,17 +101,12 @@ impl TileCache {
     }
 }
 
-pub(crate) fn update_tiles(
-    mut commands: Commands,
-    mut tile_cache: ResMut<TileCache>,
-    camera_query: Single<(&Camera, &GlobalTransform)>,
-    asset_server: Res<AssetServer>,
-    tiles: Query<(Entity, &Tile, &mut MeshMaterial2d<ColorMaterial>), With<Tile>>,
-    app_state: Single<&mut AppState>,
-    image: Single<&TiledImage>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let (camera, global_transform) = camera_query.into_inner();
+fn get_required_tiles(
+    camera: &Camera,
+    global_transform: &GlobalTransform,
+    level: usize,
+    image: &TiledImage,
+) -> (Vec<Tile>, RangeInclusive<u32>, RangeInclusive<u32>) {
     let viewport = camera.logical_viewport_rect().unwrap();
 
     let world_pos_min = camera
@@ -106,8 +116,25 @@ pub(crate) fn update_tiles(
         .viewport_to_world(global_transform, viewport.max)
         .unwrap();
 
-    let required_tiles =
-        image.get_required_tiles(app_state.level, world_pos_min.origin, world_pos_max.origin);
+    image.get_required_tiles(level, world_pos_min.origin, world_pos_max.origin)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn update_tiles(
+    mut commands: Commands,
+    mut tile_cache: ResMut<TileCache>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    asset_server: Res<AssetServer>,
+    tiles: Query<(Entity, &Tile, &mut MeshMaterial2d<ColorMaterial>), With<Tile>>,
+    app_state: Single<&mut AppState>,
+    image: Single<&TiledImage>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    time: Res<Time>,
+    mut tile_prune_state: ResMut<TilePruneState>,
+) {
+    let (camera, global_transform) = camera_query.into_inner();
+    let (required_tiles, _, _) =
+        get_required_tiles(camera, global_transform, app_state.level, *image);
 
     for mut tile in required_tiles {
         let entry = tile_cache.cache.get(&tile.index);
@@ -125,7 +152,7 @@ pub(crate) fn update_tiles(
                 tile_index,
                 TileCacheItem {
                     entity: id,
-                    bevy_image: Some(handle),
+                    last_visible_secs: 0.0,
                 },
             );
         }
@@ -145,9 +172,15 @@ pub(crate) fn update_tiles(
                     .center()
                     .extend(-100.0 + tile.index.z as f32),
             ));
+
+            tile_prune_state.invalidate();
         } else {
             color_material.alpha_mode = bevy::sprite_render::AlphaMode2d::default();
             color_material.color = Color::default();
+            tile_cache
+                .cache
+                .entry(tile.index)
+                .and_modify(|t| t.last_visible_secs = time.elapsed_secs_f64());
 
             commands.entity(entity).insert((
                 Visibility::Visible,
@@ -195,5 +228,54 @@ pub(crate) fn on_asset_event(
             }
             None => {}
         }
+    }
+}
+
+pub(crate) fn prune_tiles(
+    mut commands: Commands,
+    mut tile_cache: ResMut<TileCache>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    tiles: Query<&Tile>,
+    app_settings: Res<AppSettings>,
+    image: Single<&TiledImage>,
+) {
+    info!("Prune tiles");
+    let num_cache_items = tile_cache.cache.len();
+
+    if num_cache_items <= app_settings.max_cache_items {
+        return;
+    }
+
+    let num_items_to_remove = num_cache_items - app_settings.max_cache_items;
+    let (camera, global_transform) = camera_query.into_inner();
+    let num_levels = image.get_num_levels();
+    let all_required_tiles: Vec<_> = (0..num_levels)
+        .map(|level| get_required_tiles(camera, global_transform, level, *image))
+        .collect();
+    let mut out_of_view_tiles = Vec::new();
+
+    for tile in tiles {
+        let (_, tile_range_x, tile_range_y) = &all_required_tiles[tile.index.z as usize];
+
+        if (!tile_range_x.contains(&tile.index.x) || !tile_range_y.contains(&tile.index.y))
+            && let Some(tile_in_cache) = tile_cache.cache.get(&tile.index)
+        {
+            out_of_view_tiles.push((tile.index, tile_in_cache.clone()));
+        }
+    }
+
+    out_of_view_tiles.sort_by(|(_, a), (_, b)| {
+        if a.last_visible_secs < b.last_visible_secs {
+            std::cmp::Ordering::Less
+        } else if a.last_visible_secs > b.last_visible_secs {
+            std::cmp::Ordering::Greater
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    });
+
+    for (tile_index, cache_item) in out_of_view_tiles.iter().take(num_items_to_remove) {
+        tile_cache.cache.remove(tile_index);
+        commands.entity(cache_item.entity).despawn();
     }
 }

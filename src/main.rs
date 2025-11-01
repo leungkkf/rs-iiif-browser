@@ -1,8 +1,10 @@
+use crate::app_settings::AppSettings;
 use crate::app_state::AppState;
-use crate::tile::{TileCache, TileModState};
+use crate::tile::{TileCache, TileModState, TilePruneState};
 use crate::tiled_image::{ImageBundle, Size};
 use bevy::prelude::*;
 
+mod app_settings;
 mod app_state;
 mod keyboard_input;
 mod mouse_input;
@@ -24,6 +26,10 @@ fn main() {
                 (tile::update_tiles.run_if(resource_changed::<TileModState>)),
             )
                 .chain(),),
+        )
+        .add_systems(
+            Last,
+            tile::prune_tiles.run_if(resource_changed::<TilePruneState>),
         )
         .run();
 }
@@ -68,5 +74,12 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
     // App state.
     commands.spawn(AppState::new(initial_level));
 
+    // Tile mod state.
     commands.insert_resource(TileModState::new());
+
+    // App settings.
+    commands.insert_resource(AppSettings::new(8));
+
+    // Tile mod state.
+    commands.insert_resource(TilePruneState::new());
 }

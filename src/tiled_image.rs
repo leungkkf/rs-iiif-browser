@@ -1,5 +1,6 @@
 use crate::tile::{TILE_SIZE, Tile, TileIndex};
 use bevy::prelude::*;
+use std::ops::RangeInclusive;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Size {
@@ -61,6 +62,11 @@ impl TiledImage {
         )
     }
 
+    /// Get number of resolution levels.
+    pub(crate) fn get_num_levels(&self) -> usize {
+        self.levels.len()
+    }
+
     /// Get the resolution level given the world zoom scale.
     pub(crate) fn get_level_at(&self, world_zoom_scale: f32) -> usize {
         let max_level = self.levels.len() - 1;
@@ -83,7 +89,7 @@ impl TiledImage {
         level: usize,
         world_pos_min: Vec3,
         world_pos_max: Vec3,
-    ) -> Vec<Tile> {
+    ) -> (Vec<Tile>, RangeInclusive<u32>, RangeInclusive<u32>) {
         // Convert from the world space to the image space, and clamp using the max image size.
         let image_max_size = self.get_max_size();
 
@@ -103,6 +109,10 @@ impl TiledImage {
         let tile_max = self.image_to_tile(level, image_max);
 
         let mut tiles = Vec::new();
+        let mut tile_min_x = 0;
+        let mut tile_min_y = 0;
+        let mut tile_max_x = 0;
+        let mut tile_max_y = 0;
 
         for y in tile_min.y as u32..=tile_max.y as u32 {
             for x in tile_min.x as u32..=tile_max.x as u32 {
@@ -123,12 +133,16 @@ impl TiledImage {
                         self.image_to_world(image_bot_rght).truncate(),
                     );
 
+                    tile_min_x = tile_min_x.min(x);
+                    tile_max_x = tile_max_x.max(x);
+                    tile_min_y = tile_min_y.min(x);
+                    tile_max_y = tile_max_y.max(x);
                     tiles.push(Tile::new(tile_index, image_position, world_position));
                 }
             }
         }
 
-        tiles
+        (tiles, tile_min_x..=tile_max_x, tile_min_y..=tile_max_y)
     }
 
     /// Convert from world to image space.
@@ -299,7 +313,8 @@ mod tests {
         let world_pos_min = Vec3::new(-8000.0, -8000.0, 0.0);
         let world_pos_max = Vec3::new(8000.0, 8000.0, 0.0);
 
-        let tiles = image.get_required_tiles(0, world_pos_min, world_pos_max);
+        let (tiles, tile_range_x, tile_range_y) =
+            image.get_required_tiles(0, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 1);
         assert_eq!(tiles[0].index, TileIndex::new(0, 0, 0));
@@ -311,14 +326,19 @@ mod tests {
             tiles[0].world_position,
             Rect::from_corners(Vec2::new(0.0, 0.0), Vec2::new(2713.0, -1910.0))
         );
+        assert_eq!(tile_range_x, 0..=0);
+        assert_eq!(tile_range_y, 0..=0);
 
         let world_pos_min = Vec3::new(-4000.0, -4000.0, 0.0);
         let world_pos_max = Vec3::new(4000.0, 4000.0, 0.0);
-        let tiles = image.get_required_tiles(1, world_pos_min, world_pos_max);
+        let (tiles, tile_range_x, tile_range_y) =
+            image.get_required_tiles(1, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 2);
         assert_eq!(tiles[0].index, TileIndex::new(0, 0, 1));
         assert_eq!(tiles[1].index, TileIndex::new(1, 0, 1));
+        assert_eq!(tile_range_x, 0..=1);
+        assert_eq!(tile_range_y, 0..=1);
         assert_eq!(
             tiles[0].image_position,
             Rect::from_corners(
@@ -350,13 +370,16 @@ mod tests {
 
         let world_pos_min = Vec3::new(-2000.0, -2000.0, 0.0);
         let world_pos_max = Vec3::new(2000.0, 2000.0, 0.0);
-        let tiles = image.get_required_tiles(2, world_pos_min, world_pos_max);
+        let (tiles, tile_range_x, tile_range_y) =
+            image.get_required_tiles(2, world_pos_min, world_pos_max);
 
         assert_eq!(tiles.len(), 4);
         assert_eq!(tiles[0].index, TileIndex::new(0, 0, 2));
         assert_eq!(tiles[1].index, TileIndex::new(1, 0, 2));
         assert_eq!(tiles[2].index, TileIndex::new(0, 1, 2));
         assert_eq!(tiles[3].index, TileIndex::new(1, 1, 2));
+        assert_eq!(tile_range_x, 0..=1);
+        assert_eq!(tile_range_y, 0..=1);
 
         assert_eq!(
             tiles[0].image_position,
@@ -390,5 +413,12 @@ mod tests {
             tiles[3].world_position,
             Rect::from_corners(Vec2::new(1024.0, -1024.0), Vec2::new(2048.0, -1910.0))
         );
+    }
+
+    #[test]
+    fn test_get_num_levels() {
+        let image = setup();
+
+        assert_eq!(image.get_num_levels(), 3);
     }
 }
