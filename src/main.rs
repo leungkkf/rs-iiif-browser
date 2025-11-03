@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 mod app_settings;
 mod app_state;
+mod camera_ext;
 mod keyboard_input;
 mod mouse_input;
 mod tile;
@@ -31,6 +32,7 @@ fn main() {
             Last,
             tile::prune_tiles.run_if(resource_changed::<TilePruneState>),
         )
+        .add_systems(PostUpdate, camera_ext::handle_tranlation_bounding)
         .run();
 }
 

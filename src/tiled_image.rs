@@ -49,7 +49,7 @@ impl TiledImage {
     }
 
     /// Get URL for the image tile at the position.
-    pub(crate) fn get_image_tile_at(&self, level: usize, image_position: Rect) -> String {
+    pub(crate) fn get_image_tile_url_at(&self, level: usize, image_position: Rect) -> String {
         let image_max_size = self.get_max_size();
         let pct = 100.0 * self.levels[level].width as f32 / image_max_size.x;
 
@@ -62,7 +62,15 @@ impl TiledImage {
         )
     }
 
-    /// Get number of resolution levels.
+    /// Get the image max size in world space.
+    pub(crate) fn get_world_max_size_rect(&self) -> Rect {
+        Rect::from_corners(
+            self.image_to_world(Vec3::ZERO).truncate(),
+            self.image_to_world(self.get_max_size()).truncate(),
+        )
+    }
+
+    // /// Get number of resolution levels.
     // pub(crate) fn get_num_levels(&self) -> usize {
     //     self.levels.len()
     // }
@@ -285,21 +293,21 @@ mod tests {
         let image = setup();
 
         assert_eq!(
-            image.get_image_tile_at(
+            image.get_image_tile_url_at(
                 0,
                 Rect::from_corners(Vec2::new(10.3, 20.5), Vec2::new(200.5, 300.1))
             ),
             "https://iif_end_point/uuid/10,21,191,279/pct:24.990786/0/default.png"
         );
         assert_eq!(
-            image.get_image_tile_at(
+            image.get_image_tile_url_at(
                 1,
                 Rect::from_corners(Vec2::new(10.3, 20.5), Vec2::new(200.5, 300.1))
             ),
             "https://iif_end_point/uuid/10,21,191,279/pct:50.01843/0/default.png"
         );
         assert_eq!(
-            image.get_image_tile_at(
+            image.get_image_tile_url_at(
                 2,
                 Rect::from_corners(Vec2::new(10.3, 20.5), Vec2::new(200.5, 300.1))
             ),
@@ -421,4 +429,14 @@ mod tests {
 
     //     assert_eq!(image.get_num_levels(), 3);
     // }
+
+    #[test]
+    fn test_get_world_max_size_rect() {
+        let image = setup();
+
+        assert_eq!(
+            image.get_world_max_size_rect(),
+            Rect::from_corners(Vec2::new(0.0, 0.0), Vec2::new(2713.0, -1910.0))
+        );
+    }
 }

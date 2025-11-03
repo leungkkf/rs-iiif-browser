@@ -1,4 +1,4 @@
-use crate::{AppState, app_settings::AppSettings, tiled_image::TiledImage};
+use crate::{AppState, app_settings::AppSettings, camera_ext, tiled_image::TiledImage};
 use bevy::{asset::LoadState, prelude::*};
 use std::{collections::HashMap, ops::RangeInclusive};
 
@@ -110,17 +110,11 @@ fn get_required_tiles(
     global_transform: &GlobalTransform,
     level: usize,
     image: &TiledImage,
-) -> (Vec<Tile>, RangeInclusive<u32>, RangeInclusive<u32>) {
-    let viewport = camera.logical_viewport_rect().unwrap();
+) -> Option<(Vec<Tile>, RangeInclusive<u32>, RangeInclusive<u32>)> {
+    let (world_pos_min, world_pos_max) =
+        camera_ext::get_world_viewport_rect(camera, global_transform)?;
 
-    let world_pos_min = camera
-        .viewport_to_world(global_transform, viewport.min)
-        .unwrap();
-    let world_pos_max = camera
-        .viewport_to_world(global_transform, viewport.max)
-        .unwrap();
-
-    image.get_required_tiles(level, world_pos_min.origin, world_pos_max.origin)
+    Some(image.get_required_tiles(level, world_pos_min, world_pos_max))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -137,14 +131,18 @@ pub(crate) fn update_tiles(
     mut tile_prune_state: ResMut<TilePruneState>,
 ) {
     let (camera, global_transform) = camera_query.into_inner();
-    let (required_tiles, _, _) =
-        get_required_tiles(camera, global_transform, app_state.level, *image);
+
+    let Some((required_tiles, _, _)) =
+        get_required_tiles(camera, global_transform, app_state.level, *image)
+    else {
+        return;
+    };
 
     for mut tile in required_tiles {
         let entry = tile_cache.cache.get(&tile.index);
 
         if entry.is_none() {
-            let url = image.get_image_tile_at(app_state.level, tile.image_position);
+            let url = image.get_image_tile_url_at(app_state.level, tile.image_position);
             let handle = asset_server.load(url);
             let tile_index = tile.index;
 
@@ -244,7 +242,6 @@ pub(crate) fn prune_tiles(
     image: Single<&TiledImage>,
     app_state: Single<&mut AppState>,
 ) {
-    info!("Prune tiles");
     let num_cache_items = tile_cache.cache.len();
 
     if num_cache_items <= app_settings.max_cache_items {
@@ -261,11 +258,17 @@ pub(crate) fn prune_tiles(
 
     for tile in tiles {
         // Out of view if the tile has a higher res or outside the range.
-        let is_out_of_view = all_required_tiles.get(tile.index.level()).is_none_or(
-            |(_, tile_range_x, tile_range_y)| {
-                !tile_range_x.contains(&tile.index.x) || !tile_range_y.contains(&tile.index.y)
-            },
-        );
+        let is_out_of_view =
+            all_required_tiles
+                .get(tile.index.level())
+                .is_none_or(|required_tiles| {
+                    required_tiles
+                        .as_ref()
+                        .is_some_and(|(_, tile_range_x, tile_range_y)| {
+                            !tile_range_x.contains(&tile.index.x)
+                                || !tile_range_y.contains(&tile.index.y)
+                        })
+                });
 
         if is_out_of_view && let Some(tile_in_cache) = tile_cache.cache.get(&tile.index) {
             out_of_view_tiles.push((tile.index, tile_in_cache.clone()));
