@@ -14,19 +14,6 @@ impl Size {
     }
 }
 
-#[derive(Bundle)]
-pub(crate) struct ImageBundle {
-    image: TiledImage,
-}
-
-impl ImageBundle {
-    pub(crate) fn build(url: String, uuid: String, levels: Vec<Size>) -> Self {
-        Self {
-            image: TiledImage::new(url, uuid, levels),
-        }
-    }
-}
-
 /// Image.
 #[derive(Component)]
 pub(crate) struct TiledImage {
@@ -46,6 +33,17 @@ impl TiledImage {
             uuid,
             levels,
         }
+    }
+
+    /// Get URl and size of the thumbnail.
+    pub(crate) fn get_image_thumbnail(&self, size: u32) -> (String, Vec3) {
+        let max_size = self.get_max_size();
+        let pct = size as f32 / max_size.max_element();
+
+        (
+            self.get_image_url(0, 0, max_size.x as u32, max_size.y as u32, pct * 100.0),
+            max_size * pct,
+        )
     }
 
     /// Get URL for the image tile at the position.
@@ -68,6 +66,11 @@ impl TiledImage {
             self.image_to_world(Vec3::ZERO).truncate(),
             self.image_to_world(self.get_max_size()).truncate(),
         )
+    }
+
+    /// Get the imge max size in image space.
+    pub(crate) fn get_image_max_size_rect(&self) -> Rect {
+        Rect::from_corners(Vec3::ZERO.truncate(), self.get_max_size().truncate())
     }
 
     // /// Get number of resolution levels.
@@ -154,7 +157,7 @@ impl TiledImage {
     }
 
     /// Convert from world to image space.
-    fn world_to_image(&self, p: Vec3) -> Vec3 {
+    pub(crate) fn world_to_image(&self, p: Vec3) -> Vec3 {
         p.reflect(Vec3::Y)
     }
 
@@ -438,5 +441,27 @@ mod tests {
             image.get_world_max_size_rect(),
             Rect::from_corners(Vec2::new(0.0, 0.0), Vec2::new(2713.0, -1910.0))
         );
+    }
+
+    #[test]
+    fn test_get_image_thumbail() {
+        let image = setup();
+
+        let (url, size) = image.get_image_thumbnail(256);
+
+        assert_eq!(
+            url,
+            "https://iif_end_point/uuid/0,0,2713,1910/pct:9.4360485/0/default.png"
+        );
+        assert_eq!(size, Vec3::new(256.0, 180.22853, 0.0));
+    }
+
+    #[test]
+    fn test_get_image_max_size_rect() {
+        let image = setup();
+
+        let rect = image.get_image_max_size_rect();
+
+        assert_eq!(rect, Rect::new(0.0, 0.0, 2713.0, 1910.0));
     }
 }

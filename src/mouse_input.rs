@@ -1,9 +1,12 @@
-use crate::{AppState, tile::TileModState, tiled_image::TiledImage};
+use crate::{AppState, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
 use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, window::PrimaryWindow};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_mouse_input(
-    camera: Single<(&Camera, &GlobalTransform, &mut Transform, &mut Projection), With<Camera2d>>,
+    camera_query: Single<
+        (&Camera, &GlobalTransform, &mut Transform, &mut Projection),
+        With<MainCamera>,
+    >,
     mut app_state: Single<&mut AppState>,
     mut stored_mouse_pos: Local<Option<Vec2>>,
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
@@ -12,7 +15,7 @@ pub(crate) fn handle_mouse_input(
     tiled_image: Single<&TiledImage>,
     mut tile_mod_state: ResMut<TileModState>,
 ) {
-    let (camera, global_transform, mut transform, mut projection) = camera.into_inner();
+    let (camera, global_transform, mut transform, mut projection) = camera_query.into_inner();
 
     let Projection::Orthographic(orthogonal) = projection.as_mut() else {
         return;

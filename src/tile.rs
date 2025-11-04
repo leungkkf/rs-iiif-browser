@@ -1,4 +1,7 @@
-use crate::{AppState, app_settings::AppSettings, camera_ext, tiled_image::TiledImage};
+use crate::{
+    AppState, app_settings::AppSettings, camera_ext, main_camera::MainCamera,
+    tiled_image::TiledImage,
+};
 use bevy::{asset::LoadState, prelude::*};
 use std::{collections::HashMap, ops::RangeInclusive};
 
@@ -121,7 +124,7 @@ fn get_required_tiles(
 pub(crate) fn update_tiles(
     mut commands: Commands,
     mut tile_cache: ResMut<TileCache>,
-    camera_query: Single<(&Camera, &GlobalTransform)>,
+    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
     asset_server: Res<AssetServer>,
     tiles: Query<(Entity, &Tile, &mut MeshMaterial2d<ColorMaterial>), With<Tile>>,
     app_state: Single<&mut AppState>,
@@ -236,7 +239,7 @@ pub(crate) fn on_asset_event(
 pub(crate) fn prune_tiles(
     mut commands: Commands,
     mut tile_cache: ResMut<TileCache>,
-    camera_query: Single<(&Camera, &GlobalTransform)>,
+    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
     tiles: Query<&Tile>,
     app_settings: Res<AppSettings>,
     image: Single<&TiledImage>,

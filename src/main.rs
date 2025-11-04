@@ -1,13 +1,15 @@
 use crate::app_settings::AppSettings;
 use crate::app_state::AppState;
 use crate::tile::{TileCache, TileModState, TilePruneState};
-use crate::tiled_image::{ImageBundle, Size};
+use crate::tiled_image::{Size, TiledImage};
 use bevy::prelude::*;
 
 mod app_settings;
 mod app_state;
 mod camera_ext;
 mod keyboard_input;
+mod main_camera;
+mod minimap;
 mod mouse_input;
 mod tile;
 mod tiled_image;
@@ -15,7 +17,7 @@ mod tiled_image;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, minimap::setup).chain())
         .add_systems(
             Update,
             ((
@@ -29,10 +31,16 @@ fn main() {
                 .chain(),),
         )
         .add_systems(
+            PostUpdate,
+            (
+                main_camera::handle_tranlation_bounding,
+                minimap::update_view_rect,
+            ),
+        )
+        .add_systems(
             Last,
             tile::prune_tiles.run_if(resource_changed::<TilePruneState>),
         )
-        .add_systems(PostUpdate, camera_ext::handle_tranlation_bounding)
         .run();
 }
 
@@ -49,8 +57,9 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
 
     let zoom = 5426.0 / 678.0;
 
-    // Camera
+    // Main camera
     commands.spawn((
+        main_camera::MainCamera,
         Camera2d,
         Projection::from(OrthographicProjection {
             scale: zoom,
@@ -63,12 +72,14 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
         ),
     ));
 
-    // Image.
-    commands.spawn(ImageBundle::build(
+    let image = TiledImage::new(
         "https://stacks.stanford.edu/image/iiif".into(),
         "hg676jb4964%2F0380_796-44".into(),
         levels,
-    ));
+    );
+
+    // Image.
+    commands.spawn(image);
 
     // Tile cache resource.
     commands.insert_resource(TileCache::new());

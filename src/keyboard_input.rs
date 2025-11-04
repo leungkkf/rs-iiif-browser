@@ -1,8 +1,8 @@
-use crate::{AppState, tile::TileModState, tiled_image::TiledImage};
+use crate::{AppState, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
 use bevy::prelude::*;
 
 pub(crate) fn handle_keyboard_input(
-    camera: Single<(&mut Transform, &mut Projection), With<Camera2d>>,
+    camera: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
     mut app_state: Single<&mut AppState, With<AppState>>,
     tiled_image: Single<&TiledImage>,
     kb_input: Res<ButtonInput<KeyCode>>,
