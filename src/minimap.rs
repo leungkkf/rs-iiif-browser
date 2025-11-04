@@ -1,8 +1,11 @@
 use crate::{camera_ext, main_camera::MainCamera, tiled_image::TiledImage};
-use bevy::prelude::*;
+use bevy::{prelude::*, ui::RelativeCursorPosition};
 
 #[derive(Component)]
 pub(crate) struct MinimapViewRect;
+
+#[derive(Component)]
+pub(crate) struct MinimapImage;
 
 const BORDER_SIZE: f32 = 2.0;
 const MINIMAP_SIZE: f32 = 200.0;
@@ -41,6 +44,9 @@ pub(crate) fn setup(
     );
 
     let thumbnail_image = (
+        MinimapImage,
+        Button,
+        RelativeCursorPosition::default(),
         Node {
             left: Val::Px(thumbnail_rect.min.x),
             top: Val::Px(thumbnail_rect.min.y),
@@ -121,4 +127,31 @@ pub(crate) fn update_view_rect(
     view_rect.width = Val::Px(bounded_view_rect.width());
     view_rect.height = Val::Px(bounded_view_rect.height());
     view_rect.display = Display::Block;
+}
+
+pub(crate) fn on_mouse_click(
+    interaction: Single<&Interaction, (Changed<Interaction>, With<MinimapImage>)>,
+    mut mouse: ResMut<ButtonInput<MouseButton>>,
+    cursor_query: Query<&RelativeCursorPosition>,
+    camera_query: Single<&mut Transform, With<MainCamera>>,
+    tiled_image: Single<&TiledImage>,
+) {
+    if let Ok(cursor) = cursor_query.single() {
+        if !cursor.cursor_over || **interaction != Interaction::Pressed {
+            return;
+        }
+        let Some(cursor) = cursor.normalized else {
+            return;
+        };
+        let image_pos =
+            tiled_image.get_image_max_size_rect().max * Vec2::new(cursor.x + 0.5, cursor.y + 0.5);
+
+        let world_pos = tiled_image.image_to_world(image_pos.extend(0.0));
+
+        let mut transform = camera_query.into_inner();
+
+        transform.translation = world_pos;
+    }
+
+    mouse.clear();
 }

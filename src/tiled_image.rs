@@ -162,7 +162,7 @@ impl TiledImage {
     }
 
     /// Convert from image to world space.
-    fn image_to_world(&self, p: Vec3) -> Vec3 {
+    pub(crate) fn image_to_world(&self, p: Vec3) -> Vec3 {
         p.reflect(Vec3::Y)
     }
 

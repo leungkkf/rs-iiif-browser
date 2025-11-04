@@ -16,7 +16,7 @@ mod tiled_image;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins((DefaultPlugins.set(ImagePlugin::default_nearest()),))
         .add_systems(Startup, (setup, minimap::setup).chain())
         .add_systems(
             Update,
@@ -25,6 +25,7 @@ fn main() {
                     keyboard_input::handle_keyboard_input,
                     mouse_input::handle_mouse_input,
                     tile::on_asset_event,
+                    minimap::on_mouse_click,
                 ),
                 (tile::update_tiles.run_if(resource_changed::<TileModState>)),
             )
