@@ -146,6 +146,9 @@ pub(crate) fn update_tiles(
 
         if entry.is_none() {
             let url = image.get_image_tile_url_at(app_state.level, tile.image_position);
+
+            debug!("Load {:?} for {:?}", url, tile.index);
+
             let handle = asset_server.load(url);
             let tile_index = tile.index;
 
@@ -230,6 +233,7 @@ pub(crate) fn on_asset_event(
                 warn!("failed to load tile at {:?}. retry...", tile.index);
                 commands.entity(entity).despawn();
                 tile_cache.cache.remove(&tile.index);
+                tile_mod_state.invalidate();
             }
             None => {}
         }
@@ -250,6 +254,7 @@ pub(crate) fn prune_tiles(
     if num_cache_items <= app_settings.max_cache_items {
         return;
     }
+    debug!("Pruning tiles at current level {}", app_state.level);
 
     let num_items_to_remove = num_cache_items - app_settings.max_cache_items;
     let (camera, global_transform) = camera_query.into_inner();
@@ -289,6 +294,7 @@ pub(crate) fn prune_tiles(
     });
 
     for (tile_index, cache_item) in out_of_view_tiles.iter().take(num_items_to_remove) {
+        debug!("Remove tile from cache {:?}", tile_index);
         tile_cache.cache.remove(tile_index);
         commands.entity(cache_item.entity).despawn();
     }

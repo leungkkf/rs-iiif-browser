@@ -1,4 +1,4 @@
-use crate::{camera_ext, main_camera::MainCamera, tiled_image::TiledImage};
+use crate::{camera_ext, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
 use bevy::{prelude::*, ui::RelativeCursorPosition};
 
 #[derive(Component)]
@@ -135,6 +135,7 @@ pub(crate) fn on_mouse_click(
     cursor_query: Query<&RelativeCursorPosition>,
     camera_query: Single<&mut Transform, With<MainCamera>>,
     tiled_image: Single<&TiledImage>,
+    mut tile_mod_state: ResMut<TileModState>,
 ) {
     if let Ok(cursor) = cursor_query.single() {
         if !cursor.cursor_over || **interaction != Interaction::Pressed {
@@ -151,6 +152,7 @@ pub(crate) fn on_mouse_click(
         let mut transform = camera_query.into_inner();
 
         transform.translation = world_pos;
+        tile_mod_state.invalidate();
     }
 
     mouse.clear();

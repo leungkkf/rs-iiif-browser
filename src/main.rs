@@ -16,7 +16,7 @@ mod tiled_image;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins.set(ImagePlugin::default_nearest()),))
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup, minimap::setup).chain())
         .add_systems(
             Update,
@@ -24,8 +24,8 @@ fn main() {
                 (
                     keyboard_input::handle_keyboard_input,
                     mouse_input::handle_mouse_input,
-                    tile::on_asset_event,
                     minimap::on_mouse_click,
+                    tile::on_asset_event,
                 ),
                 (tile::update_tiles.run_if(resource_changed::<TileModState>)),
             )
@@ -56,7 +56,15 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
         Size::new(5426, 3820),
     ];
 
+    // let levels = vec![
+    //     Size::new(220, 180),
+    //     Size::new(440, 361),
+    //     Size::new(880, 723),
+    //     Size::new(7045, 5785),
+    // ];
+
     let zoom = 5426.0 / 678.0;
+    // let zoom = 220.0 / 7045.0;
 
     // Main camera
     commands.spawn((
@@ -78,6 +86,12 @@ fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
         "hg676jb4964%2F0380_796-44".into(),
         levels,
     );
+
+    // let image = TiledImage::new(
+    //     "https://nationalmuseumse.iiifhosting.com/iiif".into(),
+    //     "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee".into(),
+    //     levels,
+    // );
 
     // Image.
     commands.spawn(image);

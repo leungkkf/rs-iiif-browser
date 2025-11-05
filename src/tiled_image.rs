@@ -146,8 +146,8 @@ impl TiledImage {
 
                     tile_min_x = tile_min_x.min(x);
                     tile_max_x = tile_max_x.max(x);
-                    tile_min_y = tile_min_y.min(x);
-                    tile_max_y = tile_max_y.max(x);
+                    tile_min_y = tile_min_y.min(y);
+                    tile_max_y = tile_max_y.max(y);
                     tiles.push(Tile::new(tile_index, image_position, world_position));
                 }
             }
