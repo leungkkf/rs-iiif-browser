@@ -5,8 +5,6 @@ use crate::{
 use bevy::{asset::LoadState, prelude::*};
 use std::{collections::HashMap, ops::RangeInclusive};
 
-pub(crate) const TILE_SIZE: f32 = 1024.0;
-
 #[derive(Resource)]
 pub(crate) struct TileModState(u32);
 
@@ -147,7 +145,7 @@ pub(crate) fn update_tiles(
         if entry.is_none() {
             let url = image.get_image_tile_url_at(app_state.level, tile.image_position);
 
-            debug!("Load {:?} for {:?}", url, tile.index);
+            info!("Load {:?} for {:?}", url, tile.index);
 
             let handle = asset_server.load(url);
             let tile_index = tile.index;
