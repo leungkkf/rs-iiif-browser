@@ -37,10 +37,10 @@ pub(crate) fn setup(
 
     let (thumbnail_url, thumbnail_size) = tiled_image.get_image_thumbnail(256);
     let (thumbnail_scale, offset) =
-        get_thumbnail_scale_and_offset(Rect::from_corners(Vec2::ZERO, thumbnail_size.truncate()));
+        get_thumbnail_scale_and_offset(Rect::from_corners(Vec2::ZERO, thumbnail_size));
     let thumbnail_rect = Rect::from_corners(
         Vec2::ZERO + offset,
-        thumbnail_size.truncate() * thumbnail_scale + offset,
+        thumbnail_size * thumbnail_scale + offset,
     );
 
     let thumbnail_image = (
@@ -114,8 +114,8 @@ pub(crate) fn update_view_rect(
 
     // Bound by the thumbnail node.
     let bounded_view_rect = Rect::from_corners(
-        image_pos_min.truncate() * scale + offset,
-        image_pos_max.truncate() * scale + offset,
+        image_pos_min * scale + offset,
+        image_pos_max * scale + offset,
     )
     .intersect(Rect::from_corners(
         Vec2::new(0.0, 0.0),
@@ -147,7 +147,7 @@ pub(crate) fn on_mouse_click(
         let image_pos =
             tiled_image.get_image_max_size_rect().max * Vec2::new(cursor.x + 0.5, cursor.y + 0.5);
 
-        let world_pos = tiled_image.image_to_world(image_pos.extend(0.0));
+        let world_pos = tiled_image.image_to_world(image_pos);
 
         let mut transform = camera_query.into_inner();
 

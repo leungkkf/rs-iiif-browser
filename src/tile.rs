@@ -48,9 +48,9 @@ impl TileIndex {
     }
 }
 
-impl From<TileIndex> for Vec3 {
+impl From<TileIndex> for Vec2 {
     fn from(value: TileIndex) -> Self {
-        Self::new(value.x as f32, value.y as f32, value.z as f32)
+        Self::new(value.x as f32, value.y as f32)
     }
 }
 

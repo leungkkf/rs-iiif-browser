@@ -6,10 +6,16 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, Copy)]
 pub(crate) struct Size {
     pub(crate) width: u32,
     pub(crate) height: u32,
+}
+
+impl From<Size> for Vec2 {
+    fn from(value: Size) -> Self {
+        Self::new(value.width as f32, value.height as f32)
+    }
 }
 
 impl Size {
@@ -28,7 +34,7 @@ pub(crate) struct TiledImage {
     /// The number of levels and sizes.
     levels: Vec<Size>,
     /// Tile size.
-    tile_size: u32,
+    tile_size: Size,
     /// IIIF image info.
     iiif_image_info: IiifImageInfo,
 }
@@ -38,7 +44,7 @@ impl TiledImage {
     fn new(
         iiif_endpoint: String,
         uuid: String,
-        tile_size: u32,
+        tile_size: Size,
         levels: Vec<Size>,
         iiif_image_info: IiifImageInfo,
     ) -> Self {
@@ -59,12 +65,14 @@ impl TiledImage {
         let iiif_image_info = IiifImageInfo::new(url)?;
 
         let levels = iiif_image_info.sizes.clone();
+        let default_tile_size = Size::new(512, 512);
 
-        const DEFAULT_TILE_SIZE: u32 = 512;
         let tile_size = if let Some(tiles) = &iiif_image_info.tiles {
-            tiles.get(0).map_or(DEFAULT_TILE_SIZE, |x| x.width)
+            tiles
+                .get(0)
+                .map_or(default_tile_size, |x| Size::new(x.width, x.height))
         } else {
-            DEFAULT_TILE_SIZE
+            default_tile_size
         };
 
         Ok(TiledImage::new(
@@ -81,7 +89,7 @@ impl TiledImage {
     }
 
     /// Get URl and size of the thumbnail.
-    pub(crate) fn get_image_thumbnail(&self, size: u32) -> (String, Vec3) {
+    pub(crate) fn get_image_thumbnail(&self, size: u32) -> (String, Vec2) {
         let max_size = self.get_max_size();
         let pct = size as f32 / max_size.max_element();
 
@@ -104,7 +112,7 @@ impl TiledImage {
             image_position.min.y.round() as u32,
             (image_position.max.x - image_position.min.x.round()).round() as u32,
             (image_position.max.y - image_position.min.y.round()).round() as u32,
-            Size::new(self.tile_size, self.tile_size),
+            self.tile_size,
         )
     }
 
@@ -127,14 +135,14 @@ impl TiledImage {
     /// Get the image max size in world space.
     pub(crate) fn get_world_max_size_rect(&self) -> Rect {
         Rect::from_corners(
-            self.image_to_world(Vec3::ZERO).truncate(),
+            self.image_to_world(Vec2::ZERO).truncate(),
             self.image_to_world(self.get_max_size()).truncate(),
         )
     }
 
     /// Get the imge max size in image space.
     pub(crate) fn get_image_max_size_rect(&self) -> Rect {
-        Rect::from_corners(Vec3::ZERO.truncate(), self.get_max_size().truncate())
+        Rect::from_corners(Vec2::ZERO, self.get_max_size())
     }
 
     // /// Get number of resolution levels.
@@ -170,10 +178,10 @@ impl TiledImage {
 
         let image_p0 = self
             .world_to_image(world_pos_min)
-            .clamp(Vec3::ZERO, image_max_size - 1.0);
+            .clamp(Vec2::ZERO, image_max_size - 1.0);
         let image_p1 = self
             .world_to_image(world_pos_max)
-            .clamp(Vec3::ZERO, image_max_size - 1.0);
+            .clamp(Vec2::ZERO, image_max_size - 1.0);
 
         // Get them in the correct order.
         let image_min = image_p0.min(image_p1);
@@ -199,8 +207,7 @@ impl TiledImage {
                     .tile_to_image(level, next_tile_index.into())
                     .min(image_max_size);
 
-                let image_position =
-                    Rect::from_corners(image_top_left.truncate(), image_bot_rght.truncate());
+                let image_position = Rect::from_corners(image_top_left, image_bot_rght);
 
                 if image_position.width() > 0.5 && image_position.height() > 0.5 {
                     let world_position = Rect::from_corners(
@@ -221,34 +228,34 @@ impl TiledImage {
     }
 
     /// Convert from world to image space.
-    pub(crate) fn world_to_image(&self, p: Vec3) -> Vec3 {
-        p.reflect(Vec3::Y)
+    pub(crate) fn world_to_image(&self, p: Vec3) -> Vec2 {
+        p.reflect(Vec3::Y).truncate()
     }
 
     /// Convert from image to world space.
-    pub(crate) fn image_to_world(&self, p: Vec3) -> Vec3 {
-        p.reflect(Vec3::Y)
+    pub(crate) fn image_to_world(&self, p: Vec2) -> Vec3 {
+        p.extend(0.0).reflect(Vec3::Y)
     }
 
     /// Convert from image to tile space.
-    fn image_to_tile(&self, level: usize, p: Vec3) -> Vec3 {
+    fn image_to_tile(&self, level: usize, p: Vec2) -> Vec2 {
         let scale = self.world_to_image_scale(level);
 
-        p / (self.tile_size as f32 * scale)
+        p / (Vec2::from(self.tile_size) * scale)
     }
 
     /// Convert from the tile to image space.
-    fn tile_to_image(&self, level: usize, p: Vec3) -> Vec3 {
+    fn tile_to_image(&self, level: usize, p: Vec2) -> Vec2 {
         let scale = self.world_to_image_scale(level);
 
-        p * self.tile_size as f32 * scale
+        p * Vec2::from(self.tile_size) * scale
     }
 
     /// Get the max size of the image.
-    fn get_max_size(&self) -> Vec3 {
+    fn get_max_size(&self) -> Vec2 {
         let last_level = self.levels.last().expect("should have at least one level");
 
-        Vec3::new(last_level.width as f32, last_level.height as f32, 0.0)
+        Vec2::from(*last_level)
     }
 
     /// Get the world to image scale.
@@ -285,9 +292,8 @@ impl TiledImage {
 
 #[cfg(test)]
 mod tests {
-    use crate::iiif::IiifProfileDetails;
-
     use super::*;
+    use crate::iiif::IiifProfileDetails;
 
     const TILE_SIZE: f32 = 1024.0;
 
@@ -295,7 +301,7 @@ mod tests {
         TiledImage::new(
             "https://iif_end_point".into(),
             "uuid".into(),
-            TILE_SIZE as u32,
+            Size::new(TILE_SIZE as u32, TILE_SIZE as u32),
             vec![
                 Size::new(678, 478),
                 Size::new(1357, 955),
@@ -333,7 +339,7 @@ mod tests {
     fn test_get_max_size() {
         let image = setup();
 
-        assert_eq!(image.get_max_size(), Vec3::new(2713.0, 1910.0, 0.0));
+        assert_eq!(image.get_max_size(), Vec2::new(2713.0, 1910.0));
     }
 
     #[test]
@@ -348,7 +354,7 @@ mod tests {
     #[test]
     fn test_tile_to_image() {
         let image = setup();
-        let p = Vec3::new(1.0, 2.0, 0.0);
+        let p = Vec2::new(1.0, 2.0);
 
         assert_eq!(image.tile_to_image(0, p), p * TILE_SIZE * 2713.0 / 678.0);
         assert_eq!(image.tile_to_image(1, p), p * TILE_SIZE * 2713.0 / 1357.0);
@@ -358,7 +364,7 @@ mod tests {
     #[test]
     fn test_image_to_tile() {
         let image = setup();
-        let p = Vec3::new(10.0, 20.0, 0.0);
+        let p = Vec2::new(10.0, 20.0);
 
         assert_eq!(image.image_to_tile(0, p), p / (TILE_SIZE * 2713.0 / 678.0));
         assert_eq!(image.image_to_tile(1, p), p / (TILE_SIZE * 2713.0 / 1357.0));
@@ -379,15 +385,15 @@ mod tests {
         let image = setup();
         let p = Vec3::new(1.0, 2.0, 0.0);
 
-        assert_eq!(image.world_to_image(p), p.reflect(Vec3::Y));
+        assert_eq!(image.world_to_image(p), p.reflect(Vec3::Y).truncate());
     }
 
     #[test]
     fn test_image_to_world() {
         let image = setup();
-        let p = Vec3::new(1.0, 2.0, 0.0);
+        let p = Vec2::new(1.0, 2.0);
 
-        assert_eq!(image.image_to_world(p), p.reflect(Vec3::Y));
+        assert_eq!(image.image_to_world(p), p.extend(0.0).reflect(Vec3::Y));
     }
 
     #[test]
@@ -549,7 +555,7 @@ mod tests {
         let (url, size) = image.get_image_thumbnail(256);
 
         assert_eq!(url, "https://iif_end_point/uuid/full/256,180/0/default.png");
-        assert_eq!(size, Vec3::new(256.0, 180.22853, 0.0));
+        assert_eq!(size, Vec2::new(256.0, 180.22853));
     }
 
     #[test]
