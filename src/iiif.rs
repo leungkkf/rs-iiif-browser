@@ -14,6 +14,9 @@ pub enum IiifError {
 
     #[error("IIIF missing info")]
     IiifMissingInfo(String),
+
+    #[error("IIIF format error")]
+    IiifFormatError(String),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,6 +26,8 @@ pub(crate) struct IiifImageInfo {
     pub(crate) sizes: Option<Vec<Size>>,
     pub(crate) tiles: Option<Vec<IiifTileInfo>>,
     pub(crate) profile: Vec<IiifProfileInfo>,
+    #[serde(skip_deserializing)]
+    pub(crate) expanded_profiles: Vec<IiifProfileDetails>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,9 +56,43 @@ impl Default for IiifProfileDetails {
     fn default() -> Self {
         Self {
             formats: vec![IiifImageFormat::Jpg],
-            qualities: Vec::new(),
-            supports: Vec::new(),
+            qualities: vec![IiifImageQuality::Default],
+            supports: vec![],
         }
+    }
+}
+
+impl IiifProfileDetails {
+    fn from_url(url: &str) -> core::result::Result<IiifProfileDetails, IiifError> {
+        let profile = match url {
+            "http://iiif.io/api/image/2/level0.json" => Self {
+                formats: vec![IiifImageFormat::Jpg],
+                qualities: vec![IiifImageQuality::Default],
+                supports: vec![IiifFeature::SizeByWhListed],
+            },
+            "http://iiif.io/api/image/2/level1.json" => Self {
+                formats: vec![IiifImageFormat::Jpg],
+                qualities: vec![IiifImageQuality::Default],
+                supports: vec![
+                    IiifFeature::SizeByWhListed,
+                    IiifFeature::BaseUriRedirect,
+                    IiifFeature::Cors,
+                    IiifFeature::JsonldMediaType,
+                    IiifFeature::RegionByPx,
+                    IiifFeature::SizeByH,
+                    IiifFeature::SizeByPct,
+                    IiifFeature::SizeByW,
+                ],
+            },
+            _ => {
+                return Err(IiifError::IiifFormatError(format!(
+                    "unexpected profile url {}",
+                    url
+                )));
+            }
+        };
+
+        Ok(profile)
     }
 }
 
@@ -77,8 +116,9 @@ pub(crate) enum IiifFeature {
     SizeByW,
     SizeByWh,
     SizeUpscaling,
-    SizeByForcedWh, // old?
-    SizeAboveFull,  // old?
+    SizeByWhListed, // Deprecated.
+    SizeByForcedWh, // Deprecated.
+    SizeAboveFull,  // Deprecated.
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -89,6 +129,18 @@ pub(crate) enum IiifImageQuality {
     Bitonal,
     Native,
     Default,
+}
+
+impl fmt::Display for IiifImageQuality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IiifImageQuality::Default => write!(f, "default"),
+            IiifImageQuality::Bitonal => write!(f, "bitonal"),
+            IiifImageQuality::Color => write!(f, "color"),
+            IiifImageQuality::Gray => write!(f, "gray"),
+            IiifImageQuality::Native => write!(f, "default"),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -118,12 +170,24 @@ impl IiifImageInfo {
 
     /// Build from a Json string.
     fn from_json(info_json: &str) -> core::result::Result<Self, IiifError> {
-        let iiif_image_info: IiifImageInfo = serde_json::from_str(&info_json)?;
+        let mut iiif_image_info: IiifImageInfo = serde_json::from_str(info_json)?;
         debug!("iiif_image_info {:?}", iiif_image_info);
 
-        if iiif_image_info.profile.len() == 0 {
+        if iiif_image_info.profile.is_empty() {
             return Err(IiifError::IiifMissingInfo("Missing profile".into()));
         }
+
+        let mut expanded_profiles = Vec::new();
+
+        for p in &iiif_image_info.profile {
+            let profile = match p {
+                IiifProfileInfo::ProfileDetails(profile_details) => (*profile_details).clone(),
+                IiifProfileInfo::Url(url) => IiifProfileDetails::from_url(url)?,
+            };
+            expanded_profiles.push(profile);
+        }
+
+        iiif_image_info.expanded_profiles = expanded_profiles;
 
         Ok(iiif_image_info)
     }
@@ -131,8 +195,9 @@ impl IiifImageInfo {
     /// Get tile size.
     pub(crate) fn get_tile_size(&self) -> Size {
         let default_tile_size = Size::new(512, 512);
+
         if let Some(tiles) = &self.tiles {
-            tiles.get(0).map_or(default_tile_size, |x| {
+            tiles.first().map_or(default_tile_size, |x| {
                 Size::new(x.width, x.height.unwrap_or(x.width))
             })
         } else {
@@ -140,18 +205,37 @@ impl IiifImageInfo {
         }
     }
 
-    /// Get profile details.
-    pub(crate) fn get_profile_details(&self) -> IiifProfileDetails {
-        self.profile
+    /// Get the resolution for the image’s predefined tiles.
+    pub(crate) fn get_tile_scaling_sizes(&self) -> Vec<Size> {
+        let mut scaling_sizes = Vec::new();
+
+        if let Some(tiles) = &self.tiles
+            && let Some(tile) = tiles.first()
+        {
+            scaling_sizes = tile
+                .scale_factors
+                .iter()
+                .map(|f| Size::new(self.width / f, self.height / f))
+                .collect();
+        }
+
+        let default_size = Size::new(self.width, self.height);
+
+        if !scaling_sizes
             .iter()
-            .find_map(|x| {
-                if let IiifProfileInfo::ProfileDetails(profile_details) = x {
-                    Some((*profile_details).clone())
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_default()
+            .any(|x| x.width == default_size.width && x.height == default_size.height)
+        {
+            scaling_sizes.push(default_size);
+        }
+
+        scaling_sizes.sort_by(|a, b| (a.width * a.height).cmp(&(b.width * b.height)));
+
+        scaling_sizes
+    }
+
+    /// Get profile details.
+    pub(crate) fn get_profile_details(&self) -> &Vec<IiifProfileDetails> {
+        &self.expanded_profiles
     }
 
     /// Get image sizes.
@@ -161,10 +245,9 @@ impl IiifImageInfo {
         if let Some(sizes) = &self.sizes {
             image_sizes = sizes.clone();
 
-            if image_sizes
+            if !image_sizes
                 .iter()
-                .find(|x| x.width == self.width && x.height == self.height)
-                .is_none()
+                .any(|x| x.width == self.width && x.height == self.height)
             {
                 image_sizes.push(Size::new(self.width, self.height));
             }
@@ -198,7 +281,7 @@ mod tests {
                 { "width" : 256, "height" : 256, "scaleFactors" : [ 1, 2, 4, 8, 16, 32 ] }
             ],
             "profile" : [
-                "http://iiif.io/api/image/2/level1.json",
+                "http://iiif.io/api/image/2/level0.json",
                 {
                   "formats" : [ "jpg" ],
                   "qualities" : [ "native","color","gray" ],
@@ -232,7 +315,7 @@ mod tests {
         for p in &image_info.profile {
             match p {
                 IiifProfileInfo::Url(url) => {
-                    assert_eq!(url, "http://iiif.io/api/image/2/level1.json");
+                    assert_eq!(url, "http://iiif.io/api/image/2/level0.json");
                 }
                 IiifProfileInfo::ProfileDetails(detail) => {
                     assert_eq!(detail.formats, vec![IiifImageFormat::Jpg]);
@@ -259,6 +342,44 @@ mod tests {
                 }
             }
         }
+
+        assert_eq!(
+            image_info.expanded_profiles[0].formats,
+            vec![IiifImageFormat::Jpg]
+        );
+        assert_eq!(
+            image_info.expanded_profiles[0].qualities,
+            vec![IiifImageQuality::Default,]
+        );
+        assert_eq!(
+            image_info.expanded_profiles[0].supports,
+            vec![IiifFeature::SizeByWhListed]
+        );
+
+        assert_eq!(
+            image_info.expanded_profiles[1].formats,
+            vec![IiifImageFormat::Jpg]
+        );
+        assert_eq!(
+            image_info.expanded_profiles[1].qualities,
+            vec![
+                IiifImageQuality::Native,
+                IiifImageQuality::Color,
+                IiifImageQuality::Gray
+            ]
+        );
+        assert_eq!(
+            image_info.expanded_profiles[1].supports,
+            vec![
+                IiifFeature::RegionByPct,
+                IiifFeature::RegionSquare,
+                IiifFeature::SizeByForcedWh,
+                IiifFeature::SizeByWh,
+                IiifFeature::SizeAboveFull,
+                IiifFeature::RotationBy90s,
+                IiifFeature::Mirroring
+            ]
+        );
     }
 
     #[test]
@@ -273,6 +394,7 @@ mod tests {
             })],
             tiles: None,
             sizes: None,
+            expanded_profiles: Vec::new(),
         };
         let tile_size = image_info.get_tile_size();
 
@@ -292,6 +414,7 @@ mod tests {
                 scale_factors: Vec::new(),
             }]),
             sizes: None,
+            expanded_profiles: Vec::new(),
         };
         let tile_size = image_info.get_tile_size();
 
@@ -311,6 +434,7 @@ mod tests {
                 scale_factors: Vec::new(),
             }]),
             sizes: None,
+            expanded_profiles: Vec::new(),
         };
         let tile_size = image_info.get_tile_size();
 
@@ -329,6 +453,7 @@ mod tests {
             })],
             tiles: None,
             sizes: None,
+            expanded_profiles: Vec::new(),
         };
         let image_sizes = image_info.get_image_sizes();
 
@@ -348,6 +473,7 @@ mod tests {
                 Size::new(220, 180),
                 Size::new(880, 723),
             ]),
+            expanded_profiles: Vec::new(),
         };
         let image_sizes = image_info.get_image_sizes();
 
@@ -374,9 +500,37 @@ mod tests {
             })],
             tiles: None,
             sizes: None,
+            expanded_profiles: vec![IiifProfileDetails {
+                formats: vec![IiifImageFormat::Png],
+                qualities: Vec::new(),
+                supports: Vec::new(),
+            }],
         };
         let profile_details = image_info.get_profile_details();
 
-        assert_eq!(profile_details.formats, vec![IiifImageFormat::Png]);
+        assert_eq!(profile_details[0].formats, vec![IiifImageFormat::Png]);
+    }
+
+    #[test]
+    fn test_get_tile_scaling_sizes() {
+        let image_info = IiifImageInfo {
+            height: 10,
+            width: 10,
+            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
+                formats: vec![IiifImageFormat::Jpg],
+                qualities: Vec::new(),
+                supports: Vec::new(),
+            })],
+            tiles: Some(vec![IiifTileInfo {
+                width: 100,
+                height: None,
+                scale_factors: Vec::new(),
+            }]),
+            sizes: None,
+            expanded_profiles: Vec::new(),
+        };
+        let scaling_sizes = image_info.get_tile_scaling_sizes();
+
+        assert_eq!(scaling_sizes, vec![Size::new(10, 10)]);
     }
 }

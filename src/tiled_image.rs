@@ -1,5 +1,5 @@
 use crate::{
-    iiif::{IiifError, IiifImageFormat, IiifImageInfo},
+    iiif::{IiifError, IiifFeature, IiifImageFormat, IiifImageInfo},
     tile::{Tile, TileIndex},
 };
 use bevy::prelude::*;
@@ -66,15 +66,33 @@ impl TiledImage {
         let url = TiledImage::get_image_info_url(&iiif_endpoint, &uuid);
         let iiif_image_info = IiifImageInfo::from_url(&url)?;
 
-        // Get tile size with a default.
-        let tile_size = iiif_image_info.get_tile_size();
-
-        let levels = iiif_image_info.get_image_sizes();
-
+        // Important profile info.
         let profile_details = iiif_image_info.get_profile_details();
+
+        // Get tile size. If we cannot get region by pixel, the tile will need to cover the whole image.
+        let tile_size = if profile_details
+            .iter()
+            .any(|x| x.supports.contains(&IiifFeature::RegionByPx))
+        {
+            iiif_image_info.get_tile_size()
+        } else {
+            Size::new(iiif_image_info.width, iiif_image_info.height)
+        };
+
+        // Get image size. If we cannot get the size by width and height, we will need to use the given sizes.
+        let levels = if profile_details
+            .iter()
+            .any(|x| x.supports.contains(&IiifFeature::SizeByWh))
+        {
+            iiif_image_info.get_tile_scaling_sizes()
+        } else {
+            iiif_image_info.get_image_sizes()
+        };
 
         // Get the image format.
         let image_format = profile_details
+            .first()
+            .expect("should have at least one profile")
             .formats
             .first()
             .expect("should have at least one supported format")
@@ -112,6 +130,7 @@ impl TiledImage {
 
     /// Get URL for the image tile at the position.
     pub(crate) fn get_image_tile_url_at(&self, image_position: Rect) -> String {
+        // TODO: this is not fully right...
         self.get_image_url(
             image_position.min.x.round() as u32,
             image_position.min.y.round() as u32,
