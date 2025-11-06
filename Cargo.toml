@@ -12,4 +12,8 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.17.2", features = ["dynamic_linking", "http", "https", "wayland"] }
+bevy = { version="0.17.2", features = [ "dynamic_linking", "http", "https", "jpeg", "wayland"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+thiserror = "2.0.17"
+ureq = "3.1.2"

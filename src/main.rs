@@ -9,6 +9,7 @@ use bevy::prelude::*;
 mod app_settings;
 mod app_state;
 mod camera_ext;
+mod iiif;
 mod keyboard_input;
 mod main_camera;
 mod minimap;
@@ -49,7 +50,7 @@ fn main() {
         .add_systems(
             PostUpdate,
             (
-                main_camera::handle_tranlation_bounding,
+                main_camera::handle_translation_bounding,
                 minimap::update_view_rect,
             ),
         )

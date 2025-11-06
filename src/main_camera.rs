@@ -6,7 +6,7 @@ use crate::{camera_ext::get_world_viewport_rect, tiled_image::TiledImage};
 pub(crate) struct MainCamera;
 
 /// Keep the image within the viewport.
-pub(crate) fn handle_tranlation_bounding(
+pub(crate) fn handle_translation_bounding(
     camera: Single<(&Camera, &GlobalTransform, &mut Transform), With<MainCamera>>,
     tiled_image: Single<&TiledImage>,
 ) {

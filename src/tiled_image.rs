@@ -1,11 +1,12 @@
-use crate::tile::{Tile, TileIndex};
+use crate::{
+    iiif::{IiifError, IiifImageFormat, IiifImageInfo, IiifProfileInfo},
+    tile::{Tile, TileIndex},
+};
 use bevy::prelude::*;
-use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
-use thiserror::Error;
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone)]
 pub(crate) struct Size {
     pub(crate) width: u32,
     pub(crate) height: u32,
@@ -17,156 +18,61 @@ impl Size {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum TiledImageError {
-    #[error("ureq error")]
-    Web(#[from] ureq::Error),
-
-    #[error("serde_json deserialization error")]
-    Deserialization(#[from] serde_json::Error),
-    // #[error("IIIF missing info")]
-    // IiifMissingInfo(String),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct IiifImageInfo {
-    width: u32,
-    height: u32,
-    sizes: Vec<Size>,
-    tiles: Option<Vec<IiifTileInfo>>,
-    profile: Vec<IiifProfileInfo>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct IiifTileInfo {
-    width: u32,
-    height: u32,
-    #[serde(rename(deserialize = "scaleFactors"))]
-    scale_factors: Vec<u32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-enum IiifProfileInfo {
-    Url(String),
-    Formats(IiifFormatInfo),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub(crate) struct IiifFormatInfo {
-    formats: Vec<IiifImageFormat>,
-    qualities: Vec<String>,
-    supports: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-enum IiifImageFormat {
-    #[serde(rename(deserialize = "jpg"))]
-    Jpg,
-    #[serde(rename(deserialize = "png"))]
-    Png,
-}
-
-impl fmt::Display for IiifImageFormat {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            IiifImageFormat::Jpg => write!(f, "jpg"),
-            IiifImageFormat::Png => write!(f, "png"),
-        }
-    }
-}
-
 /// Image.
 #[derive(Component)]
 pub(crate) struct TiledImage {
     /// IFFF URL, e.g. "https://stacks.stanford.edu/image/iiif"
-    iif_endpoint: String,
+    iiif_endpoint: String,
     /// IFFF UUID, e.g. "hg676jb4964%2F0380_796-44"
     uuid: String,
     /// The number of levels and sizes.
     levels: Vec<Size>,
     /// Tile size.
     tile_size: u32,
-    /// Supported image formats.
-    format_info: IiifFormatInfo,
+    /// IIIF image info.
+    iiif_image_info: IiifImageInfo,
 }
 
 impl TiledImage {
     /// Create a new image.
-    pub(crate) fn new(
-        iif_endpoint: String,
+    fn new(
+        iiif_endpoint: String,
         uuid: String,
         tile_size: u32,
         levels: Vec<Size>,
-        format_info: IiifFormatInfo,
+        iiif_image_info: IiifImageInfo,
     ) -> Self {
         Self {
-            iif_endpoint,
+            iiif_endpoint,
             uuid,
             tile_size,
             levels,
-            format_info,
+            iiif_image_info,
         }
     }
 
     pub(crate) fn build(
         iiif_endpoint: String,
         uuid: String,
-    ) -> core::result::Result<Self, TiledImageError> {
-        let url = Self::get_image_info_url(&iiif_endpoint, &uuid);
-        let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
-        debug!("info {:?}", info_json);
+    ) -> core::result::Result<Self, IiifError> {
+        let url = TiledImage::get_image_info_url(&iiif_endpoint, &uuid);
+        let iiif_image_info = IiifImageInfo::new(url)?;
 
-        Self::build_from_json(iiif_endpoint, uuid, &info_json)
-    }
+        let levels = iiif_image_info.sizes.clone();
 
-    fn build_from_json(
-        iiif_endpoint: String,
-        uuid: String,
-        info_json: &str,
-    ) -> core::result::Result<Self, TiledImageError> {
-        let mut iiif_image_info: IiifImageInfo = serde_json::from_str(&info_json)?;
-        debug!("iiif_image_info {:?}", iiif_image_info);
-
-        let tile_width = if let Some(tiles) = &iiif_image_info.tiles {
-            tiles.get(0).map_or(512, |x| x.width)
+        const DEFAULT_TILE_SIZE: u32 = 512;
+        let tile_size = if let Some(tiles) = &iiif_image_info.tiles {
+            tiles.get(0).map_or(DEFAULT_TILE_SIZE, |x| x.width)
         } else {
-            512
+            DEFAULT_TILE_SIZE
         };
 
-        if iiif_image_info
-            .sizes
-            .iter()
-            .find(|x| x.width == iiif_image_info.width && x.height == iiif_image_info.height)
-            .is_none()
-        {
-            iiif_image_info
-                .sizes
-                .push(Size::new(iiif_image_info.width, iiif_image_info.height));
-        }
-
-        iiif_image_info
-            .sizes
-            .sort_by(|a, b| (a.width * a.height).cmp(&(b.width * b.height)));
-
-        let format_info = iiif_image_info.profile.iter().find_map(|x| {
-            if let IiifProfileInfo::Formats(format_info) = x {
-                Some((*format_info).clone())
-            } else {
-                None
-            }
-        });
-
-        Ok(Self::new(
+        Ok(TiledImage::new(
             iiif_endpoint,
             uuid,
-            tile_width.min(1024),
-            iiif_image_info.sizes,
-            format_info.unwrap_or(IiifFormatInfo {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            }),
+            tile_size,
+            levels,
+            iiif_image_info,
         ))
     }
 
@@ -180,23 +86,42 @@ impl TiledImage {
         let pct = size as f32 / max_size.max_element();
 
         (
-            self.get_image_url(0, 0, max_size.x as u32, max_size.y as u32, pct * 100.0),
+            self.get_image_url(
+                0,
+                0,
+                max_size.x as u32,
+                max_size.y as u32,
+                Size::new((pct * max_size.x) as u32, (pct * max_size.y) as u32),
+            ),
             max_size * pct,
         )
     }
 
     /// Get URL for the image tile at the position.
-    pub(crate) fn get_image_tile_url_at(&self, level: usize, image_position: Rect) -> String {
-        let image_max_size = self.get_max_size();
-        let pct = 100.0 * self.levels[level].width as f32 / image_max_size.x;
-
+    pub(crate) fn get_image_tile_url_at(&self, image_position: Rect) -> String {
         self.get_image_url(
             image_position.min.x.round() as u32,
             image_position.min.y.round() as u32,
             (image_position.max.x - image_position.min.x.round()).round() as u32,
             (image_position.max.y - image_position.min.y.round()).round() as u32,
-            pct,
+            Size::new(self.tile_size, self.tile_size),
         )
+    }
+
+    /// Get the supported image format.
+    fn get_supported_image_format(&self) -> String {
+        self.iiif_image_info
+            .profile
+            .iter()
+            .find_map(|x| {
+                if let IiifProfileInfo::ProfileDetails(format_info) = x {
+                    format_info.formats.first()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(&IiifImageFormat::Jpg)
+            .to_string()
     }
 
     /// Get the image max size in world space.
@@ -334,15 +259,23 @@ impl TiledImage {
     }
 
     /// Get the image URL.
-    fn get_image_url(&self, left: u32, top: u32, width: u32, height: u32, pct: f32) -> String {
-        let iif_endpoint = &self.iif_endpoint;
+    fn get_image_url(&self, left: u32, top: u32, width: u32, height: u32, size: Size) -> String {
+        let iif_endpoint = &self.iiif_endpoint;
         let uuid = &self.uuid;
-        let image_format = &self.format_info.formats[0].to_string();
+        let image_format = self.get_supported_image_format();
+        let max_size = self.get_max_size();
+
+        let region =
+            if left == 0 && top == 0 && width == max_size.x as u32 && height == max_size.y as u32 {
+                "full".into()
+            } else {
+                format!("{left},{top},{width},{height}")
+            };
+
+        let size = format!("{},{}", size.width, size.height);
 
         // E.g. "https://stacks.stanford.edu/image/iiif/hg676jb4964%2F0380_796-44/{},{},{},{}/pct:25/0/default.png"
-        format!(
-            "{iif_endpoint}/{uuid}/{left},{top},{width},{height}/pct:{pct}/0/default.{image_format}"
-        )
+        format!("{iif_endpoint}/{uuid}/{region}/{size}/0/default.{image_format}")
     }
 
     fn get_image_info_url(iif_endpoint: &str, uuid: &str) -> String {
@@ -352,6 +285,8 @@ impl TiledImage {
 
 #[cfg(test)]
 mod tests {
+    use crate::iiif::IiifProfileDetails;
+
     use super::*;
 
     const TILE_SIZE: f32 = 1024.0;
@@ -366,10 +301,20 @@ mod tests {
                 Size::new(1357, 955),
                 Size::new(2713, 1910),
             ],
-            IiifFormatInfo {
-                formats: vec![IiifImageFormat::Png],
-                qualities: Vec::new(),
-                supports: Vec::new(),
+            IiifImageInfo {
+                height: 2713,
+                width: 1910,
+                sizes: vec![
+                    Size::new(678, 478),
+                    Size::new(1357, 955),
+                    Size::new(2713, 1910),
+                ],
+                tiles: None,
+                profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Png],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                })],
             },
         )
     }
@@ -379,8 +324,8 @@ mod tests {
         let image = setup();
 
         assert_eq!(
-            image.get_image_url(1, 2, 3, 4, 30.1),
-            "https://iif_end_point/uuid/1,2,3,4/pct:30.1/0/default.png"
+            image.get_image_url(1, 2, 3, 4, Size::new(1, 2)),
+            "https://iif_end_point/uuid/1,2,3,4/1,2/0/default.png"
         );
     }
 
@@ -450,25 +395,25 @@ mod tests {
         let image = setup();
 
         assert_eq!(
-            image.get_image_tile_url_at(
-                0,
-                Rect::from_corners(Vec2::new(10.3, 20.5), Vec2::new(200.5, 300.1))
-            ),
-            "https://iif_end_point/uuid/10,21,191,279/pct:24.990786/0/default.png"
+            image.get_image_tile_url_at(Rect::from_corners(
+                Vec2::new(10.3, 20.5),
+                Vec2::new(200.5, 300.1)
+            )),
+            "https://iif_end_point/uuid/10,21,191,279/1024,1024/0/default.png"
         );
         assert_eq!(
-            image.get_image_tile_url_at(
-                1,
-                Rect::from_corners(Vec2::new(10.3, 20.5), Vec2::new(200.5, 300.1))
-            ),
-            "https://iif_end_point/uuid/10,21,191,279/pct:50.01843/0/default.png"
+            image.get_image_tile_url_at(Rect::from_corners(
+                Vec2::new(10.3, 20.5),
+                Vec2::new(200.5, 300.1)
+            )),
+            "https://iif_end_point/uuid/10,21,191,279/1024,1024/0/default.png"
         );
         assert_eq!(
-            image.get_image_tile_url_at(
-                2,
-                Rect::from_corners(Vec2::new(10.3, 20.5), Vec2::new(200.5, 300.1))
-            ),
-            "https://iif_end_point/uuid/10,21,191,279/pct:100/0/default.png"
+            image.get_image_tile_url_at(Rect::from_corners(
+                Vec2::new(10.3, 20.5),
+                Vec2::new(200.5, 300.1)
+            )),
+            "https://iif_end_point/uuid/10,21,191,279/1024,1024/0/default.png"
         );
     }
 
@@ -603,10 +548,7 @@ mod tests {
 
         let (url, size) = image.get_image_thumbnail(256);
 
-        assert_eq!(
-            url,
-            "https://iif_end_point/uuid/0,0,2713,1910/pct:9.4360485/0/default.png"
-        );
+        assert_eq!(url, "https://iif_end_point/uuid/full/256,180/0/default.png");
         assert_eq!(size, Vec3::new(256.0, 180.22853, 0.0));
     }
 
@@ -617,70 +559,5 @@ mod tests {
         let rect = image.get_image_max_size_rect();
 
         assert_eq!(rect, Rect::new(0.0, 0.0, 2713.0, 1910.0));
-    }
-
-    #[test]
-    fn test_build_from_json() {
-        let json = r#"{
-            "@context" : "http://iiif.io/api/image/2/context.json",
-            "@id" : "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
-            "protocol" : "http://iiif.io/api/image",
-            "width" : 7045,
-            "height" : 5785,
-            "sizes" : [
-                { "width" : 440, "height" : 361 },
-                { "width" : 220, "height" : 180 },
-                { "width" : 880, "height" : 723 }
-            ],
-            "tiles" : [
-                { "width" : 256, "height" : 256, "scaleFactors" : [ 1, 2, 4, 8, 16, 32 ] }
-            ],
-            "profile" : [
-                "http://iiif.io/api/image/2/level1.json",
-                { "formats" : [ "jpg" ],
-                "qualities" : [ "native","color","gray" ],
-                "supports" : ["regionByPct","regionSquare","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring"] }
-            ]
-        }"#;
-
-        let image = TiledImage::build_from_json(
-            "https://nationalmuseumse.iiifhosting.com/iiif".into(),
-            "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee".into(),
-            &json,
-        )
-        .unwrap();
-
-        assert_eq!(
-            image.iif_endpoint,
-            "https://nationalmuseumse.iiifhosting.com/iiif"
-        );
-        assert_eq!(
-            image.uuid,
-            "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee"
-        );
-        assert_eq!(
-            image.levels,
-            vec![
-                Size::new(220, 180),
-                Size::new(440, 361),
-                Size::new(880, 723),
-                Size::new(7045, 5785),
-            ]
-        );
-        assert_eq!(image.tile_size, 256);
-        assert_eq!(image.format_info.formats, vec![IiifImageFormat::Jpg]);
-        assert_eq!(image.format_info.qualities, vec!["native", "color", "gray"]);
-        assert_eq!(
-            image.format_info.supports,
-            vec![
-                "regionByPct",
-                "regionSquare",
-                "sizeByForcedWh",
-                "sizeByWh",
-                "sizeAboveFull",
-                "rotationBy90s",
-                "mirroring"
-            ]
-        );
     }
 }
