@@ -1,5 +1,5 @@
 use crate::{
-    iiif::{IiifError, IiifImageFormat, IiifImageInfo, IiifProfileInfo},
+    iiif::{IiifError, IiifImageFormat, IiifImageInfo},
     tile::{Tile, TileIndex},
 };
 use bevy::prelude::*;
@@ -35,8 +35,8 @@ pub(crate) struct TiledImage {
     levels: Vec<Size>,
     /// Tile size.
     tile_size: Size,
-    /// IIIF image info.
-    iiif_image_info: IiifImageInfo,
+    /// Image format.
+    image_format: IiifImageFormat,
 }
 
 impl TiledImage {
@@ -46,41 +46,46 @@ impl TiledImage {
         uuid: String,
         tile_size: Size,
         levels: Vec<Size>,
-        iiif_image_info: IiifImageInfo,
+        image_format: IiifImageFormat,
     ) -> Self {
         Self {
             iiif_endpoint,
             uuid,
             tile_size,
             levels,
-            iiif_image_info,
+            image_format,
         }
     }
 
+    /// Create the image from the IFFF image info URL.
     pub(crate) fn build(
         iiif_endpoint: String,
         uuid: String,
     ) -> core::result::Result<Self, IiifError> {
+        // Fetch IIIF image info.json.
         let url = TiledImage::get_image_info_url(&iiif_endpoint, &uuid);
-        let iiif_image_info = IiifImageInfo::new(url)?;
+        let iiif_image_info = IiifImageInfo::from_url(&url)?;
 
-        let levels = iiif_image_info.sizes.clone();
-        let default_tile_size = Size::new(512, 512);
+        // Get tile size with a default.
+        let tile_size = iiif_image_info.get_tile_size();
 
-        let tile_size = if let Some(tiles) = &iiif_image_info.tiles {
-            tiles
-                .get(0)
-                .map_or(default_tile_size, |x| Size::new(x.width, x.height))
-        } else {
-            default_tile_size
-        };
+        let levels = iiif_image_info.get_image_sizes();
+
+        let profile_details = iiif_image_info.get_profile_details();
+
+        // Get the image format.
+        let image_format = profile_details
+            .formats
+            .first()
+            .expect("should have at least one supported format")
+            .to_owned();
 
         Ok(TiledImage::new(
             iiif_endpoint,
             uuid,
             tile_size,
             levels,
-            iiif_image_info,
+            image_format,
         ))
     }
 
@@ -114,22 +119,6 @@ impl TiledImage {
             (image_position.max.y - image_position.min.y.round()).round() as u32,
             self.tile_size,
         )
-    }
-
-    /// Get the supported image format.
-    fn get_supported_image_format(&self) -> String {
-        self.iiif_image_info
-            .profile
-            .iter()
-            .find_map(|x| {
-                if let IiifProfileInfo::ProfileDetails(format_info) = x {
-                    format_info.formats.first()
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(&IiifImageFormat::Jpg)
-            .to_string()
     }
 
     /// Get the image max size in world space.
@@ -269,7 +258,7 @@ impl TiledImage {
     fn get_image_url(&self, left: u32, top: u32, width: u32, height: u32, size: Size) -> String {
         let iif_endpoint = &self.iiif_endpoint;
         let uuid = &self.uuid;
-        let image_format = self.get_supported_image_format();
+        let image_format = &self.image_format;
         let max_size = self.get_max_size();
 
         let region =
@@ -293,7 +282,6 @@ impl TiledImage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::iiif::IiifProfileDetails;
 
     const TILE_SIZE: f32 = 1024.0;
 
@@ -307,21 +295,7 @@ mod tests {
                 Size::new(1357, 955),
                 Size::new(2713, 1910),
             ],
-            IiifImageInfo {
-                height: 2713,
-                width: 1910,
-                sizes: vec![
-                    Size::new(678, 478),
-                    Size::new(1357, 955),
-                    Size::new(2713, 1910),
-                ],
-                tiles: None,
-                profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                    formats: vec![IiifImageFormat::Png],
-                    qualities: Vec::new(),
-                    supports: Vec::new(),
-                })],
-            },
+            IiifImageFormat::Png,
         )
     }
 
