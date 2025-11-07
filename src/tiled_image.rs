@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::ops::RangeInclusive;
+use std::{collections::HashSet, ops::RangeInclusive};
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Clone, Copy)]
 pub(crate) struct Size {
@@ -37,6 +37,10 @@ pub(crate) struct TiledImage {
     tile_size: Size,
     /// Image format.
     image_format: IiifImageFormat,
+    /// Supported features.
+    supported_features: HashSet<IiifFeature>,
+    /// Optinal sizes when getting the full image.
+    optional_sizes: Vec<Size>,
 }
 
 impl TiledImage {
@@ -47,6 +51,8 @@ impl TiledImage {
         tile_size: Size,
         levels: Vec<Size>,
         image_format: IiifImageFormat,
+        supported_features: HashSet<IiifFeature>,
+        optional_sizes: Vec<Size>,
     ) -> Self {
         Self {
             iiif_endpoint,
@@ -54,6 +60,8 @@ impl TiledImage {
             tile_size,
             levels,
             image_format,
+            supported_features,
+            optional_sizes,
         }
     }
 
@@ -69,25 +77,30 @@ impl TiledImage {
         // Important profile info.
         let profile_details = iiif_image_info.get_profile_details();
 
-        // Get tile size. If we cannot get region by pixel, the tile will need to cover the whole image.
-        let tile_size = if profile_details
+        // Get tile size and levels.
+        // We require both region by px and size by width/height for the tiling.
+        // If not, we will only get the full image.
+        let supported_features: HashSet<_> = profile_details
             .iter()
-            .any(|x| x.supports.contains(&IiifFeature::RegionByPx))
+            .flat_map(|x| x.supports.to_owned())
+            .collect();
+        let tile_size: Size;
+        let levels: Vec<Size>;
+
+        if supported_features.contains(&IiifFeature::RegionByPx)
+            && supported_features.contains(&IiifFeature::SizeByWh)
         {
-            iiif_image_info.get_tile_size()
+            info!("RegionByPx and SizeByWh supported. Use tiling.");
+            tile_size = iiif_image_info.get_tile_size();
+            levels = iiif_image_info.get_tile_scaling_sizes();
         } else {
-            Size::new(iiif_image_info.width, iiif_image_info.height)
+            info!("RegionByPx or SizeByWh not supported. Get the full image.");
+            tile_size = Size::new(iiif_image_info.width, iiif_image_info.height);
+            levels = vec![tile_size];
         };
 
-        // Get image size. If we cannot get the size by width and height, we will need to use the given sizes.
-        let levels = if profile_details
-            .iter()
-            .any(|x| x.supports.contains(&IiifFeature::SizeByWh))
-        {
-            iiif_image_info.get_tile_scaling_sizes()
-        } else {
-            iiif_image_info.get_image_sizes()
-        };
+        // Get optional sizes.
+        let optional_sizes = iiif_image_info.get_image_sizes();
 
         // Get the image format.
         let image_format = profile_details
@@ -104,6 +117,8 @@ impl TiledImage {
             tile_size,
             levels,
             image_format,
+            supported_features,
+            optional_sizes,
         ))
     }
 
@@ -114,23 +129,36 @@ impl TiledImage {
     /// Get URl and size of the thumbnail.
     pub(crate) fn get_image_thumbnail(&self, size: u32) -> (String, Vec2) {
         let max_size = self.get_max_size();
-        let pct = size as f32 / max_size.max_element();
 
+        // If size by width/height is not supported, we will pick from the suggested sizes.
+        let thumbnail_size = if self.supported_features.contains(&IiifFeature::SizeByWh) {
+            let pct = size as f32 / max_size.max_element();
+
+            Size::new((pct * max_size.x) as u32, (pct * max_size.y) as u32)
+        } else {
+            self.optional_sizes
+                .iter()
+                .find(|x| x.width * x.height > size * size)
+                .map_or_else(
+                    || {
+                        *self
+                            .optional_sizes
+                            .first()
+                            .expect("should have at least one size")
+                    },
+                    |x| Size::new(x.width, x.height),
+                )
+        };
+
+        info!("Thumbnai {:?}", thumbnail_size);
         (
-            self.get_image_url(
-                0,
-                0,
-                max_size.x as u32,
-                max_size.y as u32,
-                Size::new((pct * max_size.x) as u32, (pct * max_size.y) as u32),
-            ),
-            max_size * pct,
+            self.get_image_url(0, 0, max_size.x as u32, max_size.y as u32, thumbnail_size),
+            Vec2::from(thumbnail_size),
         )
     }
 
     /// Get URL for the image tile at the position.
     pub(crate) fn get_image_tile_url_at(&self, image_position: Rect) -> String {
-        // TODO: this is not fully right...
         self.get_image_url(
             image_position.min.x.round() as u32,
             image_position.min.y.round() as u32,
@@ -293,6 +321,7 @@ impl TiledImage {
         format!("{iif_endpoint}/{uuid}/{region}/{size}/0/default.{image_format}")
     }
 
+    /// Get the image info end point.
     fn get_image_info_url(iif_endpoint: &str, uuid: &str) -> String {
         format!("{iif_endpoint}/{uuid}/info.json")
     }
@@ -301,10 +330,15 @@ impl TiledImage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     const TILE_SIZE: f32 = 1024.0;
 
     fn setup() -> TiledImage {
+        let mut supported_features = HashSet::new();
+
+        supported_features.insert(IiifFeature::SizeByWhListed);
+
         TiledImage::new(
             "https://iif_end_point".into(),
             "uuid".into(),
@@ -315,6 +349,12 @@ mod tests {
                 Size::new(2713, 1910),
             ],
             IiifImageFormat::Png,
+            supported_features,
+            vec![
+                Size::new(678, 478),
+                Size::new(1357, 955),
+                Size::new(2713, 1910),
+            ],
         )
     }
 
@@ -543,12 +583,18 @@ mod tests {
 
     #[test]
     fn test_get_image_thumbail() {
-        let image = setup();
+        let mut image = setup();
 
         let (url, size) = image.get_image_thumbnail(256);
 
+        assert_eq!(url, "https://iif_end_point/uuid/full/678,478/0/default.png");
+        assert_eq!(size, Vec2::new(678.0, 478.0));
+
+        image.supported_features.insert(IiifFeature::SizeByWh);
+        let (url, size) = image.get_image_thumbnail(256);
+
         assert_eq!(url, "https://iif_end_point/uuid/full/256,180/0/default.png");
-        assert_eq!(size, Vec2::new(256.0, 180.22853));
+        assert_eq!(size, Vec2::new(256.0, 180.0));
     }
 
     #[test]
@@ -558,5 +604,13 @@ mod tests {
         let rect = image.get_image_max_size_rect();
 
         assert_eq!(rect, Rect::new(0.0, 0.0, 2713.0, 1910.0));
+    }
+
+    #[test]
+    fn test_get_image_info_url() {
+        assert_eq!(
+            TiledImage::get_image_info_url("https://example.com", "uuid"),
+            "https://example.com/uuid/info.json"
+        );
     }
 }

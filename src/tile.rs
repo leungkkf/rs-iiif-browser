@@ -246,6 +246,7 @@ pub(crate) fn prune_tiles(
     app_settings: Res<AppSettings>,
     image: Single<&TiledImage>,
     app_state: Single<&mut AppState>,
+    asset_server: Res<AssetServer>,
 ) {
     let num_cache_items = tile_cache.cache.len();
 
@@ -254,7 +255,7 @@ pub(crate) fn prune_tiles(
     }
     debug!("Pruning tiles at current level {}", app_state.level);
 
-    let num_items_to_remove = num_cache_items - app_settings.max_cache_items;
+    let mut num_items_to_remove = num_cache_items - app_settings.max_cache_items;
     let (camera, global_transform) = camera_query.into_inner();
     // Only keep the tiles in view for this level and the lower-res levels.
     let all_required_tiles: Vec<_> = (0..=app_state.level)
@@ -277,23 +278,40 @@ pub(crate) fn prune_tiles(
                 });
 
         if is_out_of_view && let Some(tile_in_cache) = tile_cache.cache.get(&tile.index) {
-            out_of_view_tiles.push((tile.index, tile_in_cache.clone()));
+            match asset_server
+                .get_load_state(tile.bevy_image.as_ref().expect("tile should have an image"))
+            {
+                Some(LoadState::Loaded) => {
+                    out_of_view_tiles.push((tile.index, tile_in_cache.clone()));
+                }
+                _ => {
+                    debug!(
+                        "Remove unloaded out-of-view tile from cache {:?}",
+                        tile.index
+                    );
+                    commands.entity(tile_in_cache.entity).despawn();
+                    tile_cache.cache.remove(&tile.index);
+                    num_items_to_remove = num_items_to_remove.saturating_sub(1);
+                }
+            }
         }
     }
 
-    out_of_view_tiles.sort_by(|(_, a), (_, b)| {
-        if a.last_visible_secs < b.last_visible_secs {
-            std::cmp::Ordering::Less
-        } else if a.last_visible_secs > b.last_visible_secs {
-            std::cmp::Ordering::Greater
-        } else {
-            std::cmp::Ordering::Equal
-        }
-    });
+    if num_items_to_remove > 0 {
+        out_of_view_tiles.sort_by(|(_, a), (_, b)| {
+            if a.last_visible_secs < b.last_visible_secs {
+                std::cmp::Ordering::Less
+            } else if a.last_visible_secs > b.last_visible_secs {
+                std::cmp::Ordering::Greater
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        });
 
-    for (tile_index, cache_item) in out_of_view_tiles.iter().take(num_items_to_remove) {
-        debug!("Remove tile from cache {:?}", tile_index);
-        tile_cache.cache.remove(tile_index);
-        commands.entity(cache_item.entity).despawn();
+        for (tile_index, cache_item) in out_of_view_tiles.iter().take(num_items_to_remove) {
+            debug!("Remove loaded out-of-view tile from cache {:?}", tile_index);
+            tile_cache.cache.remove(tile_index);
+            commands.entity(cache_item.entity).despawn();
+        }
     }
 }

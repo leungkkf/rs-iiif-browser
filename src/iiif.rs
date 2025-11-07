@@ -96,7 +96,7 @@ impl IiifProfileDetails {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Hash, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum IiifFeature {
     BaseUriRedirect,
