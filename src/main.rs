@@ -5,6 +5,7 @@ use crate::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
 use bevy::asset::io::web::WebAssetPlugin;
 use bevy::prelude::*;
+use bevy::winit::WinitSettings;
 
 mod app_settings;
 mod app_state;
@@ -33,6 +34,8 @@ fn main() {
                 // Use nearest for the tiling for now. Will probably need to use virtual texture for the linear interpolation.
                 .set(ImagePlugin::default_nearest()),
         )
+        // Desktop mode to reduce CPU usage.
+        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, (setup, minimap::setup).chain())
         .add_systems(
             Update,
@@ -62,35 +65,41 @@ fn main() {
 }
 
 /// Set up the camera.
-fn setup(mut commands: Commands, _windows: Single<&mut Window>) {
-    let initial_level = 0;
+fn setup(mut commands: Commands, window: Single<&mut Window>) {
+    // let image = TiledImage::build(
+    //     "https://nationalmuseumse.iiifhosting.com/iiif".into(),
+    //     "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee".into(),
+    // )
+    // .unwrap();
 
-    let image = TiledImage::build(
-        "https://nationalmuseumse.iiifhosting.com/iiif".into(),
-        "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee".into(),
-    )
-    .unwrap();
     // let image = TiledImage::build(
     //     "https://iiif.wellcomecollection.org/thumbs".into(),
     //     "b20432033_B0008608.JP2".into(),
     // )
     // .unwrap();
 
-    let sizes = image.get_image_sizes();
+    let image = TiledImage::build(
+        "https://api.nga.gov/iiif".into(),
+        "99758d9d-c10b-4d02-a198-7e49afb1f3a6".into(),
+    )
+    .unwrap();
 
-    let zoom = sizes.last().unwrap().width as f32 / sizes[initial_level].width as f32;
+    let world_max_rect = image.get_world_max_size_rect();
+    let zoom = Vec2::new(world_max_rect.width(), world_max_rect.height()) / window.size();
+    let zoom_scale = zoom.max_element();
+    let initial_level = image.get_level_at(zoom_scale);
 
     // Main camera
     commands.spawn((
         main_camera::MainCamera,
         Camera2d,
         Projection::from(OrthographicProjection {
-            scale: zoom,
+            scale: zoom_scale,
             ..OrthographicProjection::default_2d()
         }),
         Transform::from_xyz(
-            sizes[initial_level].width as f32 / 2.0 * zoom,
-            -(sizes[initial_level].height as f32) / 2.0 * zoom,
+            world_max_rect.width() / 2.0,
+            -world_max_rect.height() / 2.0,
             0.0,
         ),
     ));

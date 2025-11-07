@@ -145,7 +145,7 @@ pub(crate) fn update_tiles(
         if entry.is_none() {
             let url = image.get_image_tile_url_at(tile.image_position);
 
-            info!("Load {:?} for {:?}", url, tile.index);
+            debug!("Load {:?} for {:?}", url, tile.index);
 
             let handle = asset_server.load(url);
             let tile_index = tile.index;

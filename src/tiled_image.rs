@@ -122,10 +122,6 @@ impl TiledImage {
         ))
     }
 
-    pub(crate) fn get_image_sizes(&self) -> &[Size] {
-        &self.levels
-    }
-
     /// Get URl and size of the thumbnail.
     pub(crate) fn get_image_thumbnail(&self, size: u32) -> (String, Vec2) {
         let max_size = self.get_max_size();
