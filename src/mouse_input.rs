@@ -8,18 +8,28 @@ pub(crate) fn handle_mouse_input(
         With<MainCamera>,
     >,
     mut app_state: Single<&mut AppState>,
-    mut stored_mouse_pos: Local<Option<Vec2>>,
+    local_params: (Local<Option<Vec2>>, Local<Option<f32>>),
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
     mouse: Res<ButtonInput<MouseButton>>,
     window: Single<&Window, With<PrimaryWindow>>,
     tiled_image: Single<&TiledImage>,
     mut tile_mod_state: ResMut<TileModState>,
+    time: Res<Time>,
 ) {
     let (camera, global_transform, mut transform, mut projection) = camera_query.into_inner();
 
     let Projection::Orthographic(orthogonal) = projection.as_mut() else {
         return;
     };
+
+    let (mut stored_mouse_pos, mut zoom_debounce) = local_params;
+
+    if let Some(last_zoom) = *zoom_debounce
+        && time.elapsed_secs() - last_zoom > 1.0 / 3.0
+    {
+        *zoom_debounce = None;
+        tile_mod_state.invalidate();
+    }
 
     if mouse.pressed(MouseButton::Left) {
         // check if the cursor is inside the window and get its position
@@ -63,6 +73,6 @@ pub(crate) fn handle_mouse_input(
 
         app_state.level = tiled_image.get_level_at(orthogonal.scale);
 
-        tile_mod_state.invalidate();
+        *zoom_debounce = Some(time.elapsed_secs());
     }
 }
