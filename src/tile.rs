@@ -2,7 +2,7 @@ use crate::{
     AppState, app_settings::AppSettings, camera_ext, main_camera::MainCamera,
     tiled_image::TiledImage,
 };
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, window::RequestRedraw};
 use std::{collections::HashMap, ops::RangeInclusive};
 
 #[derive(Resource)]
@@ -130,6 +130,7 @@ pub(crate) fn update_tiles(
     mut materials: ResMut<Assets<ColorMaterial>>,
     time: Res<Time>,
     mut tile_prune_state: ResMut<TilePruneState>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
     let (camera, global_transform) = camera_query.into_inner();
 
@@ -171,7 +172,7 @@ pub(crate) fn update_tiles(
 
         if tile.index.level() != app_state.level {
             color_material.alpha_mode = bevy::sprite_render::AlphaMode2d::Blend;
-            color_material.color = Color::srgba(1.0, 1.0, 1.0, 0.25);
+            color_material.color = Color::srgba(1.0, 1.0, 1.0, 0.75);
 
             commands.entity(entity).insert(Transform::from_translation(
                 tile.world_position
@@ -194,6 +195,8 @@ pub(crate) fn update_tiles(
             ));
         }
     }
+    // Redraw the screen.
+    redraw_request_writer.write(RequestRedraw);
 }
 
 pub(crate) fn on_asset_event(
@@ -204,7 +207,13 @@ pub(crate) fn on_asset_event(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut tile_mod_state: ResMut<TileModState>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
+    // Keep polling if tiles are being loaded.
+    if !tiles.is_empty() {
+        redraw_request_writer.write(RequestRedraw);
+    }
+
     for (entity, tile) in tiles.iter() {
         match asset_server
             .get_load_state(tile.bevy_image.as_ref().expect("tile should have an image"))

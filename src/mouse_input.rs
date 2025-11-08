@@ -1,5 +1,9 @@
 use crate::{AppState, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
-use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, window::PrimaryWindow};
+use bevy::{
+    input::mouse::AccumulatedMouseScroll,
+    prelude::*,
+    window::{PrimaryWindow, RequestRedraw},
+};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_mouse_input(
@@ -15,6 +19,7 @@ pub(crate) fn handle_mouse_input(
     tiled_image: Single<&TiledImage>,
     mut tile_mod_state: ResMut<TileModState>,
     time: Res<Time>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
     let (camera, global_transform, mut transform, mut projection) = camera_query.into_inner();
 
@@ -24,11 +29,13 @@ pub(crate) fn handle_mouse_input(
 
     let (mut stored_mouse_pos, mut zoom_debounce) = local_params;
 
-    if let Some(last_zoom) = *zoom_debounce
-        && time.elapsed_secs() - last_zoom > 1.0 / 3.0
-    {
-        *zoom_debounce = None;
-        tile_mod_state.invalidate();
+    if let Some(last_zoom) = *zoom_debounce {
+        if time.elapsed_secs() - last_zoom > 1.0 / 3.0 {
+            *zoom_debounce = None;
+            tile_mod_state.invalidate();
+        }
+        // Keep redrawing while zoom debounce is on.
+        redraw_request_writer.write(RequestRedraw);
     }
 
     if mouse.pressed(MouseButton::Left) {
@@ -52,6 +59,7 @@ pub(crate) fn handle_mouse_input(
     } else if mouse.just_released(MouseButton::Left) {
         *stored_mouse_pos = None;
         tile_mod_state.invalidate();
+        redraw_request_writer.write(RequestRedraw);
     }
 
     let delta_zoom = 1.0 - mouse_wheel_input.delta.y * 0.1;
@@ -74,5 +82,6 @@ pub(crate) fn handle_mouse_input(
         app_state.level = tiled_image.get_level_at(orthogonal.scale);
 
         *zoom_debounce = Some(time.elapsed_secs());
+        redraw_request_writer.write(RequestRedraw);
     }
 }

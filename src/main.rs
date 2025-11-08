@@ -66,11 +66,11 @@ fn main() {
 
 /// Set up the camera.
 fn setup(mut commands: Commands, window: Single<&mut Window>) {
-    // let image = TiledImage::build(
-    //     "https://nationalmuseumse.iiifhosting.com/iiif".into(),
-    //     "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee".into(),
-    // )
-    // .unwrap();
+    let image = TiledImage::build(
+        "https://nationalmuseumse.iiifhosting.com/iiif".into(),
+        "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee".into(),
+    )
+    .unwrap();
 
     // let image = TiledImage::build(
     //     "https://iiif.wellcomecollection.org/thumbs".into(),
@@ -78,11 +78,24 @@ fn setup(mut commands: Commands, window: Single<&mut Window>) {
     // )
     // .unwrap();
 
-    let image = TiledImage::build(
-        "https://api.nga.gov/iiif".into(),
-        "99758d9d-c10b-4d02-a198-7e49afb1f3a6".into(),
-    )
-    .unwrap();
+    // let image = TiledImage::build(
+    //     "https://api.nga.gov/iiif".into(),
+    //     "99758d9d-c10b-4d02-a198-7e49afb1f3a6".into(),
+    // )
+    // .unwrap();
+
+    // let image = TiledImage::build(
+    //     "https://mps.lib.harvard.edu/assets/images".into(),
+    //     "VPAL.HARVARDONLINE:cellxeukcell".into(),
+    // )
+    // .unwrap();
+
+    // This is version 3.
+    // let image = TiledImage::build(
+    //     "https://research.ng-london.org.uk/iiif-int/pics/pyrByDate/2010/03/04".into(),
+    //     "N-0728-00-000035-PYR.tif".into(),
+    // )
+    // .unwrap();
 
     let world_max_rect = image.get_world_max_size_rect();
     let zoom = Vec2::new(world_max_rect.width(), world_max_rect.height()) / window.size();

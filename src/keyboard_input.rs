@@ -1,5 +1,5 @@
 use crate::{AppState, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
-use bevy::prelude::*;
+use bevy::{prelude::*, window::RequestRedraw};
 
 pub(crate) fn handle_keyboard_input(
     camera: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
@@ -7,6 +7,7 @@ pub(crate) fn handle_keyboard_input(
     tiled_image: Single<&TiledImage>,
     kb_input: Res<ButtonInput<KeyCode>>,
     mut tile_mod_state: ResMut<TileModState>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
     let (mut transform, mut projection) = camera.into_inner();
 
@@ -40,5 +41,6 @@ pub(crate) fn handle_keyboard_input(
         app_state.level = tiled_image.get_level_at(orthogonal.scale);
 
         tile_mod_state.invalidate();
+        redraw_request_writer.write(RequestRedraw);
     }
 }

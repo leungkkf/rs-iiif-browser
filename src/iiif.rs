@@ -84,6 +84,26 @@ impl IiifProfileDetails {
                     IiifFeature::SizeByW,
                 ],
             },
+            "http://iiif.io/api/image/2/level2.json" => Self {
+                formats: vec![IiifImageFormat::Jpg, IiifImageFormat::Png],
+                qualities: vec![IiifImageQuality::Default, IiifImageQuality::Bitonal],
+                supports: vec![
+                    IiifFeature::SizeByWhListed,
+                    IiifFeature::BaseUriRedirect,
+                    IiifFeature::Cors,
+                    IiifFeature::JsonldMediaType,
+                    IiifFeature::RegionByPx,
+                    IiifFeature::SizeByH,
+                    IiifFeature::SizeByPct,
+                    IiifFeature::SizeByW,
+                    IiifFeature::RegionByPct,
+                    IiifFeature::RotationBy90s,
+                    IiifFeature::SizeByConfinedWh,
+                    IiifFeature::SizeByDistortedWh,
+                    IiifFeature::SizeByForcedWh,
+                    IiifFeature::SizeByWh,
+                ],
+            },
             _ => {
                 return Err(IiifError::IiifFormatError(format!(
                     "unexpected profile url {}",
@@ -119,6 +139,7 @@ pub(crate) enum IiifFeature {
     SizeByWhListed, // Deprecated.
     SizeByForcedWh, // Deprecated.
     SizeAboveFull,  // Deprecated.
+    SizeByDistortedWh,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -148,6 +169,8 @@ impl fmt::Display for IiifImageQuality {
 pub(crate) enum IiifImageFormat {
     Jpg,
     Png,
+    Tif,
+    Gif,
 }
 
 impl fmt::Display for IiifImageFormat {
@@ -155,6 +178,8 @@ impl fmt::Display for IiifImageFormat {
         match self {
             IiifImageFormat::Jpg => write!(f, "jpg"),
             IiifImageFormat::Png => write!(f, "png"),
+            IiifImageFormat::Tif => write!(f, "tif"),
+            IiifImageFormat::Gif => write!(f, "gif"),
         }
     }
 }
