@@ -1,6 +1,6 @@
 use crate::{
     AppState, app::app_settings::AppSettings, camera::camera_ext, camera::main_camera::MainCamera,
-    tile_rendering::tiled_image::TiledImage,
+    rendering::tiled_image::TiledImage,
 };
 use bevy::{asset::LoadState, prelude::*, window::RequestRedraw};
 use std::{collections::HashMap, ops::RangeInclusive};

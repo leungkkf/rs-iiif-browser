@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{camera::camera_ext::get_world_viewport_rect, tile_rendering::tiled_image::TiledImage};
+use crate::{camera::camera_ext::get_world_viewport_rect, rendering::tiled_image::TiledImage};
 
 #[derive(Component)]
 pub(crate) struct MainCamera;

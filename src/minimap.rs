@@ -1,6 +1,6 @@
 use crate::{
-    camera::camera_ext, camera::main_camera::MainCamera, tile_rendering::tile::TileModState,
-    tile_rendering::tiled_image::TiledImage,
+    camera::camera_ext, camera::main_camera::MainCamera, rendering::tile::TileModState,
+    rendering::tiled_image::TiledImage,
 };
 use bevy::{prelude::*, ui::RelativeCursorPosition};
 

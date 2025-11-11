@@ -1,7 +1,7 @@
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
-use crate::tile_rendering::tile::{TileCache, TileModState, TilePruneState};
-use crate::tile_rendering::tiled_image::TiledImage;
+use crate::rendering::tile::{TileCache, TileModState, TilePruneState};
+use crate::rendering::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
 use bevy::asset::io::web::WebAssetPlugin;
 use bevy::prelude::*;
@@ -16,7 +16,7 @@ mod camera;
 mod iiif;
 mod input;
 mod minimap;
-mod tile_rendering;
+mod rendering;
 
 fn main() {
     App::new()
@@ -46,10 +46,9 @@ fn main() {
                         .run_if(not(egui_wants_any_keyboard_input)),
                     input::mouse::mouse_input_system.run_if(not(egui_wants_any_pointer_input)),
                     minimap::mouse_input_system,
-                    tile_rendering::tile::asset_event_system,
+                    rendering::tile::asset_event_system,
                 ),
-                (tile_rendering::tile::update_tiles_system
-                    .run_if(resource_changed::<TileModState>)),
+                (rendering::tile::update_tiles_system.run_if(resource_changed::<TileModState>)),
             )
                 .chain(),),
         )
@@ -63,7 +62,7 @@ fn main() {
         )
         .add_systems(
             Last,
-            tile_rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
+            rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
         )
         .run();
 }
