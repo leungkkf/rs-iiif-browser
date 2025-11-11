@@ -1,5 +1,8 @@
 use crate::{
-    iiif::{IiifError, IiifFeature, IiifImageFormat, IiifImageInfo},
+    iiif::{
+        IiifError,
+        image::{IiifFeature, IiifImageFormat, IiifImageInfo},
+    },
     tile::{Tile, TileIndex},
 };
 use bevy::prelude::*;

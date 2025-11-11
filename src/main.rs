@@ -5,7 +5,11 @@ use crate::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
 use bevy::asset::io::web::WebAssetPlugin;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy::winit::WinitSettings;
+use bevy_egui::egui::{Id, Popup};
+use bevy_egui::input::egui_wants_any_keyboard_input;
+use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 
 mod app_settings;
 mod app_state;
@@ -34,6 +38,7 @@ fn main() {
                 // Use nearest for the tiling for now. Will probably need to use virtual texture for the linear interpolation.
                 .set(ImagePlugin::default_nearest()),
         )
+        .add_plugins(EguiPlugin::default())
         // Desktop mode to reduce CPU usage.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, (setup, minimap::setup).chain())
@@ -41,8 +46,9 @@ fn main() {
             Update,
             ((
                 (
-                    keyboard_input::handle_keyboard_input,
-                    mouse_input::handle_mouse_input,
+                    keyboard_input::handle_keyboard_input
+                        .run_if(not(egui_wants_any_keyboard_input)),
+                    mouse_input::handle_mouse_input.run_if(not(egui_wants_any_keyboard_input)),
                     minimap::on_mouse_click,
                     tile::on_asset_event,
                 ),
@@ -50,6 +56,7 @@ fn main() {
             )
                 .chain(),),
         )
+        .add_systems(EguiPrimaryContextPass, ui_example_system)
         .add_systems(
             PostUpdate,
             (
@@ -130,8 +137,35 @@ fn setup(mut commands: Commands, window: Single<&mut Window>) {
     commands.insert_resource(TileModState::new());
 
     // App settings.
-    commands.insert_resource(AppSettings::new(512));
+    commands.insert_resource(AppSettings::new(4096));
 
     // Tile mod state.
     commands.insert_resource(TilePruneState::new());
+}
+
+fn ui_example_system(
+    mut contexts: EguiContexts,
+    _window: Single<&mut Window, With<PrimaryWindow>>,
+) -> Result {
+    let ctx = contexts.ctx_mut()?;
+
+    // egui::Window::new("Hello").show(ctx, |ui| {
+    //     ui.label("world");
+    // });
+
+    egui::TopBottomPanel::top("top_panel")
+        .frame(egui::Frame::NONE)
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            let response = ui.label("Top panel");
+
+            Popup::menu(&response).id(Id::new("menu")).show(|ui| {
+                ui.set_max_width(200.0); // To make sure we
+                ui.label("Popup text");
+            });
+
+            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+        });
+
+    Ok(())
 }
