@@ -1,26 +1,22 @@
-use crate::app_settings::AppSettings;
-use crate::app_state::AppState;
-use crate::tile::{TileCache, TileModState, TilePruneState};
-use crate::tiled_image::TiledImage;
+use crate::app::app_settings::AppSettings;
+use crate::app::app_state::AppState;
+use crate::tile_rendering::tile::{TileCache, TileModState, TilePruneState};
+use crate::tile_rendering::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
 use bevy::asset::io::web::WebAssetPlugin;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::winit::WinitSettings;
 use bevy_egui::egui::{Id, Popup};
-use bevy_egui::input::egui_wants_any_keyboard_input;
+use bevy_egui::input::{egui_wants_any_keyboard_input, egui_wants_any_pointer_input};
 use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
 
-mod app_settings;
-mod app_state;
-mod camera_ext;
+mod app;
+mod camera;
 mod iiif;
-mod keyboard_input;
-mod main_camera;
+mod input;
 mod minimap;
-mod mouse_input;
-mod tile;
-mod tiled_image;
+mod tile_rendering;
 
 fn main() {
     App::new()
@@ -46,13 +42,14 @@ fn main() {
             Update,
             ((
                 (
-                    keyboard_input::handle_keyboard_input
+                    input::keyboard::keyboard_input_system
                         .run_if(not(egui_wants_any_keyboard_input)),
-                    mouse_input::handle_mouse_input.run_if(not(egui_wants_any_keyboard_input)),
-                    minimap::on_mouse_click,
-                    tile::on_asset_event,
+                    input::mouse::mouse_input_system.run_if(not(egui_wants_any_pointer_input)),
+                    minimap::mouse_input_system,
+                    tile_rendering::tile::asset_event_system,
                 ),
-                (tile::update_tiles.run_if(resource_changed::<TileModState>)),
+                (tile_rendering::tile::update_tiles_system
+                    .run_if(resource_changed::<TileModState>)),
             )
                 .chain(),),
         )
@@ -60,13 +57,13 @@ fn main() {
         .add_systems(
             PostUpdate,
             (
-                main_camera::handle_translation_bounding,
-                minimap::update_view_rect,
+                camera::main_camera::translation_bounding_system,
+                minimap::update_view_rect_system,
             ),
         )
         .add_systems(
             Last,
-            tile::prune_tiles.run_if(resource_changed::<TilePruneState>),
+            tile_rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
         )
         .run();
 }
@@ -111,7 +108,7 @@ fn setup(mut commands: Commands, window: Single<&mut Window>) {
 
     // Main camera
     commands.spawn((
-        main_camera::MainCamera,
+        camera::main_camera::MainCamera,
         Camera2d,
         Projection::from(OrthographicProjection {
             scale: zoom_scale,

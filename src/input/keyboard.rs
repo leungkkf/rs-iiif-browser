@@ -1,7 +1,10 @@
-use crate::{AppState, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
+use crate::{
+    AppState, camera::main_camera::MainCamera, tile_rendering::tile::TileModState,
+    tile_rendering::tiled_image::TiledImage,
+};
 use bevy::{prelude::*, window::RequestRedraw};
 
-pub(crate) fn handle_keyboard_input(
+pub(crate) fn keyboard_input_system(
     camera: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
     mut app_state: Single<&mut AppState, With<AppState>>,
     tiled_image: Single<&TiledImage>,

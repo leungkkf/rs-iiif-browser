@@ -1,4 +1,7 @@
-use crate::{AppState, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
+use crate::{
+    AppState, camera::main_camera::MainCamera, tile_rendering::tile::TileModState,
+    tile_rendering::tiled_image::TiledImage,
+};
 use bevy::{
     input::mouse::AccumulatedMouseScroll,
     prelude::*,
@@ -6,7 +9,7 @@ use bevy::{
 };
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn handle_mouse_input(
+pub(crate) fn mouse_input_system(
     camera_query: Single<
         (&Camera, &GlobalTransform, &mut Transform, &mut Projection),
         With<MainCamera>,

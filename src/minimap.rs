@@ -1,4 +1,7 @@
-use crate::{camera_ext, main_camera::MainCamera, tile::TileModState, tiled_image::TiledImage};
+use crate::{
+    camera::camera_ext, camera::main_camera::MainCamera, tile_rendering::tile::TileModState,
+    tile_rendering::tiled_image::TiledImage,
+};
 use bevy::{prelude::*, ui::RelativeCursorPosition};
 
 #[derive(Component)]
@@ -91,7 +94,7 @@ fn get_thumbnail_scale_and_offset(image_size: Rect) -> (f32, Vec2) {
     )
 }
 
-pub(crate) fn update_view_rect(
+pub(crate) fn update_view_rect_system(
     mut view_rect: Single<&mut Node, With<MinimapViewRect>>,
     camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
     tiled_image: Single<&TiledImage>,
@@ -129,7 +132,7 @@ pub(crate) fn update_view_rect(
     view_rect.display = Display::Block;
 }
 
-pub(crate) fn on_mouse_click(
+pub(crate) fn mouse_input_system(
     interaction: Single<&Interaction, (Changed<Interaction>, With<MinimapImage>)>,
     mut mouse: ResMut<ButtonInput<MouseButton>>,
     cursor_query: Query<&RelativeCursorPosition>,

@@ -3,7 +3,7 @@ use crate::{
         IiifError,
         image::{IiifFeature, IiifImageFormat, IiifImageInfo},
     },
-    tile::{Tile, TileIndex},
+    tile_rendering::tile::{Tile, TileIndex},
 };
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};

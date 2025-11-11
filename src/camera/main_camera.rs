@@ -1,12 +1,12 @@
 use bevy::prelude::*;
 
-use crate::{camera_ext::get_world_viewport_rect, tiled_image::TiledImage};
+use crate::{camera::camera_ext::get_world_viewport_rect, tile_rendering::tiled_image::TiledImage};
 
 #[derive(Component)]
 pub(crate) struct MainCamera;
 
 /// Keep the image within the viewport.
-pub(crate) fn handle_translation_bounding(
+pub(crate) fn translation_bounding_system(
     camera: Single<(&Camera, &GlobalTransform, &mut Transform), With<MainCamera>>,
     tiled_image: Single<&TiledImage>,
 ) {

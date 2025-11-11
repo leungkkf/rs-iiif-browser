@@ -1,4 +1,4 @@
-use crate::{iiif::IiifError, tiled_image::Size};
+use crate::{iiif::IiifError, tile_rendering::tiled_image::Size};
 use bevy::prelude::debug;
 use core::fmt;
 use serde::{Deserialize, Serialize};

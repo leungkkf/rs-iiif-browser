@@ -1,6 +1,6 @@
 use crate::{
-    AppState, app_settings::AppSettings, camera_ext, main_camera::MainCamera,
-    tiled_image::TiledImage,
+    AppState, app::app_settings::AppSettings, camera::camera_ext, camera::main_camera::MainCamera,
+    tile_rendering::tiled_image::TiledImage,
 };
 use bevy::{asset::LoadState, prelude::*, window::RequestRedraw};
 use std::{collections::HashMap, ops::RangeInclusive};
@@ -119,7 +119,7 @@ fn get_required_tiles(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn update_tiles(
+pub(crate) fn update_tiles_system(
     mut commands: Commands,
     mut tile_cache: ResMut<TileCache>,
     camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
@@ -199,7 +199,7 @@ pub(crate) fn update_tiles(
     redraw_request_writer.write(RequestRedraw);
 }
 
-pub(crate) fn on_asset_event(
+pub(crate) fn asset_event_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     tiles: Query<(Entity, &Tile), With<TileLoading>>,
@@ -247,7 +247,7 @@ pub(crate) fn on_asset_event(
     }
 }
 
-pub(crate) fn prune_tiles(
+pub(crate) fn prune_tiles_system(
     mut commands: Commands,
     mut tile_cache: ResMut<TileCache>,
     camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
