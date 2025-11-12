@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 pub(crate) mod image;
+pub(crate) mod one_or_many;
 pub(crate) mod presentation;
 pub(crate) mod presentation_v2;
 pub(crate) mod presentation_v3;

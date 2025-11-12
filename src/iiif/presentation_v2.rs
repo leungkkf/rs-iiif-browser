@@ -1,4 +1,7 @@
-use crate::iiif::presentation::{Context, Language, OneOrMany, OneTypeOrMany, ViewingDirection};
+use crate::iiif::{
+    one_or_many::{OneOrMany, OneTypeOrMany},
+    presentation::{Context, Language, ViewingDirection},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -53,7 +56,7 @@ pub(crate) struct Thumbnail {
     thumbnail_type: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize)]
 /// Presentation "see also".
 pub(crate) struct SeeAlso {
     #[serde(rename = "@id")]
@@ -62,7 +65,7 @@ pub(crate) struct SeeAlso {
     profile: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 /// Presenation viewing hint.
 pub(crate) enum ViewingHint {
@@ -336,7 +339,7 @@ mod tests {
             presentation_info.id,
             "http://www.example.org/iiif/book1/manifest"
         );
-        let description: Vec<_> = presentation_info.description.as_ref().unwrap().into();
+        let description: Vec<_> = presentation_info.description.unwrap().into_iter().collect();
         assert_eq!(
             description,
             vec![
@@ -344,10 +347,10 @@ mod tests {
             ]
         );
         assert_eq!(presentation_info.label, "Book 1");
-        let license: Vec<_> = presentation_info.license.into();
+        let license: Vec<_> = presentation_info.license.into_iter().collect();
         assert_eq!(license, vec!["http://www.example.org/license.html"]);
         assert!(presentation_info.logo.is_none());
-        let attribution: Vec<_> = presentation_info.attribution.into();
+        let attribution: Vec<_> = presentation_info.attribution.into_iter().collect();
         assert_eq!(attribution, vec!["Provided by Example Organization"]);
 
         let metadata = presentation_info.metadata.as_ref().unwrap();
@@ -369,7 +372,7 @@ mod tests {
             ])
         );
 
-        let see_also: Vec<&SeeAlso> = presentation_info.see_also.as_ref().unwrap().into();
+        let see_also: Vec<_> = presentation_info.see_also.unwrap().into_iter().collect();
 
         assert_eq!(
             see_also[0].id,
@@ -384,7 +387,7 @@ mod tests {
             "http://www.example.org/iiif/book1/range/r1"
         );
         assert_eq!(structures[0].structure_type, PresentationType::Range);
-        let label: Vec<_> = (&structures[0].label).into();
+        let label: Vec<_> = (&structures[0].label).into_iter().collect();
         assert_eq!(label, vec!["Introduction"]);
         assert_eq!(
             structures[0].canvases,
@@ -395,7 +398,7 @@ mod tests {
             ]
         );
 
-        let within: Vec<_> = presentation_info.within.as_ref().unwrap().into();
+        let within: Vec<_> = presentation_info.within.unwrap().into_iter().collect();
         assert_eq!(within, vec!["http://www.example.org/collections/books/"]);
 
         assert_eq!(presentation_info.sequences.len(), 1);
@@ -404,14 +407,14 @@ mod tests {
         assert_eq!(seq.id, "http://www.example.org/iiif/book1/sequence/normal");
         assert_eq!(seq.sequence_type, PresentationType::Sequence);
 
-        let label: Vec<_> = (&seq.label).into();
+        let label: Vec<_> = (&seq.label).into_iter().collect();
         assert_eq!(label, vec!["Current Page Order"]);
 
         let viewing_direction = seq.viewing_direction.as_ref().unwrap();
         assert_eq!(*viewing_direction, ViewingDirection::LeftToRight);
 
-        let viewing_hint: Vec<_> = seq.viewing_hint.clone().unwrap().into();
-        assert_eq!(viewing_hint, vec![ViewingHint::Paged]);
+        let viewing_hint: Vec<_> = seq.viewing_hint.as_ref().unwrap().iter().collect();
+        assert_eq!(viewing_hint, vec![&ViewingHint::Paged]);
 
         assert_eq!(seq.canvases.len(), 3);
 
@@ -425,8 +428,8 @@ mod tests {
             assert_eq!(canvas.canvas_type, PresentationType::Canvas);
             assert_eq!(canvas.height, 1000);
             assert_eq!(canvas.width, 750);
-            let label: Vec<_> = canvas.label.clone().into();
-            assert_eq!(label, vec![format!("p. {num}")]);
+            let label: Vec<_> = canvas.label.iter().collect();
+            assert_eq!(label, vec![&format!("p. {num}")]);
             assert!(canvas.thumbnail.is_none());
 
             assert_eq!(canvas.images.len(), 1);
@@ -536,17 +539,17 @@ mod tests {
             presentation_info.label,
             "Harvard University, Harvard Art Museums, INV204583"
         );
-        let license: Vec<_> = presentation_info.license.clone().into();
+        let license: Vec<_> = presentation_info.license.iter().collect();
         assert_eq!(
             license,
             vec!["https://nrs.harvard.edu/urn-3:HUL.eother:idscopyright"]
         );
-        let logo: Vec<_> = presentation_info.logo.clone().unwrap().into();
+        let logo: Vec<_> = presentation_info.logo.as_ref().unwrap().iter().collect();
         assert_eq!(
             logo,
             vec!["https://iiif.lib.harvard.edu/static/manifests/harvard_logo.jpg"]
         );
-        let attribution: Vec<_> = presentation_info.attribution.clone().into();
+        let attribution: Vec<_> = presentation_info.attribution.iter().collect();
         assert_eq!(attribution, vec!["Provided by Harvard University"]);
 
         assert!(presentation_info.metadata.is_none());
@@ -563,7 +566,7 @@ mod tests {
         );
         assert_eq!(seq.sequence_type, PresentationType::Sequence);
 
-        let label: Vec<_> = seq.label.clone().into();
+        let label: Vec<_> = seq.label.iter().collect();
         assert_eq!(
             label,
             vec!["Harvard University, Harvard Art Museums, INV204583"]
@@ -571,8 +574,8 @@ mod tests {
 
         assert!(seq.viewing_direction.is_none());
 
-        let viewing_hint: Vec<_> = seq.viewing_hint.clone().unwrap().into();
-        assert_eq!(viewing_hint, vec![ViewingHint::Individuals]);
+        let viewing_hint: Vec<_> = seq.viewing_hint.as_ref().unwrap().iter().collect();
+        assert_eq!(viewing_hint, vec![&ViewingHint::Individuals]);
 
         assert_eq!(seq.canvases.len(), 1);
 
@@ -585,7 +588,7 @@ mod tests {
         assert_eq!(canvas.canvas_type, PresentationType::Canvas);
         assert_eq!(canvas.height, 833);
         assert_eq!(canvas.width, 1024);
-        let label: Vec<_> = canvas.label.clone().into();
+        let label: Vec<_> = canvas.label.iter().collect();
         assert_eq!(
             label,
             vec!["Harvard University, Harvard Art Museums, INV204583"]

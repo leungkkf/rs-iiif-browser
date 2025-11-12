@@ -1,37 +1,6 @@
 use crate::iiif::{IiifError, presentation_v2, presentation_v3};
-use bevy::prelude::debug;
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(untagged)]
-/// One object of type "S" or many objects of type "T".
-pub(crate) enum OneOrMany<S, T> {
-    One(S),
-    Many(Vec<T>),
-}
-
-/// One object of type "T" or many objects of type "T".
-pub(crate) type OneTypeOrMany<T> = OneOrMany<T, T>;
-
-/// Convert OneTypeOrMany into a vector of "T".
-impl<T> From<OneTypeOrMany<T>> for Vec<T> {
-    fn from(value: OneOrMany<T, T>) -> Self {
-        match value {
-            OneOrMany::One(v) => vec![v],
-            OneOrMany::Many(vec) => vec,
-        }
-    }
-}
-
-/// Convert &OneTypeOrMany into a vector of &"T".
-impl<'a, T> From<&'a OneTypeOrMany<T>> for Vec<&'a T> {
-    fn from(value: &'a OneOrMany<T, T>) -> Self {
-        match value {
-            OneOrMany::One(v) => vec![v],
-            OneOrMany::Many(vec) => vec.iter().collect(),
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 /// Presentation context.
