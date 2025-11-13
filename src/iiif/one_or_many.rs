@@ -13,50 +13,21 @@ pub(crate) type OneTypeOrMany<T> = OneOrMany<T, T>;
 
 impl<T> OneTypeOrMany<T> {
     /// Return the non-consuming iterator.
-    pub(crate) fn iter(&self) -> OneTypeOrManyIterator<'_, T> {
+    pub(crate) fn iter(&self) -> <&'_ OneTypeOrMany<T> as IntoIterator>::IntoIter {
         self.into_iter()
     }
 }
 
-/// The non-consuming iterator to iterate through the items in OneTypeOrMany.
-pub(crate) enum OneTypeOrManyIterator<'a, T> {
-    /// The One item to be taken.
-    One(Option<&'a T>),
-    ///The iterator of the Many items.
-    Many(std::slice::Iter<'a, T>),
-}
-
-impl<'a, T> OneTypeOrManyIterator<'a, T> {
-    /// Construct the OneTypeOrManyIterator.
-    fn new(data: &'a OneTypeOrMany<T>) -> Self {
-        match data {
-            OneOrMany::One(v) => OneTypeOrManyIterator::One(Some(v)),
-            OneOrMany::Many(v) => OneTypeOrManyIterator::Many(v.iter()),
-        }
-    }
-}
-
-/// Iterator trait for the non-consuming iterator to iterate through the items in OneTypeOrMany.
-/// Implement next by taking the One data or returning the next item from the Many list.
-impl<'a, T> Iterator for OneTypeOrManyIterator<'a, T> {
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            OneTypeOrManyIterator::One(v) => v.take(),
-            OneTypeOrManyIterator::Many(v) => v.next(),
-        }
-    }
-}
-
 /// IntoIterator trait for the non-consuming iterator to iterate through the items in OneTypeOrMany.
-/// Create the OneTypeOrManyIterator for IntoIter.
 impl<'a, T> IntoIterator for &'a OneTypeOrMany<T> {
     type Item = &'a T;
-    type IntoIter = OneTypeOrManyIterator<'a, T>;
+    type IntoIter = Box<dyn Iterator<Item = &'a T> + 'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        OneTypeOrManyIterator::new(self)
+        match self {
+            OneOrMany::One(v) => Box::new(Some(v).into_iter()),
+            OneOrMany::Many(v) => Box::new(v.into_iter()),
+        }
     }
 }
 
