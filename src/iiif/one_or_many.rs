@@ -26,7 +26,7 @@ impl<'a, T> IntoIterator for &'a OneTypeOrMany<T> {
     fn into_iter(self) -> Self::IntoIter {
         match self {
             OneOrMany::One(v) => Box::new(Some(v).into_iter()),
-            OneOrMany::Many(v) => Box::new(v.into_iter()),
+            OneOrMany::Many(v) => Box::new(v.iter()),
         }
     }
 }

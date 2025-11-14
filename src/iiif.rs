@@ -19,4 +19,7 @@ pub enum IiifError {
 
     #[error("IIIF format error")]
     IiifFormatError(String),
+
+    #[error("IIIF unsupported error")]
+    IiifUnsupportedError(String),
 }

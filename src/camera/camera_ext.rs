@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude::{Camera, GlobalTransform, Vec3};
 
 /// Get the viewport rect in world space.
 pub(crate) fn get_world_viewport_rect(

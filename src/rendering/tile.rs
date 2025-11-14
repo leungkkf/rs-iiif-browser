@@ -104,6 +104,10 @@ impl TileCache {
             cache: HashMap::new(),
         }
     }
+
+    pub(crate) fn clear(&mut self) {
+        self.cache.clear();
+    }
 }
 
 fn get_required_tiles(
@@ -199,6 +203,7 @@ pub(crate) fn update_tiles_system(
     redraw_request_writer.write(RequestRedraw);
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn asset_event_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -247,6 +252,7 @@ pub(crate) fn asset_event_system(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn prune_tiles_system(
     mut commands: Commands,
     mut tile_cache: ResMut<TileCache>,

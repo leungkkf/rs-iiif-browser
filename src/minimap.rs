@@ -14,11 +14,7 @@ const BORDER_SIZE: f32 = 2.0;
 const MINIMAP_SIZE: f32 = 200.0;
 const THUMBNAIL_SIZE: f32 = MINIMAP_SIZE - 2.0 * BORDER_SIZE;
 
-pub(crate) fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    tiled_image: Single<&TiledImage>,
-) {
+pub(crate) fn setup(mut commands: Commands) {
     let container = Node {
         width: Val::Percent(100.0),
         height: Val::Percent(100.0),
@@ -38,30 +34,15 @@ pub(crate) fn setup(
         },
     );
 
-    let (thumbnail_url, thumbnail_size) = tiled_image.get_image_thumbnail(256);
-    let (thumbnail_scale, offset) =
-        get_thumbnail_scale_and_offset(Rect::from_corners(Vec2::ZERO, thumbnail_size));
-    let thumbnail_rect = Rect::from_corners(
-        Vec2::ZERO + offset,
-        thumbnail_size * thumbnail_scale + offset,
-    );
-
     let thumbnail_image = (
         MinimapImage,
         Button,
         RelativeCursorPosition::default(),
         Node {
-            left: Val::Px(thumbnail_rect.min.x),
-            top: Val::Px(thumbnail_rect.min.y),
-            width: Val::Px(thumbnail_rect.width()),
-            height: Val::Px(thumbnail_rect.height()),
             position_type: PositionType::Absolute,
             ..default()
         },
-        ImageNode {
-            image: asset_server.load(thumbnail_url),
-            ..default()
-        },
+        ImageNode::default(),
     );
 
     let view_rect = (
@@ -80,6 +61,31 @@ pub(crate) fn setup(
         container,
         children![(thumbnail_container, children![thumbnail_image, view_rect])],
     ));
+}
+
+pub(crate) fn on_add_image(
+    add: On<Add, TiledImage>,
+    minimap_image_query: Single<(&mut ImageNode, &mut Node), With<MinimapImage>>,
+    tiled_image: Single<&TiledImage>,
+    asset_server: Res<AssetServer>,
+) {
+    info!("Tiled image added (Minimap). {:?}", add.entity);
+
+    let (thumbnail_url, thumbnail_size) = tiled_image.get_image_thumbnail(256);
+    let (thumbnail_scale, offset) =
+        get_thumbnail_scale_and_offset(Rect::from_corners(Vec2::ZERO, thumbnail_size));
+    let thumbnail_rect = Rect::from_corners(
+        Vec2::ZERO + offset,
+        thumbnail_size * thumbnail_scale + offset,
+    );
+
+    let (mut minimap_image, mut minimap_node) = minimap_image_query.into_inner();
+
+    minimap_image.image = asset_server.load(thumbnail_url);
+    minimap_node.left = Val::Px(thumbnail_rect.min.x);
+    minimap_node.top = Val::Px(thumbnail_rect.min.y);
+    minimap_node.width = Val::Px(thumbnail_rect.width());
+    minimap_node.height = Val::Px(thumbnail_rect.height());
 }
 
 fn get_thumbnail_scale_and_offset(image_size: Rect) -> (f32, Vec2) {

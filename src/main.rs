@@ -1,21 +1,23 @@
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
+use crate::presentation::presentation_info::PresentationInfo;
 use crate::rendering::tile::{TileCache, TileModState, TilePruneState};
 use crate::rendering::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
 use bevy::asset::io::web::WebAssetPlugin;
+use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
-use bevy::window::PrimaryWindow;
+use bevy::render::render_resource::BlendState;
 use bevy::winit::WinitSettings;
-use bevy_egui::egui::{Id, Popup};
 use bevy_egui::input::{egui_wants_any_keyboard_input, egui_wants_any_pointer_input};
-use bevy_egui::{EguiContexts, EguiPlugin, EguiPrimaryContextPass, egui};
+use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, PrimaryEguiContext};
 
 mod app;
 mod camera;
 mod iiif;
 mod input;
 mod minimap;
+mod presentation;
 mod rendering;
 
 fn main() {
@@ -37,7 +39,16 @@ fn main() {
         .add_plugins(EguiPlugin::default())
         // Desktop mode to reduce CPU usage.
         .insert_resource(WinitSettings::desktop_app())
-        .add_systems(Startup, (setup, minimap::setup).chain())
+        .add_systems(
+            Startup,
+            (
+                setup,
+                minimap::setup,
+                presentation::ui::setup,
+                setup_initial_presentation,
+            )
+                .chain(),
+        )
         .add_systems(
             Update,
             ((
@@ -52,7 +63,10 @@ fn main() {
             )
                 .chain(),),
         )
-        .add_systems(EguiPrimaryContextPass, ui_example_system)
+        .add_systems(
+            EguiPrimaryContextPass,
+            presentation::ui::presentation_ui_system,
+        )
         .add_systems(
             PostUpdate,
             (
@@ -64,16 +78,20 @@ fn main() {
             Last,
             rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
         )
+        .add_observer(rendering::tiled_image::on_remove_image)
+        .add_observer(rendering::tiled_image::on_add_image)
+        .add_observer(minimap::on_add_image)
         .run();
 }
 
 /// Set up the camera.
-fn setup(mut commands: Commands, window: Single<&mut Window>) {
-    let image = TiledImage::build(
-        "https://nationalmuseumse.iiifhosting.com/iiif".into(),
-        "6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee".into(),
-    )
-    .unwrap();
+fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSettings>) -> Result {
+    // Disable the automatic creation of a primary context to set it up manually for the camera we need.
+    egui_global_settings.auto_create_primary_context = false;
+
+    // let image = TiledImage::build(
+    //     "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
+    // )?;
 
     // let image = TiledImage::build(
     //     "https://iiif.wellcomecollection.org/thumbs".into(),
@@ -100,34 +118,17 @@ fn setup(mut commands: Commands, window: Single<&mut Window>) {
     // )
     // .unwrap();
 
-    let world_max_rect = image.get_world_max_size_rect();
-    let zoom = Vec2::new(world_max_rect.width(), world_max_rect.height()) / window.size();
-    let zoom_scale = zoom.max_element();
-    let initial_level = image.get_level_at(zoom_scale);
-
     // Main camera
-    commands.spawn((
-        camera::main_camera::MainCamera,
-        Camera2d,
-        Projection::from(OrthographicProjection {
-            scale: zoom_scale,
-            ..OrthographicProjection::default_2d()
-        }),
-        Transform::from_xyz(
-            world_max_rect.width() / 2.0,
-            -world_max_rect.height() / 2.0,
-            0.0,
-        ),
-    ));
+    commands.spawn((camera::main_camera::MainCamera, Camera2d));
 
     // Image.
-    commands.spawn(image);
+    // commands.spawn(image);
 
     // Tile cache resource.
     commands.insert_resource(TileCache::new());
 
     // App state.
-    commands.spawn(AppState::new(initial_level));
+    commands.spawn(AppState::new(0));
 
     // Tile mod state.
     commands.insert_resource(TileModState::new());
@@ -137,31 +138,44 @@ fn setup(mut commands: Commands, window: Single<&mut Window>) {
 
     // Tile mod state.
     commands.insert_resource(TilePruneState::new());
+
+    // Egui camera.
+    commands.spawn((
+        // The `PrimaryEguiContext` component requires everything needed to render a primary context.
+        PrimaryEguiContext,
+        Camera2d,
+        // Setting RenderLayers to none makes sure we won't render anything apart from the UI.
+        RenderLayers::none(),
+        Camera {
+            order: 1,
+            output_mode: bevy::camera::CameraOutputMode::Write {
+                blend_state: Some(BlendState::ALPHA_BLENDING),
+                clear_color: ClearColorConfig::None,
+            },
+            clear_color: ClearColorConfig::Custom(Color::NONE),
+            ..default()
+        },
+    ));
+
+    Ok(())
 }
 
-fn ui_example_system(
-    mut contexts: EguiContexts,
-    _window: Single<&mut Window, With<PrimaryWindow>>,
-) -> Result {
-    let ctx = contexts.ctx_mut()?;
+fn setup_initial_presentation(mut commands: Commands) -> Result {
+    let presentation =
+        PresentationInfo::build("https://iiif.lib.harvard.edu/manifests/ids:11927378")?;
+    // let presentation =
+    //     PresentationInfo::build("https://iiif.harvardartmuseums.org/manifests/object/323250")?;
 
-    // egui::Window::new("Hello").show(ctx, |ui| {
-    //     ui.label("world");
-    // });
+    let image = TiledImage::build(
+        &presentation.sequences[0].canvases[0].images[0]
+            .resource
+            .service
+            .id,
+    )?;
 
-    egui::TopBottomPanel::top("top_panel")
-        .frame(egui::Frame::NONE)
-        .show_separator_line(false)
-        .show(ctx, |ui| {
-            let response = ui.label("Top panel");
+    commands.spawn(presentation);
 
-            Popup::menu(&response).id(Id::new("menu")).show(|ui| {
-                ui.set_max_width(200.0); // To make sure we
-                ui.label("Popup text");
-            });
-
-            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        });
+    commands.spawn(image);
 
     Ok(())
 }

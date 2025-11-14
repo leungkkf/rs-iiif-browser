@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::prelude::{Camera, Component, GlobalTransform, Rect, Single, Transform, Vec2, With};
 
 use crate::{camera::camera_ext::get_world_viewport_rect, rendering::tiled_image::TiledImage};
 

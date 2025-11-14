@@ -1,5 +1,5 @@
 use crate::iiif::{IiifError, presentation_v2, presentation_v3};
-use bevy::prelude::*;
+use bevy::prelude::debug;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

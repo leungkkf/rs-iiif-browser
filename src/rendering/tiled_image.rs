@@ -1,11 +1,22 @@
 use crate::{
+    app::app_state::AppState,
+    camera::main_camera::MainCamera,
     iiif::{
         IiifError,
         image::{IiifFeature, IiifImageFormat, IiifImageInfo},
     },
-    rendering::tile::{Tile, TileIndex},
+    minimap::MinimapImage,
+    rendering::tile::{Tile, TileCache, TileIndex, TileModState},
 };
-use bevy::prelude::*;
+use bevy::{
+    image::TRANSPARENT_IMAGE_HANDLE,
+    prelude::{
+        Add, Commands, Component, Entity, MessageWriter, On, Projection, Query, Rect, Remove,
+        ResMut, Result, Single, Transform, Vec2, Vec3, With, info,
+    },
+    ui::widget::ImageNode,
+    window::{RequestRedraw, Window},
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, ops::RangeInclusive};
 
@@ -27,13 +38,72 @@ impl Size {
     }
 }
 
+pub(crate) fn on_remove_image(
+    remove: On<Remove, TiledImage>,
+    mut commands: Commands,
+    tiles: Query<(Entity, &Tile), With<Tile>>,
+    mut tile_cache: ResMut<TileCache>,
+    mut tile_mod_state: ResMut<TileModState>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
+    mut minimap_image: Single<&mut ImageNode, With<MinimapImage>>,
+) -> Result {
+    info!("Tiled image removed (tiled_image). {:?}", remove.entity);
+
+    tile_cache.clear();
+    for (tile_entity, _tile) in tiles {
+        commands.entity(tile_entity).despawn();
+    }
+
+    minimap_image.image = TRANSPARENT_IMAGE_HANDLE;
+
+    tile_mod_state.invalidate();
+    redraw_request_writer.write(RequestRedraw);
+
+    Ok(())
+}
+
+pub(crate) fn on_add_image(
+    add: On<Add, TiledImage>,
+    tiled_image: Single<&TiledImage>,
+    window: Single<&mut Window>,
+    camera_query: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
+    mut app_state: Single<&mut AppState>,
+    mut tile_mod_state: ResMut<TileModState>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
+) -> Result {
+    info!("Tiled image added (tiled_image). {:?}", add.entity);
+
+    let (mut transform, mut projection) = camera_query.into_inner();
+
+    let Projection::Orthographic(orthogonal) = projection.as_mut() else {
+        return Ok(());
+    };
+
+    let world_max_rect = tiled_image.get_world_max_size_rect();
+    let zoom = Vec2::new(world_max_rect.width(), world_max_rect.height()) / window.size();
+    let zoom_scale = zoom.max_element();
+    let initial_level = tiled_image.get_level_at(zoom_scale);
+
+    app_state.level = initial_level;
+    orthogonal.scale = zoom_scale;
+
+    transform.translation = Vec3::new(
+        world_max_rect.width() / 2.0,
+        -world_max_rect.height() / 2.0,
+        0.0,
+    );
+
+    tile_mod_state.invalidate();
+    redraw_request_writer.write(RequestRedraw);
+
+    Ok(())
+}
+
 /// Image.
 #[derive(Component)]
 pub(crate) struct TiledImage {
-    /// IFFF URL, e.g. "https://stacks.stanford.edu/image/iiif"
+    /// IFFF URL, e.g. "https://stacks.stanford.edu/image/iiif/hg676jb4964%2F0380_796-44"
     iiif_endpoint: String,
-    /// IFFF UUID, e.g. "hg676jb4964%2F0380_796-44"
-    uuid: String,
     /// The number of levels and sizes.
     levels: Vec<Size>,
     /// Tile size.
@@ -50,7 +120,6 @@ impl TiledImage {
     /// Create a new image.
     fn new(
         iiif_endpoint: String,
-        uuid: String,
         tile_size: Size,
         levels: Vec<Size>,
         image_format: IiifImageFormat,
@@ -59,7 +128,6 @@ impl TiledImage {
     ) -> Self {
         Self {
             iiif_endpoint,
-            uuid,
             tile_size,
             levels,
             image_format,
@@ -69,12 +137,9 @@ impl TiledImage {
     }
 
     /// Create the image from the IFFF image info URL.
-    pub(crate) fn build(
-        iiif_endpoint: String,
-        uuid: String,
-    ) -> core::result::Result<Self, IiifError> {
+    pub(crate) fn build(iiif_endpoint: &str) -> core::result::Result<Self, IiifError> {
         // Fetch IIIF image info.json.
-        let url = TiledImage::get_image_info_url(&iiif_endpoint, &uuid);
+        let url = TiledImage::get_image_info_url(iiif_endpoint);
         let iiif_image_info = IiifImageInfo::from_url(&url)?;
 
         // Important profile info.
@@ -115,8 +180,7 @@ impl TiledImage {
             .to_owned();
 
         Ok(TiledImage::new(
-            iiif_endpoint,
-            uuid,
+            iiif_endpoint.to_string(),
             tile_size,
             levels,
             image_format,
@@ -303,7 +367,6 @@ impl TiledImage {
     /// Get the image URL.
     fn get_image_url(&self, left: u32, top: u32, width: u32, height: u32, size: Size) -> String {
         let iif_endpoint = &self.iiif_endpoint;
-        let uuid = &self.uuid;
         let image_format = &self.image_format;
         let max_size = self.get_max_size();
 
@@ -317,12 +380,12 @@ impl TiledImage {
         let size = format!("{},{}", size.width, size.height);
 
         // E.g. "https://stacks.stanford.edu/image/iiif/hg676jb4964%2F0380_796-44/{},{},{},{}/pct:25/0/default.png"
-        format!("{iif_endpoint}/{uuid}/{region}/{size}/0/default.{image_format}")
+        format!("{iif_endpoint}/{region}/{size}/0/default.{image_format}")
     }
 
     /// Get the image info end point.
-    fn get_image_info_url(iif_endpoint: &str, uuid: &str) -> String {
-        format!("{iif_endpoint}/{uuid}/info.json")
+    fn get_image_info_url(iif_endpoint: &str) -> String {
+        format!("{iif_endpoint}/info.json")
     }
 }
 
@@ -339,8 +402,7 @@ mod tests {
         supported_features.insert(IiifFeature::SizeByWhListed);
 
         TiledImage::new(
-            "https://iif_end_point".into(),
-            "uuid".into(),
+            "https://iif_end_point/uuid".into(),
             Size::new(TILE_SIZE as u32, TILE_SIZE as u32),
             vec![
                 Size::new(678, 478),
@@ -608,7 +670,7 @@ mod tests {
     #[test]
     fn test_get_image_info_url() {
         assert_eq!(
-            TiledImage::get_image_info_url("https://example.com", "uuid"),
+            TiledImage::get_image_info_url("https://example.com/uuid"),
             "https://example.com/uuid/info.json"
         );
     }
