@@ -79,6 +79,7 @@ fn main() {
             rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
         )
         .add_observer(rendering::tiled_image::on_remove_image)
+        .add_observer(minimap::on_remove_image)
         .add_observer(rendering::tiled_image::on_add_image)
         .add_observer(minimap::on_add_image)
         .run();
@@ -88,35 +89,6 @@ fn main() {
 fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSettings>) -> Result {
     // Disable the automatic creation of a primary context to set it up manually for the camera we need.
     egui_global_settings.auto_create_primary_context = false;
-
-    // let image = TiledImage::build(
-    //     "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
-    // )?;
-
-    // let image = TiledImage::build(
-    //     "https://iiif.wellcomecollection.org/thumbs".into(),
-    //     "b20432033_B0008608.JP2".into(),
-    // )
-    // .unwrap();
-
-    // let image = TiledImage::build(
-    //     "https://api.nga.gov/iiif".into(),
-    //     "99758d9d-c10b-4d02-a198-7e49afb1f3a6".into(),
-    // )
-    // .unwrap();
-
-    // let image = TiledImage::build(
-    //     "https://mps.lib.harvard.edu/assets/images".into(),
-    //     "VPAL.HARVARDONLINE:cellxeukcell".into(),
-    // )
-    // .unwrap();
-
-    // This is version 3.
-    // let image = TiledImage::build(
-    //     "https://research.ng-london.org.uk/iiif-int/pics/pyrByDate/2010/03/04".into(),
-    //     "N-0728-00-000035-PYR.tif".into(),
-    // )
-    // .unwrap();
 
     // Main camera
     commands.spawn((camera::main_camera::MainCamera, Camera2d));
@@ -161,6 +133,35 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
 }
 
 fn setup_initial_presentation(mut commands: Commands) -> Result {
+    // let image = TiledImage::build(
+    //     "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
+    // )?;
+
+    // let image = TiledImage::build(
+    //     "https://iiif.wellcomecollection.org/thumbs".into(),
+    //     "b20432033_B0008608.JP2".into(),
+    // )
+    // .unwrap();
+
+    // let image = TiledImage::build(
+    //     "https://api.nga.gov/iiif".into(),
+    //     "99758d9d-c10b-4d02-a198-7e49afb1f3a6".into(),
+    // )
+    // .unwrap();
+
+    // let image = TiledImage::build(
+    //     "https://mps.lib.harvard.edu/assets/images".into(),
+    //     "VPAL.HARVARDONLINE:cellxeukcell".into(),
+    // )
+    // .unwrap();
+
+    // This is version 3.
+    // let image = TiledImage::build(
+    //     "https://research.ng-london.org.uk/iiif-int/pics/pyrByDate/2010/03/04".into(),
+    //     "N-0728-00-000035-PYR.tif".into(),
+    // )
+    // .unwrap();
+
     let presentation =
         PresentationInfo::build("https://iiif.lib.harvard.edu/manifests/ids:11927378")?;
     // let presentation =

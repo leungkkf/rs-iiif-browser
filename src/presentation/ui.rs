@@ -15,9 +15,11 @@ pub(crate) struct UIState {
     current_sequence: usize,
 }
 
+/// Set up egui.
 pub(crate) fn setup(mut contexts: EguiContexts) -> Result {
     let ctx = contexts.ctx_mut()?;
 
+    // Set up image loaders for the thumbnails.
     egui_extras::install_image_loaders(ctx);
     Ok(())
 }

@@ -2,7 +2,12 @@ use crate::{
     AppState, camera::main_camera::MainCamera, rendering::tile::TileModState,
     rendering::tiled_image::TiledImage,
 };
-use bevy::{prelude::*, window::RequestRedraw};
+use bevy::{
+    prelude::{
+        ButtonInput, KeyCode, MessageWriter, Projection, Res, ResMut, Single, Transform, Vec3, With,
+    },
+    window::RequestRedraw,
+};
 
 pub(crate) fn keyboard_input_system(
     camera: Single<(&mut Transform, &mut Projection), With<MainCamera>>,

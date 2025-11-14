@@ -4,7 +4,10 @@ use crate::{
 };
 use bevy::{
     input::mouse::AccumulatedMouseScroll,
-    prelude::*,
+    prelude::{
+        ButtonInput, Camera, GlobalTransform, Local, MessageWriter, MouseButton, Projection, Res,
+        ResMut, Single, Time, Transform, Vec2, Vec3, Window, With,
+    },
     window::{PrimaryWindow, RequestRedraw},
 };
 

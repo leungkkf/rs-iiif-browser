@@ -2,7 +2,18 @@ use crate::{
     camera::camera_ext, camera::main_camera::MainCamera, rendering::tile::TileModState,
     rendering::tiled_image::TiledImage,
 };
-use bevy::{prelude::*, ui::RelativeCursorPosition};
+use bevy::{
+    image::TRANSPARENT_IMAGE_HANDLE,
+    prelude::{
+        Add, AlignSelf, AssetServer, BackgroundColor, BorderColor, Button, ButtonInput, Camera,
+        Changed, Color, Commands, Component, Display, GlobalTransform, ImageNode, Interaction,
+        JustifyContent, MessageWriter, MouseButton, Node, On, PositionType, Query, Rect, Remove,
+        Res, ResMut, Result, Single, SpawnRelated, Transform, UiRect, Val, Vec2, With, children,
+        default, info,
+    },
+    ui::RelativeCursorPosition,
+    window::RequestRedraw,
+};
 
 #[derive(Component)]
 pub(crate) struct MinimapViewRect;
@@ -14,6 +25,7 @@ const BORDER_SIZE: f32 = 2.0;
 const MINIMAP_SIZE: f32 = 200.0;
 const THUMBNAIL_SIZE: f32 = MINIMAP_SIZE - 2.0 * BORDER_SIZE;
 
+/// Set up the minimap using Bevy UI.
 pub(crate) fn setup(mut commands: Commands) {
     let container = Node {
         width: Val::Percent(100.0),
@@ -63,13 +75,31 @@ pub(crate) fn setup(mut commands: Commands) {
     ));
 }
 
+/// Trigged when the tiled image is removed to clean up.
+pub(crate) fn on_remove_image(
+    remove: On<Remove, TiledImage>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
+    mut minimap_image: Single<&mut ImageNode, With<MinimapImage>>,
+) -> Result {
+    info!("Tiled image removed (minimap). {:?}", remove.entity);
+
+    // Clean up the minimap.
+    minimap_image.image = TRANSPARENT_IMAGE_HANDLE;
+
+    // Trigger an update.
+    redraw_request_writer.write(RequestRedraw);
+
+    Ok(())
+}
+
+/// Triggered when tiled image is added to update the minimap.
 pub(crate) fn on_add_image(
     add: On<Add, TiledImage>,
     minimap_image_query: Single<(&mut ImageNode, &mut Node), With<MinimapImage>>,
     tiled_image: Single<&TiledImage>,
     asset_server: Res<AssetServer>,
 ) {
-    info!("Tiled image added (Minimap). {:?}", add.entity);
+    info!("Tiled image added (minimap). {:?}", add.entity);
 
     let (thumbnail_url, thumbnail_size) = tiled_image.get_image_thumbnail(256);
     let (thumbnail_scale, offset) =
@@ -100,6 +130,7 @@ fn get_thumbnail_scale_and_offset(image_size: Rect) -> (f32, Vec2) {
     )
 }
 
+/// Update the main camera rect in the minimap.
 pub(crate) fn update_view_rect_system(
     mut view_rect: Single<&mut Node, With<MinimapViewRect>>,
     camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
@@ -138,6 +169,7 @@ pub(crate) fn update_view_rect_system(
     view_rect.display = Display::Block;
 }
 
+/// Handle the mouse events of the minimap.
 pub(crate) fn mouse_input_system(
     interaction: Single<&Interaction, (Changed<Interaction>, With<MinimapImage>)>,
     mut mouse: ResMut<ButtonInput<MouseButton>>,

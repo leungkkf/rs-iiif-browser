@@ -38,6 +38,7 @@ impl Size {
     }
 }
 
+/// Trigged when the tiled image is removed to clean up and despawn related entities.
 pub(crate) fn on_remove_image(
     remove: On<Remove, TiledImage>,
     mut commands: Commands,
@@ -49,6 +50,7 @@ pub(crate) fn on_remove_image(
 ) -> Result {
     info!("Tiled image removed (tiled_image). {:?}", remove.entity);
 
+    // Remove tile cache and despawn the tile entities.
     tile_cache.clear();
     for (tile_entity, _tile) in tiles {
         commands.entity(tile_entity).despawn();
@@ -56,6 +58,7 @@ pub(crate) fn on_remove_image(
 
     minimap_image.image = TRANSPARENT_IMAGE_HANDLE;
 
+    // Trigger an update.
     tile_mod_state.invalidate();
     redraw_request_writer.write(RequestRedraw);
 
