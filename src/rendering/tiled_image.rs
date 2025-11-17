@@ -5,16 +5,13 @@ use crate::{
         IiifError,
         image::{IiifFeature, IiifImageFormat, IiifImageInfo},
     },
-    minimap::MinimapImage,
-    rendering::tile::{Tile, TileCache, TileIndex, TileModState},
+    rendering::tile::{Tile, TileIndex, TileModState},
 };
 use bevy::{
-    image::TRANSPARENT_IMAGE_HANDLE,
     prelude::{
-        Add, Commands, Component, Entity, MessageWriter, On, Projection, Query, Rect, Remove,
-        ResMut, Result, Single, Transform, Vec2, Vec3, With, info,
+        Add, Component, MessageWriter, On, Projection, Rect, ResMut, Result, Single, Transform,
+        Vec2, Vec3, With, info,
     },
-    ui::widget::ImageNode,
     window::{RequestRedraw, Window},
 };
 use serde::{Deserialize, Serialize};
@@ -36,33 +33,6 @@ impl Size {
     pub(crate) fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
-}
-
-/// Trigged when the tiled image is removed to clean up and despawn related entities.
-pub(crate) fn on_remove_image(
-    remove: On<Remove, TiledImage>,
-    mut commands: Commands,
-    tiles: Query<(Entity, &Tile), With<Tile>>,
-    mut tile_cache: ResMut<TileCache>,
-    mut tile_mod_state: ResMut<TileModState>,
-    mut redraw_request_writer: MessageWriter<RequestRedraw>,
-    mut minimap_image: Single<&mut ImageNode, With<MinimapImage>>,
-) -> Result {
-    info!("Tiled image removed (tiled_image). {:?}", remove.entity);
-
-    // Remove tile cache and despawn the tile entities.
-    tile_cache.clear();
-    for (tile_entity, _tile) in tiles {
-        commands.entity(tile_entity).despawn();
-    }
-
-    minimap_image.image = TRANSPARENT_IMAGE_HANDLE;
-
-    // Trigger an update.
-    tile_mod_state.invalidate();
-    redraw_request_writer.write(RequestRedraw);
-
-    Ok(())
 }
 
 pub(crate) fn on_add_image(

@@ -18,6 +18,7 @@ mod iiif;
 mod input;
 mod minimap;
 mod presentation;
+mod rdf;
 mod rendering;
 
 fn main() {
@@ -78,7 +79,7 @@ fn main() {
             Last,
             rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
         )
-        .add_observer(rendering::tiled_image::on_remove_image)
+        .add_observer(rendering::tile::on_remove_image)
         .add_observer(minimap::on_remove_image)
         .add_observer(rendering::tiled_image::on_add_image)
         .add_observer(minimap::on_add_image)

@@ -6,9 +6,9 @@ use bevy::{
     asset::LoadState,
     prelude::{
         AssetServer, Assets, Camera, Color, ColorMaterial, Commands, Component, Entity,
-        GlobalTransform, Handle, Mesh, Mesh2d, MeshMaterial2d, MessageWriter, Query, Rect,
-        Rectangle, Res, ResMut, Resource, Single, Time, Transform, Vec2, Vec3, Visibility, With,
-        debug, default, warn,
+        GlobalTransform, Handle, Mesh, Mesh2d, MeshMaterial2d, MessageWriter, On, Query, Rect,
+        Rectangle, Remove, Res, ResMut, Resource, Result, Single, Time, Transform, Vec2, Vec3,
+        Visibility, With, debug, default, info, warn,
     },
     window::RequestRedraw,
 };
@@ -338,4 +338,28 @@ pub(crate) fn prune_tiles_system(
             commands.entity(cache_item.entity).despawn();
         }
     }
+}
+
+/// Trigged when the tiled image is removed to clean up and despawn related entities.
+pub(crate) fn on_remove_image(
+    remove: On<Remove, TiledImage>,
+    mut commands: Commands,
+    tiles: Query<(Entity, &Tile), With<Tile>>,
+    mut tile_cache: ResMut<TileCache>,
+    mut tile_mod_state: ResMut<TileModState>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
+) -> Result {
+    info!("Tiled image removed (tile). {:?}", remove.entity);
+
+    // Remove tile cache and despawn the tile entities.
+    tile_cache.clear();
+    for (tile_entity, _tile) in tiles {
+        commands.entity(tile_entity).despawn();
+    }
+
+    // Trigger an update.
+    tile_mod_state.invalidate();
+    redraw_request_writer.write(RequestRedraw);
+
+    Ok(())
 }
