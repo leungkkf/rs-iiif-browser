@@ -1,10 +1,7 @@
+use crate::rdf;
 use thiserror::Error;
 
 pub(crate) mod image;
-pub(crate) mod one_or_many;
-pub(crate) mod presentation;
-pub(crate) mod presentation_v2;
-pub(crate) mod presentation_v3;
 
 #[derive(Error, Debug)]
 pub enum IiifError {
@@ -14,12 +11,23 @@ pub enum IiifError {
     #[error("serde_json deserialization error")]
     Deserialization(#[from] serde_json::Error),
 
-    #[error("IIIF missing info")]
+    #[error("IIIF missing info {0}")]
     IiifMissingInfo(String),
 
-    #[error("IIIF format error")]
+    #[error("IIIF format error {0}")]
     IiifFormatError(String),
 
-    #[error("IIIF unsupported error")]
-    IiifUnsupportedError(String),
+    // #[error("IIIF unsupported error {0}")]
+    // IiifUnsupportedError(String),
+    #[error("std io error")]
+    IiifStdIoError(#[from] std::io::Error),
+
+    #[error("sophia rdf dataset error")]
+    IiifRdfDatasetError(#[from] rdf::dataset_ext::RdfError),
+
+    #[error("sophia invalid iri error")]
+    IiifInvalidIri(#[from] sophia::iri::InvalidIri),
+
+    #[error("IIIF parse int error {0}")]
+    IiifParseIntError(#[from] std::num::ParseIntError),
 }

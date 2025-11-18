@@ -1,6 +1,6 @@
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
-use crate::presentation::presentation_info::PresentationInfo;
+use crate::presentation::manifest::Manifest;
 use crate::rendering::tile::{TileCache, TileModState, TilePruneState};
 use crate::rendering::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
@@ -163,10 +163,10 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     // )
     // .unwrap();
 
-    let presentation =
-        PresentationInfo::build("https://iiif.lib.harvard.edu/manifests/ids:11927378")?;
     // let presentation =
-    //     PresentationInfo::build("https://iiif.harvardartmuseums.org/manifests/object/323250")?;
+    //     PresentationInfo::build("https://iiif.lib.harvard.edu/manifests/ids:11927378")?;
+    let presentation =
+        Manifest::try_from_url("https://iiif.harvardartmuseums.org/manifests/object/323250")?;
 
     let image = TiledImage::build(
         &presentation.sequences[0].canvases[0].images[0]

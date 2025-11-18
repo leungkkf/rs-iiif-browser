@@ -1,2 +1,2 @@
-pub(crate) mod presentation_info;
+pub(crate) mod manifest;
 pub(crate) mod ui;

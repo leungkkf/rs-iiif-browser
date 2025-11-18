@@ -1,3 +1,5 @@
+pub(crate) mod dataset_ext;
+
 pub(crate) mod iiif_present2 {
     use sophia::api::namespace;
 
@@ -8,15 +10,15 @@ pub(crate) mod iiif_present2 {
         HasParts,
         HasCollections,
         HasManifests,
-        HasSequences,
-        HasCanvases,
+        hasSequences,
+        hasCanvases,
         HasAnnotations,
-        HasImageAnnotations,
+        hasImageAnnotations,
         HasLists,
         HasRanges,
         MetadataLabels,
         PresentationDate,
-        AttributionLabel,
+        attributionLabel,
         ViewingDirection,
         ViewingHint,
         LeftToRightDirection,
@@ -29,7 +31,8 @@ pub(crate) mod iiif_present2 {
         IndividualsHint,
         TopHint,
         MultiPartHint,
-        FacingPagesHint
+        FacingPagesHint,
+        Sequence
     );
 }
 
@@ -88,7 +91,7 @@ pub(crate) mod iiif_present3 {
 pub(crate) mod exif {
     use sophia::api::namespace;
 
-    namespace!("http://www.w3.org/2003/12/exif/ns#", Height, Width);
+    namespace!("http://www.w3.org/2003/12/exif/ns#", height, width);
 }
 
 pub(crate) mod oa {
@@ -99,7 +102,7 @@ pub(crate) mod oa {
         Annotation,
         Selector,
         MotivatedBy,
-        HasBody,
+        hasBody,
         HasTarget,
         HasSource,
         HasSelector,
@@ -129,9 +132,9 @@ pub(crate) mod dc {
 
     namespace!(
         "http://purl.org/dc/elements/1.1/",
-        Format,
+        format,
         Language,
-        Description
+        description
     );
 }
 
@@ -142,7 +145,7 @@ pub(crate) mod dcterms {
         "http://purl.org/dc/terms/",
         IsPartOf,
         Agent,
-        Rights,
+        rights,
         ConformsTo,
         HasFormat,
         Relation
@@ -158,7 +161,7 @@ pub(crate) mod doap {
 pub(crate) mod foaf {
     use sophia::api::namespace;
 
-    namespace!("http://xmlns.com/foaf/0.1/", Logo, Homepage);
+    namespace!("http://xmlns.com/foaf/0.1/", logo, Homepage, thumbnail);
 }
 
 pub(crate) mod xsd {
@@ -170,7 +173,7 @@ pub(crate) mod xsd {
 pub(crate) mod svcs {
     use sophia::api::namespace;
 
-    namespace!("http://rdfs.org/sioc/services#", Has_Service);
+    namespace!("http://rdfs.org/sioc/services#", has_service);
 }
 
 pub(crate) mod acts {
