@@ -2,6 +2,7 @@ use crate::rdf;
 use thiserror::Error;
 
 pub(crate) mod image;
+pub(crate) mod manifest;
 
 #[derive(Error, Debug)]
 pub enum IiifError {
