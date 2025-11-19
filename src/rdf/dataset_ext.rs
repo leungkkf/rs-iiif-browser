@@ -173,12 +173,32 @@ mod tests {
 
     #[test]
     fn test_objects_iter() {
-        let url = "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee/info.json";
+        let json = r#"{
+            "@context" : "http://iiif.io/api/image/2/context.json",
+            "@id" : "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
+            "protocol" : "http://iiif.io/api/image",
+            "width" : 7045,
+            "height" : 5785,
+            "sizes" : [
+                { "width" : 220, "height" : 180 },
+                { "width" : 440, "height" : 361 },
+                { "width" : 880, "height" : 723 }
+            ],
+            "tiles" : [
+                { "width" : 256, "height" : 256, "scaleFactors" : [ 1, 2, 4, 8, 16, 32 ] }
+            ],
+            "profile" : [
+                "http://iiif.io/api/image/2/level1.json",
+                { "formats" : [ "jpg" ],
+                "qualities" : [ "native","color","gray" ],
+                "supports" : ["regionByPct","regionSquare","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring"] }
+            ]
+            }"#;
         let ns = Namespace::new_unchecked(
             "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
         );
         let subject = ns.get_unchecked("");
-        let dataset = DatasetExt::<FastDataset>::try_from_url(url).unwrap();
+        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
         let mut width_u32 = Vec::new();
 
         for size_object in dataset.objects_iter([subject], [rdf::iiif_image2::hasSize]) {
@@ -192,13 +212,33 @@ mod tests {
 
     #[test]
     fn test_get_objects_as() {
-        let url = "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee/info.json";
+        let json = r#"{
+            "@context" : "http://iiif.io/api/image/2/context.json",
+            "@id" : "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
+            "protocol" : "http://iiif.io/api/image",
+            "width" : 7045,
+            "height" : 5785,
+            "sizes" : [
+                { "width" : 220, "height" : 180 },
+                { "width" : 440, "height" : 361 },
+                { "width" : 880, "height" : 723 }
+            ],
+            "tiles" : [
+                { "width" : 256, "height" : 256, "scaleFactors" : [ 1, 2, 4, 8, 16, 32 ] }
+            ],
+            "profile" : [
+                "http://iiif.io/api/image/2/level1.json",
+                { "formats" : [ "jpg" ],
+                "qualities" : [ "native","color","gray" ],
+                "supports" : ["regionByPct","regionSquare","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring"] }
+            ]
+            }"#;
         let ns = Namespace::new_unchecked(
             "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
         );
         let subject = ns.get_unchecked("");
 
-        let dataset = DatasetExt::<FastDataset>::try_from_url(url).unwrap();
+        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
         let mut width_string = Vec::new();
         let mut width_u32 = Vec::new();
         let mut height_string = Vec::new();
