@@ -1,7 +1,16 @@
-use crate::{iiif::IiifError, rendering::tiled_image::Size};
+use crate::{
+    iiif::IiifError,
+    rdf::{self, dataset_ext::DatasetExt},
+    rendering::tiled_image::Size,
+};
 use bevy::prelude::debug;
 use core::fmt;
 use serde::{Deserialize, Serialize};
+use sophia::{
+    api::{dataset::CollectibleDataset, ns::NsTerm, term::Term},
+    iri::IriRef,
+};
+use std::{num::ParseIntError, str::FromStr};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct IiifImageInfo {
@@ -47,7 +56,19 @@ impl Default for IiifProfileDetails {
 }
 
 impl IiifProfileDetails {
-    fn from_url(url: &str) -> core::result::Result<IiifProfileDetails, IiifError> {
+    pub(crate) fn new(
+        formats: Vec<IiifImageFormat>,
+        qualities: Vec<IiifImageQuality>,
+        supports: Vec<IiifFeature>,
+    ) -> Self {
+        Self {
+            formats,
+            qualities,
+            supports,
+        }
+    }
+
+    pub(crate) fn from_url(url: &str) -> core::result::Result<IiifProfileDetails, IiifError> {
         let profile = match url {
             "http://iiif.io/api/image/2/level0.json" => Self {
                 formats: vec![IiifImageFormat::Jpg],
@@ -126,6 +147,40 @@ pub(crate) enum IiifFeature {
     SizeByDistortedWh,
 }
 
+impl std::str::FromStr for IiifFeature {
+    type Err = IiifError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match (s) {
+            "baseUriRedirect" => Ok(IiifFeature::BaseUriRedirect),
+            "canonicalLinkHeader" => Ok(IiifFeature::CanonicalLinkHeader),
+            "cors" => Ok(IiifFeature::Cors),
+            "jsonldMediaType" => Ok(IiifFeature::JsonldMediaType),
+            "mirroring" => Ok(IiifFeature::Mirroring),
+            "profileLinkHeader" => Ok(IiifFeature::ProfileLinkHeader),
+            "regionByPct" => Ok(IiifFeature::RegionByPct),
+            "regionByPx" => Ok(IiifFeature::RegionByPx),
+            "regionSquare" => Ok(IiifFeature::RegionSquare),
+            "rotationArbitrary" => Ok(IiifFeature::RotationArbitrary),
+            "rotationBy90s" => Ok(IiifFeature::RotationBy90s),
+            "sizeByConfinedWh" => Ok(IiifFeature::SizeByConfinedWh),
+            "sizeByH" => Ok(IiifFeature::SizeByH),
+            "sizeByPct" => Ok(IiifFeature::SizeByPct),
+            "sizeByW" => Ok(IiifFeature::SizeByW),
+            "sizeByWh" => Ok(IiifFeature::SizeByWh),
+            "sizeUpscaling" => Ok(IiifFeature::SizeUpscaling),
+            "sizeByWhListed" => Ok(IiifFeature::SizeByWhListed), // Deprecated.
+            "sizeByForcedWh" => Ok(IiifFeature::SizeByForcedWh), // Deprecated.
+            "sizeAboveFull" => Ok(IiifFeature::SizeAboveFull),   // Deprecated.
+            "sizeByDistortedWh" => Ok(IiifFeature::SizeByDistortedWh),
+            _ => Err(IiifError::IiifFormatError(format!(
+                "failed to convert '{}' to IiifFeature",
+                s
+            ))),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum IiifImageQuality {
@@ -148,6 +203,23 @@ impl fmt::Display for IiifImageQuality {
     }
 }
 
+impl std::str::FromStr for IiifImageQuality {
+    type Err = IiifError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "default" => Ok(IiifImageQuality::Default),
+            "bitonal" => Ok(IiifImageQuality::Bitonal),
+            "color" => Ok(IiifImageQuality::Color),
+            "gray" => Ok(IiifImageQuality::Gray),
+            _ => Err(IiifError::IiifFormatError(format!(
+                "failed to convert '{}' to IiifImageQuality",
+                s
+            ))),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum IiifImageFormat {
@@ -164,6 +236,23 @@ impl fmt::Display for IiifImageFormat {
             IiifImageFormat::Png => write!(f, "png"),
             IiifImageFormat::Tif => write!(f, "tif"),
             IiifImageFormat::Gif => write!(f, "gif"),
+        }
+    }
+}
+
+impl std::str::FromStr for IiifImageFormat {
+    type Err = IiifError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "jpg" => Ok(IiifImageFormat::Jpg),
+            "png" => Ok(IiifImageFormat::Png),
+            "tif" => Ok(IiifImageFormat::Tif),
+            "gif" => Ok(IiifImageFormat::Gif),
+            _ => Err(IiifError::IiifFormatError(format!(
+                "failed to convert '{}' to IiifImageFormat",
+                s
+            ))),
         }
     }
 }
@@ -199,6 +288,119 @@ impl IiifImageInfo {
         iiif_image_info.expanded_profiles = expanded_profiles;
 
         Ok(iiif_image_info)
+    }
+
+    pub(crate) fn try_from_database<T: CollectibleDataset>(
+        iiif_endpoint: &str,
+        dataset: &DatasetExt<T>,
+    ) -> core::result::Result<(), IiifError> {
+        let subject = NsTerm::new_unchecked(IriRef::new_unchecked(iiif_endpoint), "");
+
+        let profile_details = dataset
+            .objects_iter([subject], [rdf::doap::implements])
+            .map(|profile_object| {
+                let profile_object = &profile_object?;
+
+                match profile_object.kind() {
+                    sophia::api::term::TermKind::Iri => Ok(IiifProfileDetails::from_url(
+                        &profile_object
+                            .iri()
+                            .ok_or(IiifError::IiifFormatError(format!(
+                                "failed to get profile url at '{}'",
+                                iiif_endpoint
+                            )))?
+                            .to_string(),
+                    )?),
+                    sophia::api::term::TermKind::BlankNode => {
+                        let qualities: Vec<IiifImageQuality> = dataset
+                            .get_objects_as([profile_object], [rdf::iiif_image2::quality])?;
+                        let formats: Vec<IiifImageFormat> =
+                            dataset.get_objects_as([profile_object], [rdf::iiif_image2::format])?;
+                        let supports: Vec<IiifFeature> = dataset
+                            .get_objects_as([profile_object], [rdf::iiif_image2::supports])?;
+
+                        Ok(IiifProfileDetails::new(formats, qualities, supports))
+                    }
+                    _ => {
+                        return Err(IiifError::IiifFormatError(format!(
+                            "unexpected term kind in image profile {:?}",
+                            profile_object.kind()
+                        )));
+                    }
+                }
+            })
+            .collect::<Result<Vec<IiifProfileDetails>, IiifError>>()?;
+
+        let image_width = dataset
+            .get_objects_as::<_, _, u32>([subject], [rdf::exif::width])?
+            .first()
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "missing width in '{}'",
+                iiif_endpoint
+            )))?;
+        let image_height = dataset
+            .get_objects_as::<_, _, u32>([subject], [rdf::exif::height])?
+            .first()
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "missing width in '{}'",
+                iiif_endpoint
+            )))?;
+
+        let tile_object = dataset
+            .objects_iter([subject], [rdf::iiif_image2::hasTile])
+            .next();
+        let tile_size: Size;
+
+        if let Some(tile_object) = tile_object {
+            let tile_object = &tile_object?;
+            let width = dataset
+                .get_objects_as::<_, _, u32>([tile_object], [rdf::exif::width])?
+                .first()
+                .cloned();
+
+            let height = dataset
+                .get_objects_as::<_, _, u32>([tile_object], [rdf::exif::height])?
+                .first()
+                .cloned();
+
+            // let width = width.or(height);
+            // let height = height.or(width);
+
+            tile_size = Size::new(width.unwrap_or(512), height.unwrap_or(512));
+
+            let scaling_factors: Vec<u32> =
+                dataset.get_objects_as([tile_object], [rdf::iiif_image2::scaleFactor])?;
+        } else {
+            tile_size = Size::new(512, 512);
+        }
+
+        let image_sizes = dataset
+            .objects_iter([subject], [rdf::iiif_image2::hasSize])
+            .map(|x| {
+                let x = &x?;
+
+                let width = dataset
+                    .get_objects_as::<_, _, u32>([x], [rdf::exif::width])?
+                    .first()
+                    .cloned()
+                    .ok_or(IiifError::IiifMissingInfo(format!(
+                        "missing height in image size in '{}'",
+                        iiif_endpoint
+                    )));
+                let height = dataset
+                    .get_objects_as::<_, _, u32>([x], [rdf::exif::height])?
+                    .first()
+                    .cloned()
+                    .ok_or(IiifError::IiifMissingInfo(format!(
+                        "missing height in image size in '{}'",
+                        iiif_endpoint
+                    )));
+
+                return Ok(Size::new(width?, height?));
+            })
+            .collect::<Result<Vec<Size>, IiifError>>()?;
+
+        Ok(())
     }
 
     /// Get tile size.

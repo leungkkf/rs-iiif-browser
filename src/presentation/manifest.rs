@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy::prelude::Component;
 use sophia::{
-    api::{dataset::CollectibleDataset, ns::NsTerm},
+    api::{dataset::CollectibleDataset, ns::NsTerm, prelude::Any, term::SimpleTerm},
     inmem::dataset::FastDataset,
     iri::IriRef,
 };
@@ -53,36 +53,31 @@ impl Image {
         let image_bodies_subject = NsTerm::new_unchecked(IriRef::new_unchecked(image_body), "");
 
         let image_service = dataset
-            .get_objects_as_string([image_bodies_subject], [rdf::svcs::has_service])?
+            .get_objects_as([image_bodies_subject], [rdf::svcs::has_service])?
             .first()
             .cloned()
             .ok_or(IiifError::IiifMissingInfo(
                 "Missing service in image".into(),
             ))?;
         let image_width = dataset
-            .get_objects_as_string([image_bodies_subject], [rdf::exif::width])?
+            .get_objects_as([image_bodies_subject], [rdf::exif::width])?
             .first()
             .cloned()
             .ok_or(IiifError::IiifMissingInfo("Missing width in image".into()))?;
         let image_height = dataset
-            .get_objects_as_string([image_bodies_subject], [rdf::exif::height])?
+            .get_objects_as([image_bodies_subject], [rdf::exif::height])?
             .first()
             .cloned()
             .ok_or(IiifError::IiifMissingInfo("Missing height in image".into()))?;
         let image_format = dataset
-            .get_objects_as_string([image_bodies_subject], [rdf::dc::format])?
+            .get_objects_as([image_bodies_subject], [rdf::dc::format])?
             .first()
             .cloned()
             .unwrap_or_default();
 
         let service = Service::new(image_service);
 
-        let resource = Resource::new(
-            image_format,
-            service,
-            image_width.parse()?,
-            image_height.parse()?,
-        );
+        let resource = Resource::new(image_format, service, image_width, image_height);
 
         Ok(Self::new(resource))
     }
@@ -124,50 +119,52 @@ impl Canvas {
     }
 
     fn try_from_dataset<T: CollectibleDataset>(
-        canvas: &str,
+        canvs_subject: &SimpleTerm,
         dataset: &DatasetExt<T>,
     ) -> Result<Self, IiifError> {
-        let canvs_subject = NsTerm::new_unchecked(IriRef::new_unchecked(canvas), "");
-
         let canvas_width = dataset
-            .get_objects_as_string([canvs_subject], [rdf::exif::width])?
+            .get_objects_as([canvs_subject], [rdf::exif::width])?
             .first()
             .cloned()
-            .ok_or(IiifError::IiifMissingInfo("Missing width in canvas".into()))?;
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "Missing width in canvas in subject '{:?}'",
+                canvs_subject
+            )))?;
         let canvas_height = dataset
-            .get_objects_as_string([canvs_subject], [rdf::exif::height])?
+            .get_objects_as([canvs_subject], [rdf::exif::height])?
             .first()
             .cloned()
-            .ok_or(IiifError::IiifMissingInfo(
-                "Missing height in canvas".into(),
-            ))?;
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "Missing height in canvas in subject '{:?}'",
+                canvs_subject
+            )))?;
         let canvas_label =
-            dataset.get_objects_as_string([canvs_subject], [sophia::api::ns::rdfs::label])?;
+            dataset.get_objects_as([canvs_subject], [sophia::api::ns::rdfs::label])?;
         let canvas_thumbnail = dataset
-            .get_objects_as_string([canvs_subject], [rdf::foaf::thumbnail])?
+            .get_objects_as([canvs_subject], [rdf::foaf::thumbnail])?
             .first()
             .cloned()
             .map(|x| Thumbnail::new(x));
 
         let mut images = Vec::new();
 
-        for image_annotation in dataset
-            .get_children_as_string([canvs_subject], [rdf::iiif_present2::hasImageAnnotations])?
+        for image_annotation_node in
+            dataset.objects_iter([canvs_subject], [rdf::iiif_present2::hasImageAnnotations])
         {
-            let image_annotation_subject =
-                NsTerm::new_unchecked(IriRef::new_unchecked(&image_annotation), "");
-
-            for image_body in
-                dataset.get_objects_as_string([image_annotation_subject], [rdf::oa::hasBody])?
-            {
-                images.push(Image::try_from_dataset(&image_body, &dataset)?);
+            for image_annotation_subject in dataset.objects_iter([image_annotation_node?], Any) {
+                for image_body in dataset.get_objects_as::<_, _, String>(
+                    [image_annotation_subject?],
+                    [rdf::oa::hasBody],
+                )? {
+                    images.push(Image::try_from_dataset(&image_body, &dataset)?);
+                }
             }
         }
 
         Ok(Self::new(
             canvas_label,
-            canvas_width.parse()?,
-            canvas_height.parse()?,
+            canvas_width,
+            canvas_height,
             images,
             canvas_thumbnail,
         ))
@@ -185,19 +182,20 @@ impl Sequence {
     }
 
     fn try_from_dataset<T: CollectibleDataset>(
-        sequence: &str,
+        sequence_subject: &SimpleTerm,
         dataset: &DatasetExt<T>,
     ) -> Result<Self, IiifError> {
-        let sequence_subject = NsTerm::new_unchecked(IriRef::new_unchecked(sequence), "");
         let sequence_label =
-            dataset.get_objects_as_string([sequence_subject], [sophia::api::ns::rdfs::label])?;
+            dataset.get_objects_as([sequence_subject], [sophia::api::ns::rdfs::label])?;
 
         let mut canvases = Vec::new();
 
-        for canvas in
-            dataset.get_children_as_string([sequence_subject], [rdf::iiif_present2::hasCanvases])?
+        for canvas_node in
+            dataset.objects_iter([sequence_subject], [rdf::iiif_present2::hasCanvases])
         {
-            canvases.push(Canvas::try_from_dataset(&canvas, &dataset)?);
+            for canvas in dataset.objects_iter([canvas_node?], Any) {
+                canvases.push(Canvas::try_from_dataset(&canvas?, &dataset)?);
+            }
         }
 
         Ok(Sequence::new(sequence_label, canvases))
@@ -249,20 +247,22 @@ impl Manifest {
         let subject = NsTerm::new_unchecked(IriRef::new_unchecked(manifest), "");
 
         let title = dataset
-            .get_objects_as_string([subject], [sophia::api::ns::rdfs::label])?
+            .get_objects_as([subject], [sophia::api::ns::rdfs::label])?
             .first()
             .cloned()
             .unwrap_or_default();
         let attribution =
-            dataset.get_objects_as_string([subject], [rdf::iiif_present2::attributionLabel])?;
-        let license = dataset.get_objects_as_string([subject], [rdf::dcterms::rights])?;
-        let description = dataset.get_objects_as_string([subject], [rdf::dc::description])?;
-        let logo: Vec<_> = dataset.get_objects_as_string([subject], [rdf::foaf::logo])?;
+            dataset.get_objects_as([subject], [rdf::iiif_present2::attributionLabel])?;
+        let license = dataset.get_objects_as([subject], [rdf::dcterms::rights])?;
+        let description = dataset.get_objects_as([subject], [rdf::dc::description])?;
+        let logo = dataset.get_objects_as([subject], [rdf::foaf::logo])?;
 
         let mut sequences = Vec::new();
 
-        for seq in dataset.get_children_as_string([subject], [rdf::iiif_present2::hasSequences])? {
-            sequences.push(Sequence::try_from_dataset(&seq, &dataset)?);
+        for seq_node in dataset.objects_iter([subject], [rdf::iiif_present2::hasSequences]) {
+            for seq_subject in dataset.objects_iter([seq_node?], Any) {
+                sequences.push(Sequence::try_from_dataset(&seq_subject?, &dataset)?);
+            }
         }
 
         Ok(Manifest::new(

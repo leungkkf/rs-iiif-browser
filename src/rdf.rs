@@ -1,5 +1,19 @@
 pub(crate) mod dataset_ext;
 
+pub(crate) mod iiif_image2 {
+    use sophia::api::namespace;
+
+    namespace!(
+        "http://iiif.io/api/image/2#",
+        hasSize,
+        quality,
+        format,
+        supports,
+        hasTile,
+        scaleFactor
+    );
+}
+
 pub(crate) mod iiif_present2 {
     use sophia::api::namespace;
 
@@ -155,7 +169,7 @@ pub(crate) mod dcterms {
 pub(crate) mod doap {
     use sophia::api::namespace;
 
-    namespace!("http://usefulinc.com/ns/doap#", Implements);
+    namespace!("http://usefulinc.com/ns/doap#", implements);
 }
 
 pub(crate) mod foaf {
