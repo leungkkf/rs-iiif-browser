@@ -41,14 +41,14 @@ pub(crate) fn presentation_ui_system(
             add_text(
                 ui,
                 "title".to_string(),
-                &presentation.title,
+                presentation.get_title(),
                 Some(Color32::WHITE),
                 2,
             );
             add_text(
                 ui,
                 "desc".to_string(),
-                &presentation.description.join("\n"),
+                &presentation.get_description().join("\n"),
                 None,
                 3,
             );
@@ -57,14 +57,14 @@ pub(crate) fn presentation_ui_system(
                 "attribution".to_string(),
                 &format!(
                     "© {} ({})",
-                    &presentation.attribution.join(","),
-                    &presentation.license.join(",")
+                    &presentation.get_attribution().join(","),
+                    &presentation.get_license().join(",")
                 ),
                 None,
                 3,
             );
 
-            for logo in &presentation.logo {
+            for logo in presentation.get_logo() {
                 bevy_egui::egui::Image::new(logo)
                     .max_width(32.0)
                     .max_height(32.0)

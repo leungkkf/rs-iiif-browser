@@ -4,11 +4,11 @@ use bevy::prelude::Component;
 #[derive(Component)]
 /// Presentation manifest.
 pub(crate) struct Manifest {
-    pub(crate) title: String,
-    pub(crate) attribution: Vec<String>,
-    pub(crate) description: Vec<String>,
-    pub(crate) license: Vec<String>,
-    pub(crate) logo: Vec<String>,
+    title: String,
+    attribution: Vec<String>,
+    description: Vec<String>,
+    license: Vec<String>,
+    logo: Vec<String>,
     pub(crate) sequences: Vec<Sequence>,
 }
 
@@ -36,6 +36,26 @@ impl Manifest {
         let iiif_manifest = iiif::manifest::Manifest::try_from_url(url)?;
 
         Ok(Manifest::from(iiif_manifest))
+    }
+
+    pub(crate) fn get_title(&self) -> &str {
+        &self.title
+    }
+
+    pub(crate) fn get_attribution(&self) -> &Vec<String> {
+        &self.attribution
+    }
+
+    pub(crate) fn get_description(&self) -> &Vec<String> {
+        &self.description
+    }
+
+    pub(crate) fn get_license(&self) -> &Vec<String> {
+        &self.license
+    }
+
+    pub(crate) fn get_logo(&self) -> &Vec<String> {
+        &self.logo
     }
 }
 
