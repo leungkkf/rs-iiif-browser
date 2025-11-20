@@ -1,6 +1,7 @@
 use crate::{
     iiif::IiifError,
     rdf::{self, dataset_ext::DatasetExt},
+    rendering::tiled_image::TiledImage,
 };
 use bevy::prelude::Component;
 use sophia::{
@@ -245,6 +246,16 @@ impl Manifest {
         for seq_node in dataset.objects_iter([id_subject], [rdf::iiif_present2::hasSequences]) {
             for seq_subject in dataset.objects_iter([seq_node?], Any) {
                 sequences.push(Sequence::try_from_dataset(&seq_subject?, dataset)?);
+            }
+        }
+
+        for seq in sequences.iter_mut() {
+            for canvas in seq.canvases.iter_mut() {
+                if canvas.thumbnail.is_none() {
+                    let image = TiledImage::try_from_url(&canvas.images[0].resource.service.id)?;
+
+                    canvas.thumbnail = Some(Thumbnail::new(image.get_image_thumbnail(64).0));
+                }
             }
         }
 

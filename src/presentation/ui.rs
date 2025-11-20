@@ -45,31 +45,38 @@ pub(crate) fn presentation_ui_system(
                 Some(Color32::WHITE),
                 2,
             );
-            add_text(
-                ui,
-                "desc".to_string(),
-                &presentation.get_description().join("\n"),
-                None,
-                3,
-            );
-            add_text(
-                ui,
-                "attribution".to_string(),
-                &format!(
-                    "© {} ({})",
-                    &presentation.get_attribution().join(","),
-                    &presentation.get_license().join(",")
-                ),
-                None,
-                3,
-            );
+            if !presentation.get_description().is_empty() {
+                add_text(
+                    ui,
+                    "desc".to_string(),
+                    &presentation.get_description().join("\n"),
+                    None,
+                    3,
+                );
+            }
+
+            let license = if !presentation.get_license().is_empty() {
+                format!("(© {})", &presentation.get_license().join(","))
+            } else {
+                "".into()
+            };
+            let attribution = presentation.get_attribution().join(",");
+
+            if !license.is_empty() || !attribution.is_empty() {
+                add_text(
+                    ui,
+                    "attribution".to_string(),
+                    &format!("{} {}", attribution, license),
+                    None,
+                    3,
+                );
+            }
 
             for logo in presentation.get_logo() {
-                bevy_egui::egui::Image::new(logo)
-                    .max_width(32.0)
-                    .max_height(32.0)
-                    .ui(ui);
+                ui.add_space(6.0);
+                bevy_egui::egui::Image::new(logo).max_height(64.0).ui(ui);
             }
+            ui.add_space(6.0);
 
             egui::ComboBox::from_id_salt("Sequences")
                 .selected_text(
@@ -90,7 +97,7 @@ pub(crate) fn presentation_ui_system(
 
             ui.separator();
 
-            egui::ScrollArea::vertical().show(ui, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| -> Result {
                 for (index, canvas) in presentation.get_sequences()[ui_state.current_sequence]
                     .canvases
                     .iter()
@@ -120,11 +127,12 @@ pub(crate) fn presentation_ui_system(
                         }
 
                         let image =
-                            TiledImage::build(&canvas.images[0].resource.service.id).unwrap();
+                            TiledImage::try_from_url(&canvas.images[0].resource.service.id)?;
 
                         commands.spawn(image);
                     }
                 }
+                Ok(())
             });
 
             // ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());

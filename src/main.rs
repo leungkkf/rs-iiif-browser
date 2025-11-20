@@ -164,11 +164,14 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     // .unwrap();
 
     // let presentation =
-    //     PresentationInfo::build("https://iiif.lib.harvard.edu/manifests/ids:11927378")?;
-    let presentation =
-        Manifest::try_from_url("https://iiif.harvardartmuseums.org/manifests/object/323250")?;
+    //     Manifest::try_from_url("https://iiif.lib.harvard.edu/manifests/ids:11927378")?;
+    // let presentation =
+    //     Manifest::try_from_url("https://iiif.harvardartmuseums.org/manifests/object/323250")?;
 
-    let image = TiledImage::build(
+    let presentation =
+        Manifest::try_from_url("https://purl.stanford.edu/sr294cr5852/iiif/manifest")?;
+
+    let image = TiledImage::try_from_url(
         &presentation.get_sequences()[0].canvases[0].images[0]
             .resource
             .service
