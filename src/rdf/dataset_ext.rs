@@ -84,13 +84,9 @@ where
             ))
         })?;
 
-        for subject in dataset.subjects() {
-            println!("subject {:?}", subject.unwrap().as_simple());
-        }
-
-        for quad in dataset.quads() {
-            println!("SPOG {:?}", quad.unwrap().to_spog());
-        }
+        // for quad in dataset.quads() {
+        //     println!("SPOG {:?}", quad.unwrap().to_spog());
+        // }
 
         Ok(DatasetExt::new(json_ld.id, dataset))
     }

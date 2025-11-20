@@ -5,31 +5,28 @@ use crate::{
 };
 use bevy::prelude::debug;
 use core::fmt;
-use serde::{Deserialize, Serialize};
 use sophia::{
     api::{
         dataset::CollectibleDataset,
         term::{SimpleTerm, Term},
     },
     inmem::dataset::FastDataset,
+    iri::IriRef,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct IiifImageInfo {
     pub(crate) width: u32,
     pub(crate) height: u32,
     pub(crate) sizes: Option<Vec<Size>>,
     pub(crate) tiles: Option<Vec<IiifTileInfo>>,
-    pub(crate) profile: Vec<IiifProfileInfo>,
-    #[serde(skip_deserializing)]
     pub(crate) expanded_profiles: Vec<IiifProfileDetails>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub(crate) struct IiifTileInfo {
     pub(crate) width: u32,
     pub(crate) height: Option<u32>,
-    #[serde(rename(deserialize = "scaleFactors"))]
     pub(crate) scale_factors: Vec<u32>,
 }
 
@@ -63,14 +60,7 @@ impl IiifTileInfo {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub(crate) enum IiifProfileInfo {
-    Url(String),
-    ProfileDetails(IiifProfileDetails),
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct IiifProfileDetails {
     pub(crate) formats: Vec<IiifImageFormat>,
     pub(crate) qualities: Vec<IiifImageQuality>,
@@ -167,8 +157,7 @@ impl IiifProfileDetails {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Hash, Eq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub(crate) enum IiifFeature {
     BaseUriRedirect,
     CanonicalLinkHeader,
@@ -197,6 +186,8 @@ impl std::str::FromStr for IiifFeature {
     type Err = IiifError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = IriRef::new_unchecked(s);
+
         if rdf::iiif_image2::baseUriRedirectFeature == s {
             Ok(IiifFeature::BaseUriRedirect)
         } else if rdf::iiif_image2::canonicalLinkHeaderFeature == s {
@@ -248,8 +239,7 @@ impl std::str::FromStr for IiifFeature {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum IiifImageQuality {
     Color,
     Gray,
@@ -288,8 +278,7 @@ impl std::str::FromStr for IiifImageQuality {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum IiifImageFormat {
     Jpg,
     Png,
@@ -430,7 +419,6 @@ impl IiifImageInfo {
         Ok(IiifImageInfo {
             height: image_height,
             width: image_width,
-            profile: Vec::new(),
             sizes: image_sizes,
             tiles: tile_info,
             expanded_profiles: profile_details,
@@ -610,11 +598,6 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 0,
             width: 0,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
             tiles: None,
             sizes: None,
             expanded_profiles: Vec::new(),
@@ -626,11 +609,6 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 0,
             width: 0,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
             tiles: Some(vec![IiifTileInfo {
                 width: 100,
                 height: Some(110),
@@ -646,11 +624,6 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 0,
             width: 0,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
             tiles: Some(vec![IiifTileInfo {
                 width: 100,
                 height: None,
@@ -669,11 +642,6 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 20,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
             tiles: None,
             sizes: None,
             expanded_profiles: Vec::new(),
@@ -685,11 +653,6 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 20,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
             tiles: None,
             sizes: Some(vec![
                 Size::new(440, 361),
@@ -716,11 +679,6 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 20,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Png],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
             tiles: None,
             sizes: None,
             expanded_profiles: vec![IiifProfileDetails {
@@ -739,11 +697,6 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 10,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
             tiles: Some(vec![IiifTileInfo {
                 width: 100,
                 height: None,
