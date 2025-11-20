@@ -53,26 +53,18 @@ impl Image {
         let image_bodies_subject = NsTerm::new_unchecked(IriRef::new_unchecked(image_body), "");
 
         let image_service = dataset
-            .get_objects_as([image_bodies_subject], [rdf::svcs::has_service])?
-            .first()
-            .cloned()
+            .get_first_object_cloned_as([image_bodies_subject], [rdf::svcs::has_service])?
             .ok_or(IiifError::IiifMissingInfo(
                 "Missing service in image".into(),
             ))?;
         let image_width = dataset
-            .get_objects_as([image_bodies_subject], [rdf::exif::width])?
-            .first()
-            .cloned()
+            .get_first_object_cloned_as([image_bodies_subject], [rdf::exif::width])?
             .ok_or(IiifError::IiifMissingInfo("Missing width in image".into()))?;
         let image_height = dataset
-            .get_objects_as([image_bodies_subject], [rdf::exif::height])?
-            .first()
-            .cloned()
+            .get_first_object_cloned_as([image_bodies_subject], [rdf::exif::height])?
             .ok_or(IiifError::IiifMissingInfo("Missing height in image".into()))?;
         let image_format = dataset
-            .get_objects_as([image_bodies_subject], [rdf::dc::format])?
-            .first()
-            .cloned()
+            .get_first_object_cloned_as([image_bodies_subject], [rdf::dc::format])?
             .unwrap_or_default();
 
         let service = Service::new(image_service);
@@ -123,17 +115,13 @@ impl Canvas {
         dataset: &DatasetExt<T>,
     ) -> Result<Self, IiifError> {
         let canvas_width = dataset
-            .get_objects_as([canvs_subject], [rdf::exif::width])?
-            .first()
-            .cloned()
+            .get_first_object_cloned_as([canvs_subject], [rdf::exif::width])?
             .ok_or(IiifError::IiifMissingInfo(format!(
                 "Missing width in canvas in subject '{:?}'",
                 canvs_subject
             )))?;
         let canvas_height = dataset
-            .get_objects_as([canvs_subject], [rdf::exif::height])?
-            .first()
-            .cloned()
+            .get_first_object_cloned_as([canvs_subject], [rdf::exif::height])?
             .ok_or(IiifError::IiifMissingInfo(format!(
                 "Missing height in canvas in subject '{:?}'",
                 canvs_subject
@@ -141,10 +129,8 @@ impl Canvas {
         let canvas_label =
             dataset.get_objects_as([canvs_subject], [sophia::api::ns::rdfs::label])?;
         let canvas_thumbnail = dataset
-            .get_objects_as([canvs_subject], [rdf::foaf::thumbnail])?
-            .first()
-            .cloned()
-            .map(|x| Thumbnail::new(x));
+            .get_first_object_cloned_as([canvs_subject], [rdf::foaf::thumbnail])?
+            .map(Thumbnail::new);
 
         let mut images = Vec::new();
 
@@ -156,7 +142,7 @@ impl Canvas {
                     [image_annotation_subject?],
                     [rdf::oa::hasBody],
                 )? {
-                    images.push(Image::try_from_dataset(&image_body, &dataset)?);
+                    images.push(Image::try_from_dataset(&image_body, dataset)?);
                 }
             }
         }
@@ -194,7 +180,7 @@ impl Sequence {
             dataset.objects_iter([sequence_subject], [rdf::iiif_present2::hasCanvases])
         {
             for canvas in dataset.objects_iter([canvas_node?], Any) {
-                canvases.push(Canvas::try_from_dataset(&canvas?, &dataset)?);
+                canvases.push(Canvas::try_from_dataset(&canvas?, dataset)?);
             }
         }
 
@@ -236,32 +222,29 @@ impl Manifest {
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
         let dataset = DatasetExt::<FastDataset>::try_from_url(url).unwrap();
 
-        Self::try_from_dataset(url, &dataset)
+        Self::try_from_dataset(&dataset)
     }
 
     /// Try to create the manifest from the RDF database.
     pub(crate) fn try_from_dataset<T: CollectibleDataset>(
-        manifest: &str,
         dataset: &DatasetExt<T>,
     ) -> core::result::Result<Self, IiifError> {
-        let subject = NsTerm::new_unchecked(IriRef::new_unchecked(manifest), "");
+        let id_subject = dataset.id();
 
         let title = dataset
-            .get_objects_as([subject], [sophia::api::ns::rdfs::label])?
-            .first()
-            .cloned()
+            .get_first_object_cloned_as([id_subject], [sophia::api::ns::rdfs::label])?
             .unwrap_or_default();
         let attribution =
-            dataset.get_objects_as([subject], [rdf::iiif_present2::attributionLabel])?;
-        let license = dataset.get_objects_as([subject], [rdf::dcterms::rights])?;
-        let description = dataset.get_objects_as([subject], [rdf::dc::description])?;
-        let logo = dataset.get_objects_as([subject], [rdf::foaf::logo])?;
+            dataset.get_objects_as([id_subject], [rdf::iiif_present2::attributionLabel])?;
+        let license = dataset.get_objects_as([id_subject], [rdf::dcterms::rights])?;
+        let description = dataset.get_objects_as([id_subject], [rdf::dc::description])?;
+        let logo = dataset.get_objects_as([id_subject], [rdf::foaf::logo])?;
 
         let mut sequences = Vec::new();
 
-        for seq_node in dataset.objects_iter([subject], [rdf::iiif_present2::hasSequences]) {
+        for seq_node in dataset.objects_iter([id_subject], [rdf::iiif_present2::hasSequences]) {
             for seq_subject in dataset.objects_iter([seq_node?], Any) {
-                sequences.push(Sequence::try_from_dataset(&seq_subject?, &dataset)?);
+                sequences.push(Sequence::try_from_dataset(&seq_subject?, dataset)?);
             }
         }
 
@@ -282,7 +265,6 @@ mod tests {
 
     #[test]
     fn test() {
-        let url = "https://iiif.lib.harvard.edu/manifests/ids:11927378";
         let json = r#"{
           "@context": "http://iiif.io/api/presentation/2/context.json",
           "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378",
@@ -335,7 +317,7 @@ mod tests {
           ]
         }"#;
         let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
-        let manifest = Manifest::try_from_dataset(url, &dataset).unwrap();
+        let manifest = Manifest::try_from_dataset(&dataset).unwrap();
 
         assert_eq!(manifest.attribution, vec!["Provided by Harvard University"]);
         assert_eq!(

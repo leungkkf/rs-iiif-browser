@@ -9,7 +9,7 @@ pub(crate) struct Manifest {
     description: Vec<String>,
     license: Vec<String>,
     logo: Vec<String>,
-    pub(crate) sequences: Vec<Sequence>,
+    sequences: Vec<Sequence>,
 }
 
 impl Manifest {
@@ -56,6 +56,10 @@ impl Manifest {
 
     pub(crate) fn get_logo(&self) -> &Vec<String> {
         &self.logo
+    }
+
+    pub(crate) fn get_sequences(&self) -> &Vec<Sequence> {
+        &self.sequences
     }
 }
 

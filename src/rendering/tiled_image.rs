@@ -113,7 +113,8 @@ impl TiledImage {
     pub(crate) fn build(iiif_endpoint: &str) -> core::result::Result<Self, IiifError> {
         // Fetch IIIF image info.json.
         let url = TiledImage::get_image_info_url(iiif_endpoint);
-        let iiif_image_info = IiifImageInfo::from_url(&url)?;
+        // let iiif_image_info = IiifImageInfo::from_url(&url)?;
+        let iiif_image_info = IiifImageInfo::try_from_url(&url)?;
 
         // Important profile info.
         let profile_details = iiif_image_info.get_profile_details();

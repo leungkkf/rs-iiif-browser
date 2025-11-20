@@ -10,7 +10,28 @@ pub(crate) mod iiif_image2 {
         format,
         supports,
         hasTile,
-        scaleFactor
+        scaleFactor,
+        baseUriRedirectFeature,
+        canonicalLinkHeaderFeature,
+        corsFeature,
+        jsonLdMediaTypeFeature,
+        mirroringFeature,
+        profileLinkHeaderFeature,
+        regionByPctFeature,
+        regionByPxFeature,
+        regionSquareFeature,
+        arbitraryRotationFeature,
+        rotationBy90sFeature,
+        sizeByConfinedWHFeature,
+        sizeByHFeature,
+        sizeByPctFeature,
+        sizeByWFeature,
+        sizeByWHFeature,
+        sizeUpscalingFeature,
+        sizeByWHListedFeature,
+        sizeByForcedWHFeature,
+        sizeAboveFullFeature,
+        sizeByDistortedWHFeature
     );
 }
 

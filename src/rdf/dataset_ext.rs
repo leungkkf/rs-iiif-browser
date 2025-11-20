@@ -1,10 +1,13 @@
+use serde::{Deserialize, Serialize};
 use sophia::{
     api::{
         dataset::{CollectibleDataset, DResult},
+        ns::NsTerm,
         prelude::{Any, Dataset},
         quad::Quad,
         term::{SimpleTerm, Term, TermKind, matcher::TermMatcher},
     },
+    iri::IriRef,
     jsonld::{JsonLdOptions, JsonLdParser, loader::HttpLoader},
 };
 use std::{fmt::Debug, str::FromStr};
@@ -16,6 +19,9 @@ pub enum RdfError {
     #[error("ureq error")]
     Web(#[from] ureq::Error),
 
+    #[error("serde_json deserialization error")]
+    Deserialization(#[from] serde_json::Error),
+
     #[error("rdf database error '{0}'")]
     DatasetError(String),
 
@@ -24,21 +30,38 @@ pub enum RdfError {
 
     #[error("parse error")]
     IiifParseError(String),
+}
 
-    #[error("no data '{0}'")]
-    NoData(String),
+#[derive(Debug, Serialize, Deserialize)]
+struct JsonLd {
+    #[serde(rename(deserialize = "@id"))]
+    id: String,
 }
 
 /// Wrapper around the RDF dataset to extend it with some functions.
-pub(crate) struct DatasetExt<T>(T)
+pub(crate) struct DatasetExt<T>
 where
-    T: CollectibleDataset;
+    T: CollectibleDataset,
+{
+    /// ID of the root node.
+    id: String,
+    /// RDF dataset.
+    inner: T,
+}
 
 impl<T> DatasetExt<T>
 where
     T: CollectibleDataset,
 {
-    /// try to construct DatasetExt from a URL.
+    fn new(id: String, inner: T) -> Self {
+        Self { id, inner }
+    }
+
+    pub(crate) fn id(&self) -> NsTerm<'_> {
+        NsTerm::new_unchecked(IriRef::new_unchecked(&self.id), "")
+    }
+
+    /// Try to construct DatasetExt from a URL.
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<DatasetExt<T>, RdfError> {
         let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
 
@@ -47,6 +70,8 @@ where
 
     /// Try to construct DatasetExt from a Json.
     pub(crate) fn try_from_json(json: &str) -> core::result::Result<DatasetExt<T>, RdfError> {
+        let json_ld: JsonLd = serde_json::de::from_str(json)?;
+
         let options = JsonLdOptions::new().with_default_document_loader::<HttpLoader>();
         let parser = JsonLdParser::new_with_options(options);
 
@@ -59,11 +84,27 @@ where
             ))
         })?;
 
-        for quad in dataset.quads() {
-            println!("{:?}", quad.unwrap().to_spog());
+        for subject in dataset.subjects() {
+            println!("subject {:?}", subject.unwrap().as_simple());
         }
 
-        Ok(DatasetExt(dataset))
+        for quad in dataset.quads() {
+            println!("SPOG {:?}", quad.unwrap().to_spog());
+        }
+
+        Ok(DatasetExt::new(json_ld.id, dataset))
+    }
+
+    /// Try to get the first object cloned.
+    pub(crate) fn get_first_object_cloned_as<SM: TermMatcher, PM: TermMatcher, S: FromStr + Clone>(
+        &self,
+        subject: SM,
+        predicate: PM,
+    ) -> Result<Option<S>, RdfError>
+    where
+        S::Err: Debug,
+    {
+        Ok(self.get_objects_as(subject, predicate)?.first().cloned())
     }
 
     /// Try to get the objects (ony for iri and literal) as string matching the subject and the predicate.
@@ -77,7 +118,7 @@ where
     {
         let mut output = Vec::new();
 
-        for quad in self.0.quads_matching(subject, predicate, Any, Any) {
+        for quad in self.inner.quads_matching(subject, predicate, Any, Any) {
             let object = quad
                 .map_err(|e| RdfError::DatasetError(format!("{:?}", e)))?
                 .to_o();
@@ -107,19 +148,7 @@ where
         subject: SM,
         predicate: PM,
     ) -> ObjectIterator<'a, T> {
-        ObjectIterator::new(&self.0, subject, predicate)
-    }
-
-    /// Helper to get the first item. Note that it returns error if no data item is found.
-    pub(crate) fn first_item<'a, SM: TermMatcher + 'a, PM: TermMatcher + 'a>(
-        &'a self,
-        subject: SM,
-        predicate: PM,
-    ) -> Result<SimpleTerm<'a>, RdfError> {
-        self.objects_iter(subject, predicate)
-            .next()
-            .ok_or(RdfError::NoData("no data found".to_string()))
-            .flatten()
+        ObjectIterator::new(&self.inner, subject, predicate)
     }
 }
 
@@ -194,14 +223,10 @@ mod tests {
                 "supports" : ["regionByPct","regionSquare","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring"] }
             ]
             }"#;
-        let ns = Namespace::new_unchecked(
-            "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
-        );
-        let subject = ns.get_unchecked("");
         let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
         let mut width_u32 = Vec::new();
 
-        for size_object in dataset.objects_iter([subject], [rdf::iiif_image2::hasSize]) {
+        for size_object in dataset.objects_iter([dataset.id()], [rdf::iiif_image2::hasSize]) {
             let width: Vec<u32> = dataset
                 .get_objects_as([&size_object.unwrap()], [rdf::exif::width])
                 .unwrap();
@@ -409,8 +434,6 @@ mod tests {
 
     #[test]
     fn test_from_json2() {
-        let url = "https://iiif.lib.harvard.edu/manifests/ids:11927378";
-        let subject = NsTerm::new_unchecked(IriRef::new_unchecked(url), "");
         let json = r#"{
           "@context": "http://iiif.io/api/presentation/2/context.json",
           "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378",
@@ -464,6 +487,7 @@ mod tests {
         }"#;
 
         let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let subject = dataset.id();
         let attribution: Vec<String> = dataset
             .get_objects_as([subject], [rdf::iiif_present2::attributionLabel])
             .unwrap();
@@ -492,10 +516,16 @@ mod tests {
         );
 
         let sequence_node = dataset
-            .first_item([subject], [rdf::iiif_present2::hasSequences])
+            .objects_iter([subject], [rdf::iiif_present2::hasSequences])
+            .next()
+            .unwrap()
             .unwrap();
 
-        let sequence_subject = dataset.first_item([sequence_node], Any).unwrap();
+        let sequence_subject = dataset
+            .objects_iter([sequence_node], Any)
+            .next()
+            .unwrap()
+            .unwrap();
 
         println!("{:?}", sequence_subject);
 
@@ -509,10 +539,16 @@ mod tests {
         );
 
         let canvas_node = dataset
-            .first_item([&sequence_subject], [rdf::iiif_present2::hasCanvases])
+            .objects_iter([&sequence_subject], [rdf::iiif_present2::hasCanvases])
+            .next()
+            .unwrap()
             .unwrap();
 
-        let canvs_subject = dataset.first_item([&canvas_node], Any).unwrap();
+        let canvs_subject = dataset
+            .objects_iter([&canvas_node], Any)
+            .next()
+            .unwrap()
+            .unwrap();
 
         let canvas_width: Vec<String> = dataset
             .get_objects_as([&canvs_subject], [rdf::exif::width])
@@ -539,12 +575,18 @@ mod tests {
         );
 
         let image_annotation_node = dataset
-            .first_item([canvs_subject], [rdf::iiif_present2::hasImageAnnotations])
+            .objects_iter([canvs_subject], [rdf::iiif_present2::hasImageAnnotations])
+            .next()
+            .unwrap()
             .unwrap();
 
         println!("image_annotations {:?}", image_annotation_node);
 
-        let image_annotation_subject = dataset.first_item([&image_annotation_node], Any).unwrap();
+        let image_annotation_subject = dataset
+            .objects_iter([&image_annotation_node], Any)
+            .next()
+            .unwrap()
+            .unwrap();
 
         let image_bodies: Vec<String> = dataset
             .get_objects_as([&image_annotation_subject], [rdf::oa::hasBody])

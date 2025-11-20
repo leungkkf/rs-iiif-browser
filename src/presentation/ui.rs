@@ -73,13 +73,13 @@ pub(crate) fn presentation_ui_system(
 
             egui::ComboBox::from_id_salt("Sequences")
                 .selected_text(
-                    presentation.sequences[ui_state.current_sequence]
+                    presentation.get_sequences()[ui_state.current_sequence]
                         .label
                         .join(","),
                 )
                 .wrap_mode(egui::TextWrapMode::Wrap)
                 .show_ui(ui, |ui| {
-                    for (index, seq) in presentation.sequences.iter().enumerate() {
+                    for (index, seq) in presentation.get_sequences().iter().enumerate() {
                         ui.selectable_value(
                             &mut ui_state.current_sequence,
                             index,
@@ -91,7 +91,7 @@ pub(crate) fn presentation_ui_system(
             ui.separator();
 
             egui::ScrollArea::vertical().show(ui, |ui| {
-                for (index, canvas) in presentation.sequences[ui_state.current_sequence]
+                for (index, canvas) in presentation.get_sequences()[ui_state.current_sequence]
                     .canvases
                     .iter()
                     .enumerate()

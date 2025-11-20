@@ -169,7 +169,7 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
         Manifest::try_from_url("https://iiif.harvardartmuseums.org/manifests/object/323250")?;
 
     let image = TiledImage::build(
-        &presentation.sequences[0].canvases[0].images[0]
+        &presentation.get_sequences()[0].canvases[0].images[0]
             .resource
             .service
             .id,

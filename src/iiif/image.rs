@@ -7,10 +7,12 @@ use bevy::prelude::debug;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 use sophia::{
-    api::{dataset::CollectibleDataset, ns::NsTerm, term::Term},
-    iri::IriRef,
+    api::{
+        dataset::CollectibleDataset,
+        term::{SimpleTerm, Term},
+    },
+    inmem::dataset::FastDataset,
 };
-use std::{num::ParseIntError, str::FromStr};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct IiifImageInfo {
@@ -29,6 +31,36 @@ pub(crate) struct IiifTileInfo {
     pub(crate) height: Option<u32>,
     #[serde(rename(deserialize = "scaleFactors"))]
     pub(crate) scale_factors: Vec<u32>,
+}
+
+impl IiifTileInfo {
+    fn try_from_dataset<T: CollectibleDataset>(
+        tile_object: &SimpleTerm,
+        dataset: &DatasetExt<T>,
+    ) -> core::result::Result<Self, IiifError> {
+        let width = dataset
+            .get_objects_as::<_, _, u32>([tile_object], [rdf::exif::width])?
+            .first()
+            .cloned()
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "missing tile width in '{:?}'",
+                tile_object
+            )))?;
+
+        let height = dataset
+            .get_objects_as::<_, _, u32>([tile_object], [rdf::exif::height])?
+            .first()
+            .cloned();
+
+        let scaling_factors: Vec<u32> =
+            dataset.get_objects_as([tile_object], [rdf::iiif_image2::scaleFactor])?;
+
+        Ok(IiifTileInfo {
+            width,
+            height,
+            scale_factors: scaling_factors,
+        })
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,7 +88,7 @@ impl Default for IiifProfileDetails {
 }
 
 impl IiifProfileDetails {
-    pub(crate) fn new(
+    fn new(
         formats: Vec<IiifImageFormat>,
         qualities: Vec<IiifImageQuality>,
         supports: Vec<IiifFeature>,
@@ -66,6 +98,20 @@ impl IiifProfileDetails {
             qualities,
             supports,
         }
+    }
+
+    pub fn try_from_dataset<T: CollectibleDataset>(
+        profile_object: &SimpleTerm,
+        dataset: &DatasetExt<T>,
+    ) -> core::result::Result<Self, IiifError> {
+        let qualities: Vec<IiifImageQuality> =
+            dataset.get_objects_as([profile_object], [rdf::iiif_image2::quality])?;
+        let formats: Vec<IiifImageFormat> =
+            dataset.get_objects_as([profile_object], [rdf::iiif_image2::format])?;
+        let supports: Vec<IiifFeature> =
+            dataset.get_objects_as([profile_object], [rdf::iiif_image2::supports])?;
+
+        Ok(Self::new(formats, qualities, supports))
     }
 
     pub(crate) fn from_url(url: &str) -> core::result::Result<IiifProfileDetails, IiifError> {
@@ -133,7 +179,7 @@ pub(crate) enum IiifFeature {
     RegionByPct,
     RegionByPx,
     RegionSquare,
-    RotationArbitrary,
+    ArbitraryRotation,
     RotationBy90s,
     SizeByConfinedWh,
     SizeByH,
@@ -151,32 +197,53 @@ impl std::str::FromStr for IiifFeature {
     type Err = IiifError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match (s) {
-            "baseUriRedirect" => Ok(IiifFeature::BaseUriRedirect),
-            "canonicalLinkHeader" => Ok(IiifFeature::CanonicalLinkHeader),
-            "cors" => Ok(IiifFeature::Cors),
-            "jsonldMediaType" => Ok(IiifFeature::JsonldMediaType),
-            "mirroring" => Ok(IiifFeature::Mirroring),
-            "profileLinkHeader" => Ok(IiifFeature::ProfileLinkHeader),
-            "regionByPct" => Ok(IiifFeature::RegionByPct),
-            "regionByPx" => Ok(IiifFeature::RegionByPx),
-            "regionSquare" => Ok(IiifFeature::RegionSquare),
-            "rotationArbitrary" => Ok(IiifFeature::RotationArbitrary),
-            "rotationBy90s" => Ok(IiifFeature::RotationBy90s),
-            "sizeByConfinedWh" => Ok(IiifFeature::SizeByConfinedWh),
-            "sizeByH" => Ok(IiifFeature::SizeByH),
-            "sizeByPct" => Ok(IiifFeature::SizeByPct),
-            "sizeByW" => Ok(IiifFeature::SizeByW),
-            "sizeByWh" => Ok(IiifFeature::SizeByWh),
-            "sizeUpscaling" => Ok(IiifFeature::SizeUpscaling),
-            "sizeByWhListed" => Ok(IiifFeature::SizeByWhListed), // Deprecated.
-            "sizeByForcedWh" => Ok(IiifFeature::SizeByForcedWh), // Deprecated.
-            "sizeAboveFull" => Ok(IiifFeature::SizeAboveFull),   // Deprecated.
-            "sizeByDistortedWh" => Ok(IiifFeature::SizeByDistortedWh),
-            _ => Err(IiifError::IiifFormatError(format!(
+        if rdf::iiif_image2::baseUriRedirectFeature == s {
+            Ok(IiifFeature::BaseUriRedirect)
+        } else if rdf::iiif_image2::canonicalLinkHeaderFeature == s {
+            Ok(IiifFeature::CanonicalLinkHeader)
+        } else if rdf::iiif_image2::corsFeature == s {
+            Ok(IiifFeature::Cors)
+        } else if rdf::iiif_image2::jsonLdMediaTypeFeature == s {
+            Ok(IiifFeature::JsonldMediaType)
+        } else if rdf::iiif_image2::mirroringFeature == s {
+            Ok(IiifFeature::Mirroring)
+        } else if rdf::iiif_image2::profileLinkHeaderFeature == s {
+            Ok(IiifFeature::ProfileLinkHeader)
+        } else if rdf::iiif_image2::regionByPctFeature == s {
+            Ok(IiifFeature::RegionByPct)
+        } else if rdf::iiif_image2::regionByPxFeature == s {
+            Ok(IiifFeature::RegionByPx)
+        } else if rdf::iiif_image2::regionSquareFeature == s {
+            Ok(IiifFeature::RegionSquare)
+        } else if rdf::iiif_image2::arbitraryRotationFeature == s {
+            Ok(IiifFeature::ArbitraryRotation)
+        } else if rdf::iiif_image2::rotationBy90sFeature == s {
+            Ok(IiifFeature::RotationBy90s)
+        } else if rdf::iiif_image2::sizeByConfinedWHFeature == s {
+            Ok(IiifFeature::SizeByConfinedWh)
+        } else if rdf::iiif_image2::sizeByHFeature == s {
+            Ok(IiifFeature::SizeByH)
+        } else if rdf::iiif_image2::sizeByPctFeature == s {
+            Ok(IiifFeature::SizeByPct)
+        } else if rdf::iiif_image2::sizeByWFeature == s {
+            Ok(IiifFeature::SizeByW)
+        } else if rdf::iiif_image2::sizeByWHFeature == s {
+            Ok(IiifFeature::SizeByWh)
+        } else if rdf::iiif_image2::sizeUpscalingFeature == s {
+            Ok(IiifFeature::SizeUpscaling)
+        } else if rdf::iiif_image2::sizeByWHListedFeature == s {
+            Ok(IiifFeature::SizeByWhListed)
+        } else if rdf::iiif_image2::sizeByForcedWHFeature == s {
+            Ok(IiifFeature::SizeByForcedWh)
+        } else if rdf::iiif_image2::sizeAboveFullFeature == s {
+            Ok(IiifFeature::SizeAboveFull)
+        } else if rdf::iiif_image2::sizeByDistortedWHFeature == s {
+            Ok(IiifFeature::SizeByDistortedWh)
+        } else {
+            Err(IiifError::IiifFormatError(format!(
                 "failed to convert '{}' to IiifFeature",
                 s
-            ))),
+            )))
         }
     }
 }
@@ -198,7 +265,7 @@ impl fmt::Display for IiifImageQuality {
             IiifImageQuality::Bitonal => write!(f, "bitonal"),
             IiifImageQuality::Color => write!(f, "color"),
             IiifImageQuality::Gray => write!(f, "gray"),
-            IiifImageQuality::Native => write!(f, "default"),
+            IiifImageQuality::Native => write!(f, "native"),
         }
     }
 }
@@ -208,6 +275,7 @@ impl std::str::FromStr for IiifImageQuality {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
+            "native" => Ok(IiifImageQuality::Native),
             "default" => Ok(IiifImageQuality::Default),
             "bitonal" => Ok(IiifImageQuality::Bitonal),
             "color" => Ok(IiifImageQuality::Color),
@@ -258,46 +326,22 @@ impl std::str::FromStr for IiifImageFormat {
 }
 
 impl IiifImageInfo {
-    /// Build from a URL.
-    pub(crate) fn from_url(url: &str) -> core::result::Result<Self, IiifError> {
+    pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
         let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
         debug!("info {:?}", info_json);
 
-        Self::from_json(&info_json)
+        let dataset = DatasetExt::<FastDataset>::try_from_json(&info_json)?;
+
+        Self::try_from_database(&dataset)
     }
 
-    /// Build from a Json string.
-    fn from_json(info_json: &str) -> core::result::Result<Self, IiifError> {
-        let mut iiif_image_info: IiifImageInfo = serde_json::from_str(info_json)?;
-        debug!("iiif_image_info {:?}", iiif_image_info);
-
-        if iiif_image_info.profile.is_empty() {
-            return Err(IiifError::IiifMissingInfo("Missing profile".into()));
-        }
-
-        let mut expanded_profiles = Vec::new();
-
-        for p in &iiif_image_info.profile {
-            let profile = match p {
-                IiifProfileInfo::ProfileDetails(profile_details) => (*profile_details).clone(),
-                IiifProfileInfo::Url(url) => IiifProfileDetails::from_url(url)?,
-            };
-            expanded_profiles.push(profile);
-        }
-
-        iiif_image_info.expanded_profiles = expanded_profiles;
-
-        Ok(iiif_image_info)
-    }
-
-    pub(crate) fn try_from_database<T: CollectibleDataset>(
-        iiif_endpoint: &str,
+    fn try_from_database<T: CollectibleDataset>(
         dataset: &DatasetExt<T>,
-    ) -> core::result::Result<(), IiifError> {
-        let subject = NsTerm::new_unchecked(IriRef::new_unchecked(iiif_endpoint), "");
+    ) -> core::result::Result<Self, IiifError> {
+        let id_subject = dataset.id();
 
         let profile_details = dataset
-            .objects_iter([subject], [rdf::doap::implements])
+            .objects_iter([id_subject], [rdf::doap::implements])
             .map(|profile_object| {
                 let profile_object = &profile_object?;
 
@@ -307,75 +351,46 @@ impl IiifImageInfo {
                             .iri()
                             .ok_or(IiifError::IiifFormatError(format!(
                                 "failed to get profile url at '{}'",
-                                iiif_endpoint
+                                id_subject
                             )))?
-                            .to_string(),
+                            .as_ref(),
                     )?),
                     sophia::api::term::TermKind::BlankNode => {
-                        let qualities: Vec<IiifImageQuality> = dataset
-                            .get_objects_as([profile_object], [rdf::iiif_image2::quality])?;
-                        let formats: Vec<IiifImageFormat> =
-                            dataset.get_objects_as([profile_object], [rdf::iiif_image2::format])?;
-                        let supports: Vec<IiifFeature> = dataset
-                            .get_objects_as([profile_object], [rdf::iiif_image2::supports])?;
-
-                        Ok(IiifProfileDetails::new(formats, qualities, supports))
+                        IiifProfileDetails::try_from_dataset(profile_object, dataset)
                     }
-                    _ => {
-                        return Err(IiifError::IiifFormatError(format!(
-                            "unexpected term kind in image profile {:?}",
-                            profile_object.kind()
-                        )));
-                    }
+                    _ => Err(IiifError::IiifFormatError(format!(
+                        "unexpected term kind in image profile {:?}",
+                        profile_object.kind()
+                    ))),
                 }
             })
             .collect::<Result<Vec<IiifProfileDetails>, IiifError>>()?;
 
         let image_width = dataset
-            .get_objects_as::<_, _, u32>([subject], [rdf::exif::width])?
+            .get_objects_as::<_, _, u32>([id_subject], [rdf::exif::width])?
             .first()
+            .copied()
             .ok_or(IiifError::IiifMissingInfo(format!(
                 "missing width in '{}'",
-                iiif_endpoint
+                id_subject
             )))?;
         let image_height = dataset
-            .get_objects_as::<_, _, u32>([subject], [rdf::exif::height])?
+            .get_objects_as::<_, _, u32>([id_subject], [rdf::exif::height])?
             .first()
+            .copied()
             .ok_or(IiifError::IiifMissingInfo(format!(
-                "missing width in '{}'",
-                iiif_endpoint
+                "missing height in '{}'",
+                id_subject
             )))?;
 
-        let tile_object = dataset
-            .objects_iter([subject], [rdf::iiif_image2::hasTile])
-            .next();
-        let tile_size: Size;
+        let mut tile_info = Vec::new();
 
-        if let Some(tile_object) = tile_object {
-            let tile_object = &tile_object?;
-            let width = dataset
-                .get_objects_as::<_, _, u32>([tile_object], [rdf::exif::width])?
-                .first()
-                .cloned();
-
-            let height = dataset
-                .get_objects_as::<_, _, u32>([tile_object], [rdf::exif::height])?
-                .first()
-                .cloned();
-
-            // let width = width.or(height);
-            // let height = height.or(width);
-
-            tile_size = Size::new(width.unwrap_or(512), height.unwrap_or(512));
-
-            let scaling_factors: Vec<u32> =
-                dataset.get_objects_as([tile_object], [rdf::iiif_image2::scaleFactor])?;
-        } else {
-            tile_size = Size::new(512, 512);
+        for tile_node in dataset.objects_iter([id_subject], [rdf::iiif_image2::hasTile]) {
+            tile_info.push(IiifTileInfo::try_from_dataset(&tile_node?, dataset)?);
         }
 
         let image_sizes = dataset
-            .objects_iter([subject], [rdf::iiif_image2::hasSize])
+            .objects_iter([id_subject], [rdf::iiif_image2::hasSize])
             .map(|x| {
                 let x = &x?;
 
@@ -385,7 +400,7 @@ impl IiifImageInfo {
                     .cloned()
                     .ok_or(IiifError::IiifMissingInfo(format!(
                         "missing height in image size in '{}'",
-                        iiif_endpoint
+                        id_subject
                     )));
                 let height = dataset
                     .get_objects_as::<_, _, u32>([x], [rdf::exif::height])?
@@ -393,14 +408,33 @@ impl IiifImageInfo {
                     .cloned()
                     .ok_or(IiifError::IiifMissingInfo(format!(
                         "missing height in image size in '{}'",
-                        iiif_endpoint
+                        id_subject
                     )));
 
-                return Ok(Size::new(width?, height?));
+                Ok(Size::new(width?, height?))
             })
             .collect::<Result<Vec<Size>, IiifError>>()?;
 
-        Ok(())
+        let image_sizes = if !image_sizes.is_empty() {
+            Some(image_sizes)
+        } else {
+            None
+        };
+
+        let tile_info = if !tile_info.is_empty() {
+            Some(tile_info)
+        } else {
+            None
+        };
+
+        Ok(IiifImageInfo {
+            height: image_height,
+            width: image_width,
+            profile: Vec::new(),
+            sizes: image_sizes,
+            tiles: tile_info,
+            expanded_profiles: profile_details,
+        })
     }
 
     /// Get tile size.
@@ -474,6 +508,16 @@ impl IiifImageInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sophia::inmem::dataset::FastDataset;
+
+    #[test]
+    fn test_supports_features() {
+        let json = r#"{"@context":"http://iiif.io/api/image/2/context.json","@id":"https://mps.lib.harvard.edu/assets/images/drs:20430287","protocol":"http://iiif.io/api/image","width":1074,"height":2550,"sizes":[{"width":67,"height":159},{"width":134,"height":319},{"width":269,"height":638},{"width":537,"height":1275},{"width":1074,"height":2550}],"tiles":[{"width":1024,"height":1024,"scaleFactors":[1,2,4,8,16]}],"profile":["http://iiif.io/api/image/2/level2.json",{"formats":["jpg","tif","gif","png"],"qualities":["bitonal","default","gray","color"],"supports":["regionByPx","sizeByW","sizeByWhListed","cors","regionSquare","sizeByDistortedWh","canonicalLinkHeader","sizeByConfinedWh","sizeByPct","jsonldMediaType","regionByPct","rotationArbitrary","sizeByH","baseUriRedirect","rotationBy90s","profileLinkHeader","sizeByForcedWh","sizeByWh","mirroring"]}]}"#;
+
+        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+
+        assert!(IiifImageInfo::try_from_database(&dataset).is_ok());
+    }
 
     #[test]
     fn test_from_json() {
@@ -500,8 +544,9 @@ mod tests {
                 }
             ]
         }"#;
+        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
 
-        let image_info = IiifImageInfo::from_json(&json).unwrap();
+        let image_info = IiifImageInfo::try_from_database(&dataset).unwrap();
 
         assert_eq!(image_info.width, 7045);
         assert_eq!(image_info.height, 5785);
@@ -520,39 +565,6 @@ mod tests {
         assert_eq!(tiles[0].width, 256);
         assert_eq!(tiles[0].height, Some(256));
         assert_eq!(tiles[0].scale_factors, vec![1, 2, 4, 8, 16, 32]);
-
-        assert_eq!(image_info.profile.len(), 2);
-
-        for p in &image_info.profile {
-            match p {
-                IiifProfileInfo::Url(url) => {
-                    assert_eq!(url, "http://iiif.io/api/image/2/level0.json");
-                }
-                IiifProfileInfo::ProfileDetails(detail) => {
-                    assert_eq!(detail.formats, vec![IiifImageFormat::Jpg]);
-                    assert_eq!(
-                        detail.qualities,
-                        vec![
-                            IiifImageQuality::Native,
-                            IiifImageQuality::Color,
-                            IiifImageQuality::Gray
-                        ]
-                    );
-                    assert_eq!(
-                        detail.supports,
-                        vec![
-                            IiifFeature::RegionByPct,
-                            IiifFeature::RegionSquare,
-                            IiifFeature::SizeByForcedWh,
-                            IiifFeature::SizeByWh,
-                            IiifFeature::SizeAboveFull,
-                            IiifFeature::RotationBy90s,
-                            IiifFeature::Mirroring
-                        ]
-                    );
-                }
-            }
-        }
 
         assert_eq!(
             image_info.expanded_profiles[0].formats,
