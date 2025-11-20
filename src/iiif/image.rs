@@ -3,7 +3,6 @@ use crate::{
     rdf::{self, dataset_ext::DatasetExt},
     rendering::tiled_image::Size,
 };
-use bevy::prelude::debug;
 use core::fmt;
 use sophia::{
     api::{
@@ -316,10 +315,7 @@ impl std::str::FromStr for IiifImageFormat {
 
 impl IiifImageInfo {
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
-        let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
-        debug!("info {:?}", info_json);
-
-        let dataset = DatasetExt::<FastDataset>::try_from_json(&info_json)?;
+        let dataset = DatasetExt::<FastDataset>::try_from_url(url, Some("/info.json"))?;
 
         Self::try_from_database(&dataset)
     }
@@ -502,7 +498,8 @@ mod tests {
     fn test_supports_features() {
         let json = r#"{"@context":"http://iiif.io/api/image/2/context.json","@id":"https://mps.lib.harvard.edu/assets/images/drs:20430287","protocol":"http://iiif.io/api/image","width":1074,"height":2550,"sizes":[{"width":67,"height":159},{"width":134,"height":319},{"width":269,"height":638},{"width":537,"height":1275},{"width":1074,"height":2550}],"tiles":[{"width":1024,"height":1024,"scaleFactors":[1,2,4,8,16]}],"profile":["http://iiif.io/api/image/2/level2.json",{"formats":["jpg","tif","gif","png"],"qualities":["bitonal","default","gray","color"],"supports":["regionByPx","sizeByW","sizeByWhListed","cors","regionSquare","sizeByDistortedWh","canonicalLinkHeader","sizeByConfinedWh","sizeByPct","jsonldMediaType","regionByPct","rotationArbitrary","sizeByH","baseUriRedirect","rotationBy90s","profileLinkHeader","sizeByForcedWh","sizeByWh","mirroring"]}]}"#;
 
-        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let id = "https://mps.lib.harvard.edu/assets/images/drs:20430287";
+        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
 
         assert!(IiifImageInfo::try_from_database(&dataset).is_ok());
     }
@@ -532,7 +529,8 @@ mod tests {
                 }
             ]
         }"#;
-        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let id = "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee";
+        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
 
         let image_info = IiifImageInfo::try_from_database(&dataset).unwrap();
 

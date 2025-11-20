@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use sophia::{
     api::{
         dataset::{CollectibleDataset, DResult},
@@ -13,6 +12,7 @@ use sophia::{
 use std::{fmt::Debug, str::FromStr};
 use thiserror::Error;
 use tokio::runtime::Runtime;
+use ureq::ResponseExt;
 
 #[derive(Error, Debug)]
 pub enum RdfError {
@@ -30,12 +30,6 @@ pub enum RdfError {
 
     #[error("parse error")]
     IiifParseError(String),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct JsonLd {
-    #[serde(rename(deserialize = "@id"))]
-    id: String,
 }
 
 /// Wrapper around the RDF dataset to extend it with some functions.
@@ -62,16 +56,32 @@ where
     }
 
     /// Try to construct DatasetExt from a URL.
-    pub(crate) fn try_from_url(url: &str) -> core::result::Result<DatasetExt<T>, RdfError> {
-        let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
+    /// Optionally, the final URL can be trimmed by the trim_id.
+    /// E.g. remove '/info.json' from 'https://example.com/a/info.json'
+    pub(crate) fn try_from_url(
+        url: &str,
+        trim_id: Option<&str>,
+    ) -> core::result::Result<DatasetExt<T>, RdfError> {
+        let mut response = ureq::get(url).call()?;
+        // Get and store the final uri (id) of the document after trimming (if needed).
+        let final_url = response.get_uri().to_string();
 
-        Self::try_from_json(&info_json)
+        let id = if let Some(trim_id) = trim_id {
+            final_url.trim_end_matches(trim_id).to_string()
+        } else {
+            final_url
+        };
+
+        let info_json = response.body_mut().read_to_string()?;
+
+        Self::try_from_json(&id, &info_json)
     }
 
     /// Try to construct DatasetExt from a Json.
-    pub(crate) fn try_from_json(json: &str) -> core::result::Result<DatasetExt<T>, RdfError> {
-        let json_ld: JsonLd = serde_json::de::from_str(json)?;
-
+    pub(crate) fn try_from_json(
+        id: &str,
+        json: &str,
+    ) -> core::result::Result<DatasetExt<T>, RdfError> {
         let options = JsonLdOptions::new().with_default_document_loader::<HttpLoader>();
         let parser = JsonLdParser::new_with_options(options);
 
@@ -88,7 +98,7 @@ where
         //     println!("SPOG {:?}", quad.unwrap().to_spog());
         // }
 
-        Ok(DatasetExt::new(json_ld.id, dataset))
+        Ok(DatasetExt::new(id.to_owned(), dataset))
     }
 
     /// Try to get the first object cloned.
@@ -219,7 +229,8 @@ mod tests {
                 "supports" : ["regionByPct","regionSquare","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring"] }
             ]
             }"#;
-        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let id = "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee";
+        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
         let mut width_u32 = Vec::new();
 
         for size_object in dataset.objects_iter([dataset.id()], [rdf::iiif_image2::hasSize]) {
@@ -254,12 +265,11 @@ mod tests {
                 "supports" : ["regionByPct","regionSquare","sizeByForcedWh","sizeByWh","sizeAboveFull","rotationBy90s","mirroring"] }
             ]
             }"#;
-        let ns = Namespace::new_unchecked(
-            "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
-        );
+        let id = "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee";
+        let ns = Namespace::new_unchecked(id);
         let subject = ns.get_unchecked("");
 
-        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
         let mut width_string = Vec::new();
         let mut width_u32 = Vec::new();
         let mut height_string = Vec::new();
@@ -401,11 +411,11 @@ mod tests {
           },
           "within": "https://www.harvardartmuseums.org/collections"
         }"#;
-        let ns =
-            Namespace::new_unchecked("https://iiif.harvardartmuseums.org/manifests/object/323250");
+        let id = "https://iiif.harvardartmuseums.org/manifests/object/323250";
+        let ns = Namespace::new_unchecked(id);
         let subject = ns.get_unchecked("");
 
-        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
         let attribution: Vec<String> = dataset
             .get_objects_as([subject], [rdf::iiif_present2::attributionLabel])
             .unwrap();
@@ -482,7 +492,8 @@ mod tests {
           ]
         }"#;
 
-        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let id = "https://iiif.lib.harvard.edu/manifests/ids:11927378";
+        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
         let subject = dataset.id();
         let attribution: Vec<String> = dataset
             .get_objects_as([subject], [rdf::iiif_present2::attributionLabel])

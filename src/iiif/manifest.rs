@@ -220,7 +220,7 @@ impl Manifest {
 
     /// Try to create the manifest from the URL.
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
-        let dataset = DatasetExt::<FastDataset>::try_from_url(url).unwrap();
+        let dataset = DatasetExt::<FastDataset>::try_from_url(url, None)?;
 
         Self::try_from_dataset(&dataset)
     }
@@ -316,7 +316,8 @@ mod tests {
             }
           ]
         }"#;
-        let dataset = DatasetExt::<FastDataset>::try_from_json(json).unwrap();
+        let id = "https://iiif.lib.harvard.edu/manifests/ids:11927378";
+        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
         let manifest = Manifest::try_from_dataset(&dataset).unwrap();
 
         assert_eq!(manifest.attribution, vec!["Provided by Harvard University"]);
