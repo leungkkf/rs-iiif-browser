@@ -169,13 +169,14 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
     // )?;
 
-    let presentation = presentation::manifest::Manifest::try_from_url(
+    let presentation = presentation::manifest::ManifestComponent::try_from_url(
         "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
     )?;
     //
     info!(
         "{:?}",
         presentation
+            .into_inner()
             .get_sequence(0)
             .get_canvase(0)
             .get_image(0)
@@ -184,6 +185,7 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
 
     let image = TiledImage::try_from_url(
         presentation
+            .into_inner()
             .get_sequence(0)
             .get_canvase(0)
             .get_image(0)

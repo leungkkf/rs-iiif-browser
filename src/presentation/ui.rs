@@ -1,4 +1,5 @@
-use crate::presentation::manifest::Manifest;
+use crate::presentation;
+use crate::presentation::manifest::ManifestComponent;
 use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
 use bevy::prelude::{
@@ -30,10 +31,11 @@ pub(crate) fn presentation_ui_system(
     mut camera: Single<&mut Camera, Without<EguiContext>>,
     window: Single<&mut Window, With<PrimaryWindow>>,
     mut ui_state: Local<UIState>,
-    presentation: Single<&Manifest>,
+    presentation: Single<&ManifestComponent>,
     tiled_image_query: Query<(Entity, &TiledImage)>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
+    let presentation = *presentation;
 
     let mut left = egui::SidePanel::left("left_panel")
         .resizable(true)
@@ -41,26 +43,30 @@ pub(crate) fn presentation_ui_system(
             add_text(
                 ui,
                 "title".to_string(),
-                presentation.get_title(),
+                presentation.into_inner().get_title(),
                 Some(Color32::WHITE),
                 2,
             );
-            if !presentation.get_description().is_empty() {
-                add_text(
-                    ui,
-                    "desc".to_string(),
-                    &presentation.get_description().join("\n"),
-                    None,
-                    3,
-                );
+
+            let description = presentation
+                .into_inner()
+                .get_description()
+                .collect::<Vec<_>>();
+            if !description.is_empty() {
+                add_text(ui, "desc".to_string(), &description.join("\n"), None, 3);
             }
 
-            let license = if !presentation.get_license().is_empty() {
-                format!("(© {})", &presentation.get_license().join(","))
+            let licence = presentation.into_inner().get_license().collect::<Vec<_>>();
+            let license = if !licence.is_empty() {
+                format!("(© {})", &licence.join(","))
             } else {
                 "".into()
             };
-            let attribution = presentation.get_attribution().join(",");
+            let attribution = presentation
+                .into_inner()
+                .get_attribution()
+                .collect::<Vec<_>>()
+                .join(",");
 
             if !license.is_empty() || !attribution.is_empty() {
                 add_text(
@@ -72,7 +78,7 @@ pub(crate) fn presentation_ui_system(
                 );
             }
 
-            for logo in presentation.get_logo() {
+            for logo in presentation.into_inner().get_logo() {
                 ui.add_space(6.0);
                 bevy_egui::egui::Image::new(logo).max_height(64.0).ui(ui);
             }
@@ -81,6 +87,7 @@ pub(crate) fn presentation_ui_system(
             egui::ComboBox::from_id_salt("Sequences")
                 .selected_text(
                     presentation
+                        .into_inner()
                         .get_sequence(ui_state.current_sequence)
                         .get_label()
                         .collect::<Vec<_>>()
@@ -88,7 +95,7 @@ pub(crate) fn presentation_ui_system(
                 )
                 .wrap_mode(egui::TextWrapMode::Wrap)
                 .show_ui(ui, |ui| {
-                    for (index, seq) in presentation.get_sequences().enumerate() {
+                    for (index, seq) in presentation.into_inner().get_sequences().enumerate() {
                         ui.selectable_value(
                             &mut ui_state.current_sequence,
                             index,
@@ -101,6 +108,7 @@ pub(crate) fn presentation_ui_system(
 
             egui::ScrollArea::vertical().show(ui, |ui| -> Result {
                 for (index, canvas) in presentation
+                    .into_inner()
                     .get_sequence(ui_state.current_sequence)
                     .get_canvases()
                     .enumerate()

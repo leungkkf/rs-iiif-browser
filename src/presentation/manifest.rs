@@ -3,81 +3,58 @@ use bevy::prelude::Component;
 
 #[derive(Component)]
 /// Presentation manifest.
-pub(crate) struct Manifest {
-    inner: Box<dyn HasManifest>,
+pub(crate) struct ManifestComponent {
+    inner: Box<dyn IsManifest>,
 }
 
-impl Manifest {
-    fn new(inner: Box<dyn HasManifest>) -> Self {
+impl ManifestComponent {
+    fn new(inner: Box<dyn IsManifest>) -> Self {
         Self { inner }
+    }
+
+    /// Get the reference of the inner manifest.
+    pub(crate) fn into_inner(&self) -> &Box<dyn IsManifest> {
+        &self.inner
     }
 
     /// Try to create the manifest from the URL.
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
         let iiif_manifest = manifest::try_from_url(url)?;
 
-        Ok(Manifest::from(iiif_manifest))
-    }
-
-    pub(crate) fn get_title(&self) -> &str {
-        self.inner.get_title()
-    }
-
-    pub(crate) fn get_attribution(&self) -> Vec<&str> {
-        self.inner.get_attribution().collect()
-    }
-
-    pub(crate) fn get_description(&self) -> Vec<&str> {
-        self.inner.get_description().collect()
-    }
-
-    pub(crate) fn get_license(&self) -> Vec<&str> {
-        self.inner.get_license().collect()
-    }
-
-    pub(crate) fn get_logo(&self) -> Vec<&str> {
-        self.inner.get_logo().collect()
-    }
-
-    pub(crate) fn get_sequences(&self) -> Box<dyn Iterator<Item = &dyn HasSequence> + '_> {
-        self.inner.get_sequences()
-    }
-
-    pub(crate) fn get_sequence(&self, index: usize) -> &dyn HasSequence {
-        self.inner.get_sequence(index)
+        Ok(ManifestComponent::from(iiif_manifest))
     }
 }
 
-impl From<Box<dyn HasManifest>> for Manifest {
-    fn from(v: Box<dyn HasManifest>) -> Self {
+impl From<Box<dyn IsManifest>> for ManifestComponent {
+    fn from(v: Box<dyn IsManifest>) -> Self {
         Self::new(v)
     }
 }
 
-pub(crate) trait HasManifest: Send + Sync {
+pub(crate) trait IsManifest: Send + Sync {
     fn get_title(&self) -> &str;
     fn get_attribution(&self) -> Box<dyn Iterator<Item = &str> + '_>;
     fn get_description(&self) -> Box<dyn Iterator<Item = &str> + '_>;
     fn get_license(&self) -> Box<dyn Iterator<Item = &str> + '_>;
     fn get_logo(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_sequences(&self) -> Box<dyn Iterator<Item = &dyn HasSequence> + '_>;
-    fn get_sequence(&self, index: usize) -> &dyn HasSequence;
+    fn get_sequences(&self) -> Box<dyn Iterator<Item = &dyn IsSequence> + '_>;
+    fn get_sequence(&self, index: usize) -> &dyn IsSequence;
 }
 
-pub(crate) trait HasSequence: Send + Sync {
+pub(crate) trait IsSequence: Send + Sync {
     fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_canvases(&self) -> Box<dyn Iterator<Item = &dyn HasCavas> + '_>;
-    fn get_canvase(&self, index: usize) -> &dyn HasCavas;
+    fn get_canvases(&self) -> Box<dyn Iterator<Item = &dyn IsCavas> + '_>;
+    fn get_canvase(&self, index: usize) -> &dyn IsCavas;
 }
 
-pub(crate) trait HasCavas: Send + Sync {
+pub(crate) trait IsCavas: Send + Sync {
     fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_>;
     fn get_thumbnail(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_images(&self) -> Box<dyn Iterator<Item = &dyn HasImage> + '_>;
-    fn get_image(&self, index: usize) -> &dyn HasImage;
+    fn get_images(&self) -> Box<dyn Iterator<Item = &dyn IsImage> + '_>;
+    fn get_image(&self, index: usize) -> &dyn IsImage;
 }
 
-pub(crate) trait HasImage: Send + Sync {
+pub(crate) trait IsImage: Send + Sync {
     fn get_service(&self) -> &str;
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
@@ -85,69 +62,215 @@ pub(crate) trait HasImage: Send + Sync {
 
 #[cfg(test)]
 mod tests {
+    use crate::iiif;
+
     use super::*;
 
-    // #[test]
-    // fn test_from_iiif_manifest() {
-    //     let iiif_resource = iiif::manifest::Resource::new(
-    //         "format".to_string(),
-    //         iiif::manifest::Service::new("service_id".to_string()),
-    //         100,
-    //         200,
-    //     );
+    #[test]
+    fn test_from_iiif_manifest() {
+        let json = r#"{
+          "@context":"http://iiif.io/api/presentation/2/context.json",
+          "@type":"sc:Manifest",
+          "@id":"http://www.example.org/iiif/book1/manifest",
+          "label":"Book 1",
+          "metadata": [
+            {"label":"Author", "value":"Anne Author"},
+            {"label":"Published", "value": [
+                {"@value": "Paris, circa 1400", "@language":"en"},
+                {"@value": "Paris, environ 14eme siecle", "@language":"fr"}
+                ]
+            }
+          ],
+          "description":"A longer description of this example book. It should give some real information.",
+          "license":"http://www.example.org/license.html",
+          "attribution":"Provided by Example Organization",
+          "service": {
+            "@context": "http://example.org/ns/jsonld/context.json",
+            "@id": "http://example.org/service/example",
+            "profile": "http://example.org/docs/example-service.html"
+          },
+          "seeAlso":
+            {
+              "@id": "http://www.example.org/library/catalog/book1.marc",
+              "format": "application/marc"
+            },
+          "within":"http://www.example.org/collections/books/",
 
-    //     let iiif_image = iiif::manifest::Image::new(iiif_resource);
+          "sequences" : [
+              {
+                "@id":"http://www.example.org/iiif/book1/sequence/normal",
+                "@type":"sc:Sequence",
+                "label":"Current Page Order",
+                "viewingDirection":"left-to-right",
+                "viewingHint":"paged",
+                "canvases": [
+                  {
+                    "@id":"http://www.example.org/iiif/book1/canvas/p1",
+                    "@type":"sc:Canvas",
+                    "label":"p. 1",
+                    "height":1000,
+                    "width":750,
+                    "images": [
+                      {
+                        "@type":"oa:Annotation",
+                        "motivation":"sc:painting",
+                        "resource":{
+                            "@id":"http://www.example.org/iiif/book1/res/page1.jpg",
+                            "@type":"dctypes:Image",
+                            "format":"image/jpeg",
+                            "service": {
+                                "@context": "http://iiif.io/api/image/2/context.json",
+                                "@id": "http://www.example.org/images/book1-page1",
+                                "profile":"http://iiif.io/api/image/2/level1.json"
+                            },
+                            "height":2000,
+                            "width":1500
+                        },
+                        "on":"http://www.example.org/iiif/book1/canvas/p1"
+                      }
+                    ],
+                    "otherContent": [
+                      {
+                        "@id":"http://www.example.org/iiif/book1/list/p1",
+                        "@type":"sc:AnnotationList"
+                      }
+                    ]
+                },
+                  {
+                    "@id":"http://www.example.org/iiif/book1/canvas/p2",
+                    "@type":"sc:Canvas",
+                    "label":"p. 2",
+                    "height":1000,
+                    "width":750,
+                    "images": [
+                      {
+                        "@type":"oa:Annotation",
+                        "motivation":"sc:painting",
+                        "resource":{
+                            "@id":"http://www.example.org/images/book1-page2/full/1500,2000/0/default.jpg",
+                            "@type":"dctypes:Image",
+                            "format":"image/jpeg",
+                            "height":2000,
+                            "width":1500,
+                            "service": {
+                                "@context": "http://iiif.io/api/image/2/context.json",
+                                "@id": "http://www.example.org/images/book1-page2",
+                                "profile":"http://iiif.io/api/image/2/level1.json",
+                                "height":8000,
+                                "width":6000,
+                                "tiles" : [{"width": 512, "scaleFactors": [1,2,4,8,16]}]
+                            }
+                        },
+                        "on":"http://www.example.org/iiif/book1/canvas/p2"
+                      }
+                    ],
+                    "otherContent": [
+                      {
+                        "@id":"http://www.example.org/iiif/book1/list/p2",
+                        "@type":"sc:AnnotationList"
+                      }
+                    ]
+                  },
+                  {
+                    "@id":"http://www.example.org/iiif/book1/canvas/p3",
+                    "@type":"sc:Canvas",
+                    "label":"p. 3",
+                    "height":1000,
+                    "width":750,
+                    "images": [
+                      {
+                        "@type":"oa:Annotation",
+                        "motivation":"sc:painting",
+                        "resource":{
+                            "@id":"http://www.example.org/iiif/book1/res/page3.jpg",
+                            "@type":"dctypes:Image",
+                            "format":"image/jpeg",
+                            "service": {
+                                "@context": "http://iiif.io/api/image/2/context.json",
+                                "@id": "http://www.example.org/images/book1-page3",
+                                "profile":"http://iiif.io/api/image/2/level1.json"
+                  },
+                            "height":2000,
+                            "width":1500
+                        },
+                        "on":"http://www.example.org/iiif/book1/canvas/p3"
+                      }
+                    ],
+                    "otherContent": [
+                      {
+                        "@id":"http://www.example.org/iiif/book1/list/p3",
+                        "@type":"sc:AnnotationList"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+          "structures": [
+            {
+              "@id": "http://www.example.org/iiif/book1/range/r1",
+                "@type":"sc:Range",
+                "label":"Introduction",
+                "canvases": [
+                  "http://www.example.org/iiif/book1/canvas/p1",
+                  "http://www.example.org/iiif/book1/canvas/p2",
+                  "http://www.example.org/iiif/book1/canvas/p3#xywh=0,0,750,300"
+                ]
+            }
+          ]
+        }"#;
 
-    //     let iiif_thumbnail = iiif::manifest::Thumbnail::new("thumbnail_id".to_string());
+        let iiif_manifest: iiif::manifest_v2::Manifest = serde_json::from_str(&json).unwrap();
 
-    //     let iiif_canvas = iiif::manifest::Canvas::new(
-    //         vec!["canvas_label".to_string()],
-    //         1,
-    //         2,
-    //         vec![iiif_image],
-    //         Some(iiif_thumbnail),
-    //     );
+        let manifest = ManifestComponent::new(Box::new(iiif_manifest));
 
-    //     let iiif_seq =
-    //         iiif::manifest::Sequence::new(vec!["seq_label".to_string()], vec![iiif_canvas]);
+        assert_eq!(
+            manifest.into_inner().get_attribution().collect::<Vec<_>>(),
+            vec!["Provided by Example Organization"]
+        );
+        assert_eq!(
+            manifest.into_inner().get_license().collect::<Vec<_>>(),
+            vec!["http://www.example.org/license.html"]
+        );
+        assert_eq!(manifest.into_inner().get_title(), "Book 1");
+        assert_eq!(
+            manifest.into_inner().get_logo().collect::<Vec<_>>(),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            manifest.into_inner().get_description().collect::<Vec<_>>(),
+            vec![
+                "A longer description of this example book. It should give some real information."
+            ]
+        );
 
-    //     let iiif_manifest = iiif::manifest::Manifest::new(
-    //         "title".to_string(),
-    //         vec!["attribution".to_string()],
-    //         vec!["description".to_string()],
-    //         vec!["license".to_string()],
-    //         vec!["logo".to_string()],
-    //         vec![iiif_seq],
-    //     );
+        assert_eq!(manifest.into_inner().get_sequences().count(), 1);
 
-    //     let manifest = Manifest::from(iiif_manifest);
+        let seq = manifest.into_inner().get_sequence(0);
 
-    //     assert_eq!(manifest.attribution, vec!["attribution"]);
-    //     assert_eq!(manifest.license, vec!["license"]);
-    //     assert_eq!(manifest.title, "title");
-    //     assert_eq!(manifest.logo, vec!["logo"]);
-    //     assert_eq!(manifest.description, vec!["description"]);
+        assert_eq!(
+            seq.get_label().collect::<Vec<_>>(),
+            vec!["Current Page Order"]
+        );
 
-    //     assert_eq!(manifest.sequences.len(), 1);
+        assert_eq!(seq.get_canvases().count(), 3);
 
-    //     let seq = &manifest.sequences[0];
+        let canvas = seq.get_canvase(0);
 
-    //     assert_eq!(seq.label, vec!["seq_label"]);
+        assert_eq!(canvas.get_label().collect::<Vec<_>>(), vec!["p. 1"]);
+        assert_eq!(
+            canvas.get_thumbnail().collect::<Vec<_>>(),
+            Vec::<&str>::new()
+        );
+        assert_eq!(canvas.get_images().count(), 1);
 
-    //     assert_eq!(seq.canvases.len(), 1);
+        let image = canvas.get_image(0);
 
-    //     let canvas = &seq.canvases[0];
-
-    //     assert_eq!(canvas.width, 1);
-    //     assert_eq!(canvas.height, 2);
-    //     assert_eq!(canvas.label, vec!["canvas_label"]);
-    //     assert_eq!(canvas.thumbnail.as_ref().unwrap().id, "thumbnail_id");
-    //     assert_eq!(canvas.images.len(), 1);
-
-    //     let image = &canvas.images[0];
-
-    //     assert_eq!(image.resource.width, 100);
-    //     assert_eq!(image.resource.height, 200);
-    //     assert_eq!(image.resource.service.id, "service_id");
-    // }
+        assert_eq!(image.get_width(), 1500);
+        assert_eq!(image.get_height(), 2000);
+        assert_eq!(
+            image.get_service(),
+            "http://www.example.org/images/book1-page1"
+        );
+    }
 }

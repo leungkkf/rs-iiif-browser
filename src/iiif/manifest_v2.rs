@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::iiif::manifest::{Context, Language, ViewingDirection};
 use crate::iiif::one_or_many::{OneOrMany, OneTypeOrMany};
-use crate::presentation::manifest::{HasCavas, HasImage, HasManifest, HasSequence};
+use crate::presentation::manifest::{IsCavas, IsImage, IsManifest, IsSequence};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) enum ManifestType {
@@ -206,7 +206,7 @@ pub(crate) struct Manifest {
     pub(crate) structures: Option<Vec<Structure>>,
 }
 
-impl HasManifest for Manifest {
+impl IsManifest for Manifest {
     fn get_title(&self) -> &str {
         &self.label
     }
@@ -239,16 +239,16 @@ impl HasManifest for Manifest {
         }
     }
 
-    fn get_sequences(&self) -> Box<dyn Iterator<Item = &dyn HasSequence> + '_> {
-        Box::new(self.sequences.iter().map(|b| b as &dyn HasSequence))
+    fn get_sequences(&self) -> Box<dyn Iterator<Item = &dyn IsSequence> + '_> {
+        Box::new(self.sequences.iter().map(|b| b as &dyn IsSequence))
     }
 
-    fn get_sequence(&self, index: usize) -> &dyn HasSequence {
+    fn get_sequence(&self, index: usize) -> &dyn IsSequence {
         &self.sequences[index]
     }
 }
 
-impl HasSequence for Sequence {
+impl IsSequence for Sequence {
     fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_> {
         if let Some(content) = &self.label {
             Box::new(content.iter().map(|y| y.as_str()))
@@ -257,16 +257,16 @@ impl HasSequence for Sequence {
         }
     }
 
-    fn get_canvases(&self) -> Box<dyn Iterator<Item = &dyn HasCavas> + '_> {
-        Box::new(self.canvases.iter().map(|b| b as &dyn HasCavas))
+    fn get_canvases(&self) -> Box<dyn Iterator<Item = &dyn IsCavas> + '_> {
+        Box::new(self.canvases.iter().map(|b| b as &dyn IsCavas))
     }
 
-    fn get_canvase(&self, index: usize) -> &dyn HasCavas {
+    fn get_canvase(&self, index: usize) -> &dyn IsCavas {
         &self.canvases[index]
     }
 }
 
-impl HasCavas for Canvas {
+impl IsCavas for Canvas {
     fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_> {
         Box::new(self.label.iter().map(|y| y.as_str()))
     }
@@ -277,15 +277,15 @@ impl HasCavas for Canvas {
             Box::new(std::iter::empty::<&str>())
         }
     }
-    fn get_images(&self) -> Box<dyn Iterator<Item = &dyn HasImage> + '_> {
-        Box::new(self.images.iter().map(|b| b as &dyn HasImage))
+    fn get_images(&self) -> Box<dyn Iterator<Item = &dyn IsImage> + '_> {
+        Box::new(self.images.iter().map(|b| b as &dyn IsImage))
     }
-    fn get_image(&self, index: usize) -> &dyn HasImage {
+    fn get_image(&self, index: usize) -> &dyn IsImage {
         &self.images[index]
     }
 }
 
-impl HasImage for Image {
+impl IsImage for Image {
     fn get_height(&self) -> u32 {
         self.resource.height
     }

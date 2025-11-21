@@ -1,7 +1,7 @@
 use crate::{
     iiif::IiifError,
     iiif::{manifest_v2, manifest_v3},
-    presentation::manifest::HasManifest,
+    presentation::manifest::IsManifest,
 };
 use bevy::prelude::debug;
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,7 @@ pub(crate) enum Manifest {
 }
 
 /// Build from a URL.
-pub(crate) fn try_from_url(url: &str) -> core::result::Result<Box<dyn HasManifest>, IiifError> {
+pub(crate) fn try_from_url(url: &str) -> core::result::Result<Box<dyn IsManifest>, IiifError> {
     let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
     debug!("info {:?}", info_json);
 
@@ -50,7 +50,7 @@ pub(crate) fn try_from_url(url: &str) -> core::result::Result<Box<dyn HasManifes
 }
 
 /// Build from a Json string.
-fn try_from_json(info_json: &str) -> core::result::Result<Box<dyn HasManifest>, IiifError> {
+fn try_from_json(info_json: &str) -> core::result::Result<Box<dyn IsManifest>, IiifError> {
     let iiif_presentation_info: Manifest = serde_json::from_str(info_json)?;
     debug!("iiif_image_info {:?}", iiif_presentation_info);
 
