@@ -1,6 +1,5 @@
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
-use crate::presentation::manifest::Manifest;
 use crate::rendering::tile::{TileCache, TileModState, TilePruneState};
 use crate::rendering::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
@@ -15,6 +14,7 @@ use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, PrimaryE
 mod app;
 mod camera;
 mod iiif;
+mod iiif_json;
 mod input;
 mod minimap;
 mod presentation;
@@ -163,19 +163,33 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     // )
     // .unwrap();
 
-    // let presentation =
-    //     Manifest::try_from_url("https://iiif.lib.harvard.edu/manifests/ids:11927378")?;
-    // let presentation =
-    //     Manifest::try_from_url("https://iiif.harvardartmuseums.org/manifests/object/323250")?;
+    // let presentation = presentation::manifest::Manifest::try_from_url(
+    //     "https://iiif.lib.harvard.edu/manifests/ids:11927378",
+    // )?;
 
-    let presentation =
-        Manifest::try_from_url("https://purl.stanford.edu/sr294cr5852/iiif/manifest")?;
+    // let presentation = presentation::manifest::Manifest::try_from_url(
+    //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
+    // )?;
+
+    let presentation = presentation::manifest::Manifest::try_from_url(
+        "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
+    )?;
+    //
+    info!(
+        "{:?}",
+        presentation
+            .get_sequence(0)
+            .get_canvase(0)
+            .get_image(0)
+            .get_service()
+    );
 
     let image = TiledImage::try_from_url(
-        &presentation.get_sequences()[0].canvases[0].images[0]
-            .resource
-            .service
-            .id,
+        presentation
+            .get_sequence(0)
+            .get_canvase(0)
+            .get_image(0)
+            .get_service(),
     )?;
 
     commands.spawn(presentation);

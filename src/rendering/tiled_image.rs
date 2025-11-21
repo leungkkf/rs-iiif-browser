@@ -1,9 +1,10 @@
 use crate::{
     app::app_state::AppState,
     camera::main_camera::MainCamera,
-    iiif::{
-        IiifError,
-        image::{IiifFeature, IiifImageFormat, IiifImageInfo},
+    iiif::IiifError,
+    iiif_json::{
+        self,
+        image::{IiifFeature, IiifImageFormat},
     },
     rendering::tile::{Tile, TileIndex, TileModState},
 };
@@ -114,7 +115,7 @@ impl TiledImage {
         // Fetch IIIF image info.json.
         let url = TiledImage::get_image_info_url(iiif_endpoint);
         // let iiif_image_info = IiifImageInfo::from_url(&url)?;
-        let iiif_image_info = IiifImageInfo::try_from_url(&url)?;
+        let iiif_image_info = iiif_json::image::IiifImageInfo::from_url(&url)?;
 
         // Important profile info.
         let profile_details = iiif_image_info.get_profile_details();

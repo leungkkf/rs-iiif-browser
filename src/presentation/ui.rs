@@ -80,17 +80,19 @@ pub(crate) fn presentation_ui_system(
 
             egui::ComboBox::from_id_salt("Sequences")
                 .selected_text(
-                    presentation.get_sequences()[ui_state.current_sequence]
-                        .label
+                    presentation
+                        .get_sequence(ui_state.current_sequence)
+                        .get_label()
+                        .collect::<Vec<_>>()
                         .join(","),
                 )
                 .wrap_mode(egui::TextWrapMode::Wrap)
                 .show_ui(ui, |ui| {
-                    for (index, seq) in presentation.get_sequences().iter().enumerate() {
+                    for (index, seq) in presentation.get_sequences().enumerate() {
                         ui.selectable_value(
                             &mut ui_state.current_sequence,
                             index,
-                            seq.label.join(","),
+                            seq.get_label().collect::<Vec<_>>().join(","),
                         );
                     }
                 });
@@ -98,23 +100,23 @@ pub(crate) fn presentation_ui_system(
             ui.separator();
 
             egui::ScrollArea::vertical().show(ui, |ui| -> Result {
-                for (index, canvas) in presentation.get_sequences()[ui_state.current_sequence]
-                    .canvases
-                    .iter()
+                for (index, canvas) in presentation
+                    .get_sequence(ui_state.current_sequence)
+                    .get_canvases()
                     .enumerate()
                 {
                     add_text(
                         ui,
                         format!("canvas{}", index),
-                        &canvas.label.join(","),
+                        &canvas.get_label().collect::<Vec<_>>().join(","),
                         None,
                         2,
                     );
-                    if let Some(thumbnail) = &canvas.thumbnail
+                    if let Some(thumbnail) = canvas.get_thumbnail().next()
                         && ui
                             .add_sized(
                                 vec2(ui.available_width(), ui.available_width()),
-                                bevy_egui::egui::Image::new(&thumbnail.id).max_size(vec2(
+                                bevy_egui::egui::Image::new(thumbnail).max_size(vec2(
                                     ui.available_width() - 16.0,
                                     ui.available_width() - 16.0,
                                 )),
@@ -126,8 +128,7 @@ pub(crate) fn presentation_ui_system(
                             commands.entity(image_entity).despawn();
                         }
 
-                        let image =
-                            TiledImage::try_from_url(&canvas.images[0].resource.service.id)?;
+                        let image = TiledImage::try_from_url(canvas.get_image(0).get_service())?;
 
                         commands.spawn(image);
                     }
