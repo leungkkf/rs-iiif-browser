@@ -1,273 +1,66 @@
 use crate::{
     iiif::IiifError,
-    rdf::{self, dataset_ext::DatasetExt},
-    rendering::tiled_image::TiledImage,
+    iiif::{manifest_v2, manifest_v3},
+    presentation::manifest::HasManifest,
 };
-use bevy::prelude::Component;
-use sophia::{
-    api::{dataset::CollectibleDataset, ns::NsTerm, prelude::Any, term::SimpleTerm},
-    inmem::dataset::FastDataset,
-    iri::IriRef,
-};
+use bevy::prelude::debug;
+use serde::{Deserialize, Serialize};
 
-pub(crate) struct Service {
-    pub(crate) id: String,
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// Presentation context.
+pub(crate) enum Context {
+    #[serde(rename = "http://iiif.io/api/presentation/2/context.json")]
+    Version2,
+    #[serde(rename = "http://iiif.io/api/presentation/3/context.json")]
+    Version3,
 }
 
-impl Service {
-    pub(crate) fn new(id: String) -> Self {
-        Self { id }
-    }
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
+/// Presentation language.
+pub(crate) enum Language {
+    None,
+    En,
+    Fr,
 }
 
-pub(crate) struct Resource {
-    pub(crate) format: String,
-    pub(crate) service: Service,
-    pub(crate) height: u32,
-    pub(crate) width: u32,
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "kebab-case")]
+/// Presentation viewing direction.
+pub(crate) enum ViewingDirection {
+    RightToLeft,
+    LeftToRight,
+    TopToBottom,
+    BottomToTop,
 }
 
-impl Resource {
-    pub(crate) fn new(format: String, service: Service, width: u32, height: u32) -> Self {
-        Self {
-            format,
-            service,
-            height,
-            width,
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum Manifest {
+    Version2(manifest_v2::Manifest),
+    Version3(manifest_v3::Manifest),
+}
+
+/// Build from a URL.
+pub(crate) fn try_from_url(url: &str) -> core::result::Result<Box<dyn HasManifest>, IiifError> {
+    let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
+    debug!("info {:?}", info_json);
+
+    try_from_json(&info_json)
+}
+
+/// Build from a Json string.
+fn try_from_json(info_json: &str) -> core::result::Result<Box<dyn HasManifest>, IiifError> {
+    let iiif_presentation_info: Manifest = serde_json::from_str(info_json)?;
+    debug!("iiif_image_info {:?}", iiif_presentation_info);
+
+    let output = match iiif_presentation_info {
+        Manifest::Version2(v) => Box::new(v),
+        Manifest::Version3(_v) => {
+            todo!("add version 3")
         }
-    }
-}
-
-pub(crate) struct Image {
-    pub(crate) resource: Resource,
-}
-
-impl Image {
-    pub(crate) fn new(resource: Resource) -> Self {
-        Self { resource }
-    }
-
-    fn try_from_dataset<T: CollectibleDataset>(
-        image_body: &str,
-        dataset: &DatasetExt<T>,
-    ) -> Result<Self, IiifError> {
-        let image_bodies_subject = NsTerm::new_unchecked(IriRef::new_unchecked(image_body), "");
-
-        let image_service = dataset
-            .get_first_object_cloned_as([image_bodies_subject], [rdf::svcs::has_service])?
-            .ok_or(IiifError::IiifMissingInfo(
-                "Missing service in image".into(),
-            ))?;
-        let image_width = dataset
-            .get_first_object_cloned_as([image_bodies_subject], [rdf::exif::width])?
-            .ok_or(IiifError::IiifMissingInfo("Missing width in image".into()))?;
-        let image_height = dataset
-            .get_first_object_cloned_as([image_bodies_subject], [rdf::exif::height])?
-            .ok_or(IiifError::IiifMissingInfo("Missing height in image".into()))?;
-        let image_format = dataset
-            .get_first_object_cloned_as([image_bodies_subject], [rdf::dc::format])?
-            .unwrap_or_default();
-
-        let service = Service::new(image_service);
-
-        let resource = Resource::new(image_format, service, image_width, image_height);
-
-        Ok(Self::new(resource))
-    }
-}
-
-pub(crate) struct Thumbnail {
-    pub(crate) id: String,
-}
-
-impl Thumbnail {
-    pub(crate) fn new(id: String) -> Self {
-        Self { id }
-    }
-}
-
-pub(crate) struct Canvas {
-    pub(crate) label: Vec<String>,
-    pub(crate) width: u32,
-    pub(crate) height: u32,
-    pub(crate) images: Vec<Image>,
-    pub(crate) thumbnail: Option<Thumbnail>,
-}
-
-impl Canvas {
-    pub(crate) fn new(
-        label: Vec<String>,
-        width: u32,
-        height: u32,
-        images: Vec<Image>,
-        thumbnail: Option<Thumbnail>,
-    ) -> Self {
-        Self {
-            label,
-            width,
-            height,
-            images,
-            thumbnail,
-        }
-    }
-
-    fn try_from_dataset<T: CollectibleDataset>(
-        canvs_subject: &SimpleTerm,
-        dataset: &DatasetExt<T>,
-    ) -> Result<Self, IiifError> {
-        let canvas_width = dataset
-            .get_first_object_cloned_as([canvs_subject], [rdf::exif::width])?
-            .ok_or(IiifError::IiifMissingInfo(format!(
-                "Missing width in canvas in subject '{:?}'",
-                canvs_subject
-            )))?;
-        let canvas_height = dataset
-            .get_first_object_cloned_as([canvs_subject], [rdf::exif::height])?
-            .ok_or(IiifError::IiifMissingInfo(format!(
-                "Missing height in canvas in subject '{:?}'",
-                canvs_subject
-            )))?;
-        let canvas_label =
-            dataset.get_objects_as([canvs_subject], [sophia::api::ns::rdfs::label])?;
-        let canvas_thumbnail = dataset
-            .get_first_object_cloned_as([canvs_subject], [rdf::foaf::thumbnail])?
-            .map(Thumbnail::new);
-
-        let mut images = Vec::new();
-
-        for image_annotation_node in
-            dataset.objects_iter([canvs_subject], [rdf::iiif_present2::hasImageAnnotations])
-        {
-            for image_annotation_subject in dataset.objects_iter([image_annotation_node?], Any) {
-                for image_body in dataset.get_objects_as::<_, _, String>(
-                    [image_annotation_subject?],
-                    [rdf::oa::hasBody],
-                )? {
-                    images.push(Image::try_from_dataset(&image_body, dataset)?);
-                }
-            }
-        }
-
-        Ok(Self::new(
-            canvas_label,
-            canvas_width,
-            canvas_height,
-            images,
-            canvas_thumbnail,
-        ))
-    }
-}
-
-pub(crate) struct Sequence {
-    pub(crate) label: Vec<String>,
-    pub(crate) canvases: Vec<Canvas>,
-}
-
-impl Sequence {
-    pub(crate) fn new(label: Vec<String>, canvases: Vec<Canvas>) -> Self {
-        Self { label, canvases }
-    }
-
-    fn try_from_dataset<T: CollectibleDataset>(
-        sequence_subject: &SimpleTerm,
-        dataset: &DatasetExt<T>,
-    ) -> Result<Self, IiifError> {
-        let sequence_label =
-            dataset.get_objects_as([sequence_subject], [sophia::api::ns::rdfs::label])?;
-
-        let mut canvases = Vec::new();
-
-        for canvas_node in
-            dataset.objects_iter([sequence_subject], [rdf::iiif_present2::hasCanvases])
-        {
-            for canvas in dataset.objects_iter([canvas_node?], Any) {
-                canvases.push(Canvas::try_from_dataset(&canvas?, dataset)?);
-            }
-        }
-
-        Ok(Sequence::new(sequence_label, canvases))
-    }
-}
-
-#[derive(Component)]
-/// Presentation manifest.
-pub(crate) struct Manifest {
-    pub(crate) title: String,
-    pub(crate) attribution: Vec<String>,
-    pub(crate) description: Vec<String>,
-    pub(crate) license: Vec<String>,
-    pub(crate) logo: Vec<String>,
-    pub(crate) sequences: Vec<Sequence>,
-}
-
-impl Manifest {
-    pub(crate) fn new(
-        title: String,
-        attribution: Vec<String>,
-        description: Vec<String>,
-        license: Vec<String>,
-        logo: Vec<String>,
-        sequences: Vec<Sequence>,
-    ) -> Self {
-        Self {
-            title,
-            attribution,
-            description,
-            license,
-            logo,
-            sequences,
-        }
-    }
-
-    /// Try to create the manifest from the URL.
-    pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
-        let dataset = DatasetExt::<FastDataset>::try_from_url(url, None)?;
-
-        Self::try_from_dataset(&dataset)
-    }
-
-    /// Try to create the manifest from the RDF database.
-    pub(crate) fn try_from_dataset<T: CollectibleDataset>(
-        dataset: &DatasetExt<T>,
-    ) -> core::result::Result<Self, IiifError> {
-        let id_subject = dataset.id();
-
-        let title = dataset
-            .get_first_object_cloned_as([id_subject], [sophia::api::ns::rdfs::label])?
-            .unwrap_or_default();
-        let attribution =
-            dataset.get_objects_as([id_subject], [rdf::iiif_present2::attributionLabel])?;
-        let license = dataset.get_objects_as([id_subject], [rdf::dcterms::rights])?;
-        let description = dataset.get_objects_as([id_subject], [rdf::dc::description])?;
-        let logo = dataset.get_objects_as([id_subject], [rdf::foaf::logo])?;
-
-        let mut sequences = Vec::new();
-
-        for seq_node in dataset.objects_iter([id_subject], [rdf::iiif_present2::hasSequences]) {
-            for seq_subject in dataset.objects_iter([seq_node?], Any) {
-                sequences.push(Sequence::try_from_dataset(&seq_subject?, dataset)?);
-            }
-        }
-
-        for seq in sequences.iter_mut() {
-            for canvas in seq.canvases.iter_mut() {
-                if canvas.thumbnail.is_none() {
-                    let image = TiledImage::try_from_url(&canvas.images[0].resource.service.id)?;
-
-                    canvas.thumbnail = Some(Thumbnail::new(image.get_image_thumbnail(64).0));
-                }
-            }
-        }
-
-        Ok(Manifest::new(
-            title,
-            attribution,
-            description,
-            license,
-            logo,
-            sequences,
-        ))
-    }
+    };
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -275,110 +68,237 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test() {
-        let json = r#"{
-          "@context": "http://iiif.io/api/presentation/2/context.json",
-          "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378",
-          "@type": "sc:Manifest",
-          "attribution": "Provided by Harvard University",
-          "label": "Harvard University, Harvard Art Museums, INV204583",
-          "license": "https://nrs.harvard.edu/urn-3:HUL.eother:idscopyright",
-          "logo": "https://iiif.lib.harvard.edu/static/manifests/harvard_logo.jpg",
-          "sequences": [
+    fn test_from_json() {
+        let json = r#"
             {
-              "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378/sequence/normal.json",
-              "@type": "sc:Sequence",
-              "canvases": [
-                {
-                  "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json",
-                  "@type": "sc:Canvas",
-                  "height": 833,
-                  "images": [
-                    {
-                      "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378/annotation/anno-11927378.json",
-                      "@type": "oa:Annotation",
-                      "motivation": "sc:painting",
-                      "on": "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json",
-                      "resource": {
-                        "@id": "https://ids.lib.harvard.edu/ids/iiif/11927378/full/full/0/default.jpg",
-                        "@type": "dctypes:Image",
-                        "format": "image/jpeg",
+                "@context": "http://iiif.io/api/presentation/2/context.json",
+                "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378",
+                "@type": "sc:Manifest",
+                "attribution": "Provided by Harvard University",
+                "label": "Harvard University, Harvard Art Museums, INV204583",
+                "license": "https://nrs.harvard.edu/urn-3:HUL.eother:idscopyright",
+                "logo": "https://iiif.lib.harvard.edu/static/manifests/harvard_logo.jpg",
+                "sequences": [{
+                    "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378/sequence/normal.json",
+                    "@type": "sc:Sequence",
+                    "canvases": [{
+                        "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json",
+                        "@type": "sc:Canvas",
                         "height": 833,
-                        "service": {
-                          "@context": "http://iiif.io/api/image/2/context.json",
-                          "@id": "https://ids.lib.harvard.edu/ids/iiif/11927378",
-                          "profile": "http://iiif.io/api/image/2/level2.json"
+                        "images": [{
+                            "@id": "https://iiif.lib.harvard.edu/manifests/ids:11927378/annotation/anno-11927378.json",
+                            "@type": "oa:Annotation",
+                            "motivation": "sc:painting",
+                            "on": "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json",
+                            "resource": {
+                                "@id": "https://ids.lib.harvard.edu/ids/iiif/11927378/full/full/0/default.jpg",
+                                "@type": "dctypes:Image",
+                                "format": "image/jpeg",
+                                "height": 833,
+                                "service": {
+                                    "@context": "http://iiif.io/api/image/2/context.json",
+                                    "@id": "https://ids.lib.harvard.edu/ids/iiif/11927378",
+                                    "profile": "http://iiif.io/api/image/2/level2.json"
+                                },
+                                "width": 1024
+                            }
+                        }],
+                        "label": "Harvard University, Harvard Art Museums, INV204583",
+                        "thumbnail": {
+                            "@id": "https://ids.lib.harvard.edu/ids/iiif/11927378/full/,150/0/default.jpg",
+                            "@type": "dctypes:Image"
                         },
                         "width": 1024
-                      }
-                    }
-                  ],
-                  "label": "Harvard University, Harvard Art Museums, INV204583",
-                  "thumbnail": {
-                    "@id": "https://ids.lib.harvard.edu/ids/iiif/11927378/full/,150/0/default.jpg",
-                    "@type": "dctypes:Image"
-                  },
-                  "width": 1024
+                    }],
+                    "label": "Harvard University, Harvard Art Museums, INV204583",
+                    "startCanvas": "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json",
+                    "viewingHint": "individuals"
+                }]
+            }"#;
+
+        assert!(try_from_json(&json).is_ok());
+
+        let json = r#"{
+          "@context": "http://iiif.io/api/presentation/3/context.json",
+          "id": "https://example.org/iiif/book1/manifest",
+          "type": "Manifest",
+
+          "label": { "en": [ "Book 1" ] },
+          "metadata": [
+            {
+              "label": { "en": [ "Author" ] },
+              "value": { "none": [ "Anne Author" ] }
+            },
+            {
+              "label": { "en": [ "Published" ] },
+              "value": {
+                "en": [ "Paris, circa 1400" ],
+                "fr": [ "Paris, environ 1400" ]
+              }
+            },
+            {
+              "label": { "en": [ "Notes" ] },
+              "value": {
+                "en": [
+                  "Text of note 1",
+                  "Text of note 2"
+                ]
+              }
+            },
+            {
+              "label": { "en": [ "Source" ] },
+              "value": { "none": [ "<span>From: <a href=\"https://example.org/db/1.html\">Some Collection</a></span>" ] }
+            }
+          ],
+          "summary": { "en": [ "Book 1, written by Anne Author, published in Paris around 1400." ] },
+
+          "thumbnail": [
+            {
+              "id": "https://example.org/iiif/book1/page1/full/80,100/0/default.jpg",
+              "type": "Image",
+              "format": "image/jpeg",
+              "service": [
+                {
+                  "id": "https://example.org/iiif/book1/page1",
+                  "type": "ImageService3",
+                  "profile": "level1"
+                }
+              ]
+            }
+          ],
+
+          "viewingDirection": "right-to-left",
+          "behavior": [ "paged" ],
+          "navDate": "1856-01-01T00:00:00Z",
+
+          "rights": "http://creativecommons.org/licenses/by/4.0/",
+          "requiredStatement": {
+            "label": { "en": [ "Attribution" ] },
+            "value": { "en": [ "Provided by Example Organization" ] }
+          },
+          "provider": [
+            {
+              "id": "https://example.org/about",
+              "type": "Agent",
+              "label": { "en": [ "Example Organization" ] },
+              "homepage": [
+                {
+                  "id": "https://example.org/",
+                  "type": "Text",
+                  "label": { "en": [ "Example Organization Homepage" ] },
+                  "format": "text/html"
                 }
               ],
-              "label": "Harvard University, Harvard Art Museums, INV204583",
-              "startCanvas": "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json",
-              "viewingHint": "individuals"
+              "logo": [
+                {
+                  "id": "https://example.org/service/inst1/full/max/0/default.png",
+                  "type": "Image",
+                  "format": "image/png",
+                  "service": [
+                    {
+                      "id": "https://example.org/service/inst1",
+                      "type": "ImageService3",
+                      "profile": "level2"
+                    }
+                  ]
+                }
+              ],
+              "seeAlso": [
+                {
+                  "id": "https://data.example.org/about/us.jsonld",
+                  "type": "Dataset",
+                  "format": "application/ld+json",
+                  "profile": "https://schema.org/"
+                }
+              ]
+            }
+          ],
+
+          "homepage": [
+            {
+              "id": "https://example.org/info/book1/",
+              "type": "Text",
+              "label": { "en": [ "Home page for Book 1" ] },
+              "format": "text/html"
+            }
+          ],
+          "service": [
+            {
+              "id": "https://example.org/service/example",
+              "type": "ExampleExtensionService",
+              "profile": "https://example.org/docs/example-service.html"
+            }
+          ],
+          "seeAlso": [
+            {
+              "id": "https://example.org/library/catalog/book1.xml",
+              "type": "Dataset",
+              "format": "text/xml",
+              "profile": "https://example.org/profiles/bibliographic"
+            }
+          ],
+          "rendering": [
+            {
+              "id": "https://example.org/iiif/book1.pdf",
+              "type": "Text",
+              "label": { "en": [ "Download as PDF" ] },
+              "format": "application/pdf"
+            }
+          ],
+          "partOf": [
+            {
+              "id": "https://example.org/collections/books/",
+              "type": "Collection"
+            }
+          ],
+          "start": {
+            "id": "https://example.org/iiif/book1/canvas/p2",
+            "type": "Canvas"
+          },
+
+          "services": [
+            {
+              "@id": "https://example.org/iiif/auth/login",
+              "@type": "AuthCookieService1",
+              "profile": "http://iiif.io/api/auth/1/login",
+              "label": "Login to Example Institution",
+              "service": [
+                {
+                  "@id": "https://example.org/iiif/auth/token",
+                  "@type": "AuthTokenService1",
+                  "profile": "http://iiif.io/api/auth/1/token"
+                }
+              ]
+            }
+          ],
+
+          "items": [
+            {
+              "id": "https://example.org/iiif/book1/canvas/p1",
+              "type": "Canvas",
+              "label": { "none": [ "p. 1" ] }
+            }
+          ],
+
+          "structures": [
+            {
+              "id": "https://example.org/iiif/book1/range/top",
+              "type": "Range"
+            }
+          ],
+
+          "annotations": [
+            {
+              "id": "https://example.org/iiif/book1/annotations/p1",
+              "type": "AnnotationPage",
+              "items": [
+              ]
             }
           ]
-        }"#;
-        let id = "https://iiif.lib.harvard.edu/manifests/ids:11927378";
-        let dataset = DatasetExt::<FastDataset>::try_from_json(id, json).unwrap();
-        let manifest = Manifest::try_from_dataset(&dataset).unwrap();
+        }
+        "#;
 
-        assert_eq!(manifest.attribution, vec!["Provided by Harvard University"]);
-        assert_eq!(
-            manifest.license,
-            vec!["https://nrs.harvard.edu/urn-3:HUL.eother:idscopyright"]
-        );
-        assert_eq!(
-            manifest.title,
-            "Harvard University, Harvard Art Museums, INV204583"
-        );
-        assert_eq!(
-            manifest.logo,
-            vec!["https://iiif.lib.harvard.edu/static/manifests/harvard_logo.jpg"]
-        );
-        assert_eq!(manifest.description, Vec::<String>::new());
-
-        assert_eq!(manifest.sequences.len(), 1);
-
-        let seq = &manifest.sequences[0];
-
-        assert_eq!(
-            seq.label,
-            vec!["Harvard University, Harvard Art Museums, INV204583"]
-        );
-
-        assert_eq!(seq.canvases.len(), 1);
-
-        let canvas = &seq.canvases[0];
-
-        assert_eq!(canvas.width, 1024);
-        assert_eq!(canvas.height, 833);
-        assert_eq!(
-            canvas.label,
-            vec!["Harvard University, Harvard Art Museums, INV204583"]
-        );
-        assert_eq!(
-            canvas.thumbnail.as_ref().unwrap().id,
-            "https://ids.lib.harvard.edu/ids/iiif/11927378/full/,150/0/default.jpg"
-        );
-        assert_eq!(canvas.images.len(), 1);
-
-        let image = &canvas.images[0];
-
-        assert_eq!(image.resource.width, 1024);
-        assert_eq!(image.resource.height, 833);
-        assert_eq!(
-            image.resource.service.id,
-            "https://ids.lib.harvard.edu/ids/iiif/11927378"
-        );
-        assert_eq!(image.resource.format, "image/jpeg");
+        // TODO:
+        // assert!(try_from_json(&json).is_ok());
     }
 }

@@ -14,11 +14,9 @@ use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, PrimaryE
 mod app;
 mod camera;
 mod iiif;
-mod iiif_json;
 mod input;
 mod minimap;
 mod presentation;
-mod rdf;
 mod rendering;
 
 fn main() {

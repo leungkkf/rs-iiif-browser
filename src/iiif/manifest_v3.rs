@@ -1,4 +1,4 @@
-use crate::iiif_json::manifest::{Context, Language, ViewingDirection};
+use crate::iiif::manifest::{Context, Language, ViewingDirection};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

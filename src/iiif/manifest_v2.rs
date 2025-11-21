@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::iiif_json::manifest::{Context, Language, ViewingDirection};
-use crate::iiif_json::one_or_many::{OneOrMany, OneTypeOrMany};
+use crate::iiif::manifest::{Context, Language, ViewingDirection};
+use crate::iiif::one_or_many::{OneOrMany, OneTypeOrMany};
 use crate::presentation::manifest::{HasCavas, HasImage, HasManifest, HasSequence};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

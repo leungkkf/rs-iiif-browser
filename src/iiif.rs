@@ -1,8 +1,10 @@
-use crate::rdf;
 use thiserror::Error;
 
 pub(crate) mod image;
 pub(crate) mod manifest;
+pub(crate) mod manifest_v2;
+pub(crate) mod manifest_v3;
+pub(crate) mod one_or_many;
 
 #[derive(Error, Debug)]
 pub enum IiifError {
@@ -22,12 +24,6 @@ pub enum IiifError {
     // IiifUnsupportedError(String),
     #[error("std io error")]
     IiifStdIoError(#[from] std::io::Error),
-
-    #[error("sophia rdf dataset error")]
-    IiifRdfDatasetError(#[from] rdf::dataset_ext::RdfError),
-
-    #[error("sophia invalid iri error")]
-    IiifInvalidIri(#[from] sophia::iri::InvalidIri),
 
     #[error("IIIF parse int error {0}")]
     IiifParseIntError(#[from] std::num::ParseIntError),
