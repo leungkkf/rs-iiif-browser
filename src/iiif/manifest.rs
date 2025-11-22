@@ -1,7 +1,6 @@
 use crate::{
-    iiif::IiifError,
-    iiif::{manifest_v2, manifest_v3},
-    presentation::manifest::IsManifest,
+    iiif::{IiifError, manifest_v2, manifest_v3},
+    presentation::model::IsManifest,
 };
 use bevy::prelude::debug;
 use serde::{Deserialize, Serialize};
@@ -118,7 +117,7 @@ mod tests {
 
         assert!(try_from_json(&json).is_ok());
 
-        let json = r#"{
+        let _json = r#"{
           "@context": "http://iiif.io/api/presentation/3/context.json",
           "id": "https://example.org/iiif/book1/manifest",
           "type": "Manifest",

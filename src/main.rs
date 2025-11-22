@@ -176,18 +176,18 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     info!(
         "{:?}",
         presentation
-            .into_inner()
+            .manifest()
             .get_sequence(0)
-            .get_canvase(0)
+            .get_canvas(0)
             .get_image(0)
             .get_service()
     );
 
     let image = TiledImage::try_from_url(
         presentation
-            .into_inner()
+            .manifest()
             .get_sequence(0)
-            .get_canvase(0)
+            .get_canvas(0)
             .get_image(0)
             .get_service(),
     )?;

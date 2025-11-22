@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::iiif::manifest::{Context, Language, ViewingDirection};
 use crate::iiif::one_or_many::{OneOrMany, OneTypeOrMany};
-use crate::presentation::manifest::{IsCavas, IsImage, IsManifest, IsSequence};
+use crate::presentation::model::{IsCavas, IsImage, IsManifest, IsSequence};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) enum ManifestType {
@@ -41,15 +41,6 @@ pub(crate) enum LabelValue {
 pub(crate) struct LabelValuePair {
     label: String,
     value: OneOrMany<String, LabelValue>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// Presentation "see also".
-pub(crate) struct SeeAlso {
-    #[serde(rename = "@id")]
-    id: String,
-    format: Option<String>,
-    profile: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -239,7 +230,7 @@ impl IsManifest for Manifest {
         }
     }
 
-    fn get_sequences(&self) -> Box<dyn Iterator<Item = &dyn IsSequence> + '_> {
+    fn get_sequences(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsSequence> + '_> {
         Box::new(self.sequences.iter().map(|b| b as &dyn IsSequence))
     }
 
@@ -257,11 +248,11 @@ impl IsSequence for Sequence {
         }
     }
 
-    fn get_canvases(&self) -> Box<dyn Iterator<Item = &dyn IsCavas> + '_> {
+    fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCavas> + '_> {
         Box::new(self.canvases.iter().map(|b| b as &dyn IsCavas))
     }
 
-    fn get_canvase(&self, index: usize) -> &dyn IsCavas {
+    fn get_canvas(&self, index: usize) -> &dyn IsCavas {
         &self.canvases[index]
     }
 }
@@ -277,7 +268,7 @@ impl IsCavas for Canvas {
             Box::new(std::iter::empty::<&str>())
         }
     }
-    fn get_images(&self) -> Box<dyn Iterator<Item = &dyn IsImage> + '_> {
+    fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_> {
         Box::new(self.images.iter().map(|b| b as &dyn IsImage))
     }
     fn get_image(&self, index: usize) -> &dyn IsImage {
@@ -300,7 +291,6 @@ impl IsImage for Image {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Instant;
 
     // #[test]
     // fn test_2() {

@@ -1,4 +1,7 @@
-use crate::iiif::{IiifError, manifest};
+use crate::{
+    iiif::{IiifError, manifest},
+    presentation::model::IsManifest,
+};
 use bevy::prelude::Component;
 
 #[derive(Component)]
@@ -13,8 +16,8 @@ impl ManifestComponent {
     }
 
     /// Get the reference of the inner manifest.
-    pub(crate) fn into_inner(&self) -> &Box<dyn IsManifest> {
-        &self.inner
+    pub(crate) fn manifest(&self) -> &dyn IsManifest {
+        self.inner.as_ref()
     }
 
     /// Try to create the manifest from the URL.
@@ -29,35 +32,6 @@ impl From<Box<dyn IsManifest>> for ManifestComponent {
     fn from(v: Box<dyn IsManifest>) -> Self {
         Self::new(v)
     }
-}
-
-pub(crate) trait IsManifest: Send + Sync {
-    fn get_title(&self) -> &str;
-    fn get_attribution(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_description(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_license(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_logo(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_sequences(&self) -> Box<dyn Iterator<Item = &dyn IsSequence> + '_>;
-    fn get_sequence(&self, index: usize) -> &dyn IsSequence;
-}
-
-pub(crate) trait IsSequence: Send + Sync {
-    fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_canvases(&self) -> Box<dyn Iterator<Item = &dyn IsCavas> + '_>;
-    fn get_canvase(&self, index: usize) -> &dyn IsCavas;
-}
-
-pub(crate) trait IsCavas: Send + Sync {
-    fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_thumbnail(&self) -> Box<dyn Iterator<Item = &str> + '_>;
-    fn get_images(&self) -> Box<dyn Iterator<Item = &dyn IsImage> + '_>;
-    fn get_image(&self, index: usize) -> &dyn IsImage;
-}
-
-pub(crate) trait IsImage: Send + Sync {
-    fn get_service(&self) -> &str;
-    fn get_width(&self) -> u32;
-    fn get_height(&self) -> u32;
 }
 
 #[cfg(test)]
@@ -225,28 +199,28 @@ mod tests {
         let manifest = ManifestComponent::new(Box::new(iiif_manifest));
 
         assert_eq!(
-            manifest.into_inner().get_attribution().collect::<Vec<_>>(),
+            manifest.manifest().get_attribution().collect::<Vec<_>>(),
             vec!["Provided by Example Organization"]
         );
         assert_eq!(
-            manifest.into_inner().get_license().collect::<Vec<_>>(),
+            manifest.manifest().get_license().collect::<Vec<_>>(),
             vec!["http://www.example.org/license.html"]
         );
-        assert_eq!(manifest.into_inner().get_title(), "Book 1");
+        assert_eq!(manifest.manifest().get_title(), "Book 1");
         assert_eq!(
-            manifest.into_inner().get_logo().collect::<Vec<_>>(),
+            manifest.manifest().get_logo().collect::<Vec<_>>(),
             Vec::<String>::new()
         );
         assert_eq!(
-            manifest.into_inner().get_description().collect::<Vec<_>>(),
+            manifest.manifest().get_description().collect::<Vec<_>>(),
             vec![
                 "A longer description of this example book. It should give some real information."
             ]
         );
 
-        assert_eq!(manifest.into_inner().get_sequences().count(), 1);
+        assert_eq!(manifest.manifest().get_sequences().count(), 1);
 
-        let seq = manifest.into_inner().get_sequence(0);
+        let seq = manifest.manifest().get_sequence(0);
 
         assert_eq!(
             seq.get_label().collect::<Vec<_>>(),
@@ -255,7 +229,7 @@ mod tests {
 
         assert_eq!(seq.get_canvases().count(), 3);
 
-        let canvas = seq.get_canvase(0);
+        let canvas = seq.get_canvas(0);
 
         assert_eq!(canvas.get_label().collect::<Vec<_>>(), vec!["p. 1"]);
         assert_eq!(

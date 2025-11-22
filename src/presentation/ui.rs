@@ -1,4 +1,3 @@
-use crate::presentation;
 use crate::presentation::manifest::ManifestComponent;
 use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
@@ -43,27 +42,27 @@ pub(crate) fn presentation_ui_system(
             add_text(
                 ui,
                 "title".to_string(),
-                presentation.into_inner().get_title(),
+                presentation.manifest().get_title(),
                 Some(Color32::WHITE),
                 2,
             );
 
             let description = presentation
-                .into_inner()
+                .manifest()
                 .get_description()
                 .collect::<Vec<_>>();
             if !description.is_empty() {
                 add_text(ui, "desc".to_string(), &description.join("\n"), None, 3);
             }
 
-            let licence = presentation.into_inner().get_license().collect::<Vec<_>>();
+            let licence = presentation.manifest().get_license().collect::<Vec<_>>();
             let license = if !licence.is_empty() {
                 format!("(© {})", &licence.join(","))
             } else {
                 "".into()
             };
             let attribution = presentation
-                .into_inner()
+                .manifest()
                 .get_attribution()
                 .collect::<Vec<_>>()
                 .join(",");
@@ -78,7 +77,7 @@ pub(crate) fn presentation_ui_system(
                 );
             }
 
-            for logo in presentation.into_inner().get_logo() {
+            for logo in presentation.manifest().get_logo() {
                 ui.add_space(6.0);
                 bevy_egui::egui::Image::new(logo).max_height(64.0).ui(ui);
             }
@@ -87,7 +86,7 @@ pub(crate) fn presentation_ui_system(
             egui::ComboBox::from_id_salt("Sequences")
                 .selected_text(
                     presentation
-                        .into_inner()
+                        .manifest()
                         .get_sequence(ui_state.current_sequence)
                         .get_label()
                         .collect::<Vec<_>>()
@@ -95,7 +94,7 @@ pub(crate) fn presentation_ui_system(
                 )
                 .wrap_mode(egui::TextWrapMode::Wrap)
                 .show_ui(ui, |ui| {
-                    for (index, seq) in presentation.into_inner().get_sequences().enumerate() {
+                    for (index, seq) in presentation.manifest().get_sequences().enumerate() {
                         ui.selectable_value(
                             &mut ui_state.current_sequence,
                             index,
@@ -108,7 +107,7 @@ pub(crate) fn presentation_ui_system(
 
             egui::ScrollArea::vertical().show(ui, |ui| -> Result {
                 for (index, canvas) in presentation
-                    .into_inner()
+                    .manifest()
                     .get_sequence(ui_state.current_sequence)
                     .get_canvases()
                     .enumerate()
