@@ -160,19 +160,34 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     //     "N-0728-00-000035-PYR.tif".into(),
     // )
     // .unwrap();
+    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    //     "https://gallerycollections.courtauld.ac.uk/api/iiif/O2262/manifest.json",
+    // )?;
 
-    // let presentation = presentation::manifest::Manifest::try_from_url(
+    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
     //     "https://iiif.lib.harvard.edu/manifests/ids:11927378",
     // )?;
 
-    // let presentation = presentation::manifest::Manifest::try_from_url(
-    //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
+    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    //     "https://iiif.harvardartmuseums.org/manifests/object/21116",
+    // )?;
+
+    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    //     "https://iiif.harvardartmuseums.org/manifests/object/303419",
     // )?;
 
     let presentation = presentation::manifest::ManifestComponent::try_from_url(
-        "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
+        "https://iiif.harvardartmuseums.org/manifests/object/279708",
     )?;
-    //
+
+    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
+    // )?;
+
+    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    //     "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
+    // )?;
+
     info!(
         "{:?}",
         presentation

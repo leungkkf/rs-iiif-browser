@@ -119,11 +119,20 @@ pub(crate) fn presentation_ui_system(
                         None,
                         2,
                     );
-                    if let Some(thumbnail) = canvas.get_thumbnail().next()
+
+                    let mut canvas_thumbnail = "".to_string();
+                    if let Some(thumbnail) = canvas.get_thumbnail().next() {
+                        canvas_thumbnail = thumbnail.to_string();
+                    } else if let Some(image) = canvas.get_images().next() {
+                        canvas_thumbnail =
+                            format!("{}/full/,64/0/default.png", image.get_service());
+                    }
+
+                    if !canvas_thumbnail.is_empty()
                         && ui
                             .add_sized(
                                 vec2(ui.available_width(), ui.available_width()),
-                                bevy_egui::egui::Image::new(thumbnail).max_size(vec2(
+                                bevy_egui::egui::Image::new(canvas_thumbnail).max_size(vec2(
                                     ui.available_width() - 16.0,
                                     ui.available_width() - 16.0,
                                 )),
