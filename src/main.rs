@@ -191,7 +191,7 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     info!(
         "{:?}",
         presentation
-            .manifest()
+            .model()
             .get_sequence(0)
             .get_canvas(0)
             .get_image(0)
@@ -200,7 +200,7 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
 
     let image = TiledImage::try_from_url(
         presentation
-            .manifest()
+            .model()
             .get_sequence(0)
             .get_canvas(0)
             .get_image(0)

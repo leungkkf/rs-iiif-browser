@@ -16,7 +16,7 @@ impl ManifestComponent {
     }
 
     /// Get the reference of the inner manifest.
-    pub(crate) fn manifest(&self) -> &dyn IsManifest {
+    pub(crate) fn model(&self) -> &dyn IsManifest {
         self.inner.as_ref()
     }
 
@@ -199,28 +199,28 @@ mod tests {
         let manifest = ManifestComponent::new(Box::new(iiif_manifest));
 
         assert_eq!(
-            manifest.manifest().get_attribution().collect::<Vec<_>>(),
+            manifest.model().get_attribution().collect::<Vec<_>>(),
             vec!["Provided by Example Organization"]
         );
         assert_eq!(
-            manifest.manifest().get_license().collect::<Vec<_>>(),
+            manifest.model().get_license().collect::<Vec<_>>(),
             vec!["http://www.example.org/license.html"]
         );
-        assert_eq!(manifest.manifest().get_title(), "Book 1");
+        assert_eq!(manifest.model().get_title(), "Book 1");
         assert_eq!(
-            manifest.manifest().get_logo().collect::<Vec<_>>(),
+            manifest.model().get_logo().collect::<Vec<_>>(),
             Vec::<String>::new()
         );
         assert_eq!(
-            manifest.manifest().get_description().collect::<Vec<_>>(),
+            manifest.model().get_description().collect::<Vec<_>>(),
             vec![
                 "A longer description of this example book. It should give some real information."
             ]
         );
 
-        assert_eq!(manifest.manifest().get_sequences().count(), 1);
+        assert_eq!(manifest.model().get_sequences().count(), 1);
 
-        let seq = manifest.manifest().get_sequence(0);
+        let seq = manifest.model().get_sequence(0);
 
         assert_eq!(
             seq.get_label().collect::<Vec<_>>(),
