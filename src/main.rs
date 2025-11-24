@@ -176,7 +176,7 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     //     "https://iiif.harvardartmuseums.org/manifests/object/303419",
     // )?;
 
-    let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    let presentation = presentation::manifest::Manifest::try_from_url(
         "https://iiif.harvardartmuseums.org/manifests/object/279708",
     )?;
 

@@ -6,11 +6,11 @@ use bevy::prelude::Component;
 
 #[derive(Component)]
 /// Presentation manifest.
-pub(crate) struct ManifestComponent {
+pub(crate) struct Manifest {
     inner: Box<dyn IsManifest>,
 }
 
-impl ManifestComponent {
+impl Manifest {
     fn new(inner: Box<dyn IsManifest>) -> Self {
         Self { inner }
     }
@@ -24,11 +24,11 @@ impl ManifestComponent {
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
         let iiif_manifest = manifest::try_from_url(url)?;
 
-        Ok(ManifestComponent::from(iiif_manifest))
+        Ok(Manifest::from(iiif_manifest))
     }
 }
 
-impl From<Box<dyn IsManifest>> for ManifestComponent {
+impl From<Box<dyn IsManifest>> for Manifest {
     fn from(v: Box<dyn IsManifest>) -> Self {
         Self::new(v)
     }
@@ -196,7 +196,7 @@ mod tests {
 
         let iiif_manifest: iiif::manifest_v2::Manifest = serde_json::from_str(&json).unwrap();
 
-        let manifest = ManifestComponent::new(Box::new(iiif_manifest));
+        let manifest = Manifest::new(Box::new(iiif_manifest));
 
         assert_eq!(
             manifest.model().get_attribution().collect::<Vec<_>>(),

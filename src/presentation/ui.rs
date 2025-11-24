@@ -1,4 +1,4 @@
-use crate::presentation::manifest::ManifestComponent;
+use crate::presentation::manifest::Manifest;
 use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
 use bevy::prelude::{
@@ -30,7 +30,7 @@ pub(crate) fn presentation_ui_system(
     mut camera: Single<&mut Camera, Without<EguiContext>>,
     window: Single<&mut Window, With<PrimaryWindow>>,
     mut ui_state: Local<UIState>,
-    presentation: Single<&ManifestComponent>,
+    presentation: Single<&Manifest>,
     tiled_image_query: Query<(Entity, &TiledImage)>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;

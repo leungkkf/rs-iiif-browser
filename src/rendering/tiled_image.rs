@@ -5,6 +5,7 @@ use crate::{
         IiifError,
         image::{IiifFeature, IiifImageFormat, IiifImageInfo},
     },
+    rendering::model::{IsImage, IsProfileDetails},
     rendering::tile::{Tile, TileIndex, TileModState},
 };
 use bevy::{
@@ -114,17 +115,14 @@ impl TiledImage {
         // Fetch IIIF image info.json.
         let url = TiledImage::get_image_info_url(iiif_endpoint);
         // let iiif_image_info = IiifImageInfo::from_url(&url)?;
-        let iiif_image_info = IiifImageInfo::from_url(&url)?;
-
-        // Important profile info.
-        let profile_details = iiif_image_info.get_profile_details();
+        let iiif_image_info = IiifImageInfo::try_from_url(&url)?;
 
         // Get tile size and levels.
         // We require both region by px and size by width/height for the tiling.
         // If not, we will only get the full image.
-        let supported_features: HashSet<_> = profile_details
-            .iter()
-            .flat_map(|x| x.supports.to_owned())
+        let supported_features: HashSet<_> = iiif_image_info
+            .get_profile_details()
+            .flat_map(|x| (*x).get_supported_features())
             .collect();
         let tile_size: Size;
         let levels: Vec<Size>;
@@ -137,21 +135,21 @@ impl TiledImage {
             levels = iiif_image_info.get_tile_scaling_sizes();
         } else {
             info!("RegionByPx or SizeByWh not supported. Get the full image.");
-            tile_size = Size::new(iiif_image_info.width, iiif_image_info.height);
+            tile_size = Size::new(iiif_image_info.get_width(), iiif_image_info.get_height());
             levels = vec![tile_size];
         };
 
         // Get optional sizes.
-        let optional_sizes = iiif_image_info.get_image_sizes();
+        let optional_sizes = iiif_image_info.get_optional_sizes();
 
         // Get the image format.
-        let image_format = profile_details
-            .first()
+        let image_format = iiif_image_info
+            .get_profile_details()
+            .next()
             .expect("should have at least one profile")
-            .formats
-            .first()
-            .expect("should have at least one supported format")
-            .to_owned();
+            .get_formats()
+            .next()
+            .expect("should have at least one supported format");
 
         Ok(TiledImage::new(
             iiif_endpoint.to_string(),

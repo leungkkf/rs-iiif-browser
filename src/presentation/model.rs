@@ -10,14 +10,14 @@ pub(crate) trait IsManifest: Send + Sync {
 }
 
 /// The sequence model.
-pub(crate) trait IsSequence: Send + Sync {
+pub(crate) trait IsSequence {
     fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_>;
     fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCavas> + '_>;
     fn get_canvas(&self, index: usize) -> &dyn IsCavas;
 }
 
 /// The canvas model.
-pub(crate) trait IsCavas: Send + Sync {
+pub(crate) trait IsCavas {
     fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_>;
     fn get_thumbnail(&self) -> Box<dyn Iterator<Item = &str> + '_>;
     fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_>;
@@ -25,7 +25,7 @@ pub(crate) trait IsCavas: Send + Sync {
 }
 
 /// The image model.
-pub(crate) trait IsImage: Send + Sync {
+pub(crate) trait IsImage {
     fn get_service(&self) -> &str;
     fn get_width(&self) -> u32;
     fn get_height(&self) -> u32;
