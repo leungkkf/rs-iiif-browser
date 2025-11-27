@@ -1,8 +1,10 @@
+use crate::app::app_settings::AppSettings;
 use crate::presentation::manifest::Manifest;
 use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
 use bevy::prelude::{
-    Camera, Commands, Entity, Local, Query, Result, Single, UVec2, Window, With, Without, default,
+    Camera, Commands, Entity, Local, Query, Res, Result, Single, UVec2, Window, With, Without,
+    default,
 };
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::text::LayoutJob;
@@ -30,6 +32,7 @@ pub(crate) fn presentation_ui_system(
     mut camera: Single<&mut Camera, Without<EguiContext>>,
     window: Single<&mut Window, With<PrimaryWindow>>,
     mut ui_state: Local<UIState>,
+    app_settings: Res<AppSettings>,
     presentation: Single<&Manifest>,
     tiled_image_query: Query<(Entity, &TiledImage)>,
 ) -> Result {
@@ -100,7 +103,7 @@ pub(crate) fn presentation_ui_system(
                 .get_sequence(ui_state.current_sequence)
                 .get_canvases();
 
-            let thumbnail_size = 64.0;
+            let thumbnail_size = app_settings.thumbnail_size;
             let text_style = egui::TextStyle::Body;
             let row_height = thumbnail_size + 3.0 * ui.text_style_height(&text_style);
             let column_width = thumbnail_size;
