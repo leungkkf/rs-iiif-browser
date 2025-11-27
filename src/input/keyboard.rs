@@ -11,7 +11,7 @@ use bevy::{
 
 pub(crate) fn keyboard_input_system(
     camera: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
-    mut app_state: Single<&mut AppState, With<AppState>>,
+    mut app_state: ResMut<AppState>,
     tiled_image: Single<&TiledImage>,
     kb_input: Res<ButtonInput<KeyCode>>,
     mut tile_mod_state: ResMut<TileModState>,

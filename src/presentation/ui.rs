@@ -1,47 +1,121 @@
 use crate::app::app_settings::AppSettings;
+use crate::app::app_state::AppState;
 use crate::presentation::manifest::Manifest;
 use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
 use bevy::prelude::{
-    Camera, Commands, Entity, Local, Query, Res, Result, Single, UVec2, Window, With, Without,
-    default,
+    Camera, Commands, Entity, Local, Query, Res, ResMut, Resource, Result, Single, UVec2, Window,
+    With, Without, default, info,
 };
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Color32, FontFamily, FontId, Sense, TextBuffer, Widget, vec2};
 use bevy_egui::{EguiContext, EguiContexts, egui};
 
-#[derive(Debug, Default)]
-pub(crate) struct UIState {
-    // open_panel: bool,
-    current_sequence: usize,
+#[derive(Debug, Default, Resource)]
+pub(crate) struct EguiUiState {
+    pub(crate) current_sequence: usize,
+    pub(crate) presentation_url: String,
 }
 
 /// Set up egui.
-pub(crate) fn setup(mut contexts: EguiContexts) -> Result {
+pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Result {
     let ctx = contexts.ctx_mut()?;
 
     // Set up image loaders for the thumbnails.
     egui_extras::install_image_loaders(ctx);
+
+    commands.insert_resource(EguiUiState::default());
+
     Ok(())
 }
+
+// let presentation = presentation::manifest::ManifestComponent::try_from_url(
+//     "https://iiif.lib.harvard.edu/manifests/ids:11927378",
+// )?;
+
+// let presentation = presentation::manifest::Manifest::try_from_url(
+//     "https://iiif.harvardartmuseums.org/manifests/object/21116",
+// )?;
+
+// let presentation = presentation::manifest::Manifest::try_from_url(
+//     "https://iiif.harvardartmuseums.org/manifests/object/303419",
+// )?;
+
+// let presentation = presentation::manifest::Manifest::try_from_url(
+//     "https://iiif.harvardartmuseums.org/manifests/object/279708",
+// )?;
+
+// let presentation = presentation::manifest::Manifest::try_from_url(
+//     "https://iiif.harvardartmuseums.org/manifests/object/323250",
+// )?;
+//
 
 pub(crate) fn presentation_ui_system(
     mut commands: Commands,
     mut contexts: EguiContexts,
     mut camera: Single<&mut Camera, Without<EguiContext>>,
     window: Single<&mut Window, With<PrimaryWindow>>,
-    mut ui_state: Local<UIState>,
+    mut egui_ui_state: ResMut<EguiUiState>,
     app_settings: Res<AppSettings>,
-    presentation: Single<&Manifest>,
+    mut app_state: ResMut<AppState>,
+    presentation_query: Query<(Entity, &Manifest)>,
     tiled_image_query: Query<(Entity, &TiledImage)>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
-    let presentation = *presentation;
 
     let mut left = egui::Panel::left("left_panel")
         .resizable(true)
         .show(ctx, |ui| {
+            if ui
+                .add(
+                    egui::TextEdit::singleline(&mut egui_ui_state.presentation_url)
+                        .hint_text("Manifest URL"),
+                )
+                .on_hover_text(&egui_ui_state.presentation_url)
+                .lost_focus()
+                && egui_ui_state.presentation_url != app_state.presentation_url
+            {
+                if let Ok(new_presentation) = crate::presentation::manifest::Manifest::try_from_url(
+                    &egui_ui_state.presentation_url,
+                ) && let Ok(new_image) = TiledImage::try_from_url(
+                    new_presentation
+                        .model()
+                        .get_sequence(0)
+                        .get_canvas(0)
+                        .get_image(0)
+                        .get_service()
+                        .as_str(),
+                ) {
+                    for (presentation_entity, _) in presentation_query {
+                        commands.entity(presentation_entity).despawn();
+                    }
+
+                    for (image_entity, _) in tiled_image_query {
+                        commands.entity(image_entity).despawn();
+                    }
+
+                    commands.spawn(new_presentation);
+
+                    commands.spawn(new_image);
+
+                    app_state.presentation_url = egui_ui_state.presentation_url.to_string();
+                    info!("loaded manifest URL '{}'", egui_ui_state.presentation_url);
+                } else {
+                    info!(
+                        "unable to load manifest URL '{}'",
+                        egui_ui_state.presentation_url
+                    );
+                    egui_ui_state.presentation_url = app_state.presentation_url.to_string();
+                }
+            }
+
+            ui.add_space(6.0);
+
+            let Some((_, presentation)) = presentation_query.iter().next() else {
+                return;
+            };
+
             add_text(
                 ui,
                 presentation.model().get_title(),
@@ -80,7 +154,7 @@ pub(crate) fn presentation_ui_system(
                 .selected_text(
                     presentation
                         .model()
-                        .get_sequence(ui_state.current_sequence)
+                        .get_sequence(egui_ui_state.current_sequence)
                         .get_label()
                         .collect::<Vec<_>>()
                         .join(","),
@@ -89,7 +163,7 @@ pub(crate) fn presentation_ui_system(
                 .show_ui(ui, |ui| {
                     for (index, seq) in presentation.model().get_sequences().enumerate() {
                         ui.selectable_value(
-                            &mut ui_state.current_sequence,
+                            &mut egui_ui_state.current_sequence,
                             index,
                             seq.get_label().collect::<Vec<_>>().join(","),
                         );
@@ -100,7 +174,7 @@ pub(crate) fn presentation_ui_system(
 
             let canvas_iter = presentation
                 .model()
-                .get_sequence(ui_state.current_sequence)
+                .get_sequence(egui_ui_state.current_sequence)
                 .get_canvases();
 
             let thumbnail_size = app_settings.thumbnail_size;

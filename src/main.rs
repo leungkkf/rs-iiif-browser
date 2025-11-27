@@ -1,5 +1,6 @@
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
+use crate::presentation::ui::EguiUiState;
 use crate::rendering::tile::{TileCache, TileModState, TilePruneState};
 use crate::rendering::tiled_image::TiledImage;
 use bevy::asset::AssetMetaCheck;
@@ -11,6 +12,7 @@ use bevy::winit::WinitSettings;
 use bevy_egui::egui::TextBuffer;
 use bevy_egui::input::{egui_wants_any_keyboard_input, egui_wants_any_pointer_input};
 use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, PrimaryEguiContext};
+use clap::Parser;
 
 mod app;
 mod camera;
@@ -19,6 +21,14 @@ mod input;
 mod minimap;
 mod presentation;
 mod rendering;
+
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// URL of the IIIF manfifest.
+    #[arg(short, long)]
+    manifest: Option<String>,
+}
 
 fn main() {
     App::new()
@@ -100,7 +110,7 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     commands.insert_resource(TileCache::new());
 
     // App state.
-    commands.spawn(AppState::new(0));
+    commands.insert_resource(AppState::new(0, "".to_string()));
 
     // Tile mod state.
     commands.insert_resource(TileModState::new());
@@ -132,86 +142,34 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     Ok(())
 }
 
-fn setup_initial_presentation(mut commands: Commands) -> Result {
-    // let image = TiledImage::build(
-    //     "https://nationalmuseumse.iiifhosting.com/iiif/6b67e82d21f66308380c15509e97bafa5e696618cff1137988ff80c1aa05e4ee",
-    // )?;
+fn setup_initial_presentation(
+    mut commands: Commands,
+    mut app_state: ResMut<AppState>,
+    mut egui_ui_state: ResMut<EguiUiState>,
+) -> Result {
+    let args = Args::parse();
 
-    // let image = TiledImage::build(
-    //     "https://iiif.wellcomecollection.org/thumbs".into(),
-    //     "b20432033_B0008608.JP2".into(),
-    // )
-    // .unwrap();
+    // Try to read the manifest URL from the command line.
+    if let Some(presentation_url) = args.manifest {
+        let presentation = presentation::manifest::Manifest::try_from_url(&presentation_url)?;
 
-    // let image = TiledImage::build(
-    //     "https://api.nga.gov/iiif".into(),
-    //     "99758d9d-c10b-4d02-a198-7e49afb1f3a6".into(),
-    // )
-    // .unwrap();
+        let image = TiledImage::try_from_url(
+            presentation
+                .model()
+                .get_sequence(0)
+                .get_canvas(0)
+                .get_image(0)
+                .get_service()
+                .as_str(),
+        )?;
 
-    // let image = TiledImage::build(
-    //     "https://mps.lib.harvard.edu/assets/images".into(),
-    //     "VPAL.HARVARDONLINE:cellxeukcell".into(),
-    // )
-    // .unwrap();
+        app_state.presentation_url = presentation_url.to_string();
+        egui_ui_state.presentation_url = presentation_url;
 
-    // This is version 3.
-    // let image = TiledImage::build(
-    //     "https://research.ng-london.org.uk/iiif-int/pics/pyrByDate/2010/03/04".into(),
-    //     "N-0728-00-000035-PYR.tif".into(),
-    // )
-    // .unwrap();
-    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
-    //     "https://gallerycollections.courtauld.ac.uk/api/iiif/O2262/manifest.json",
-    // )?;
+        commands.spawn(presentation);
 
-    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
-    //     "https://iiif.lib.harvard.edu/manifests/ids:11927378",
-    // )?;
-
-    // let presentation = presentation::manifest::Manifest::try_from_url(
-    //     "https://iiif.harvardartmuseums.org/manifests/object/21116",
-    // )?;
-
-    // let presentation = presentation::manifest::Manifest::try_from_url(
-    //     "https://iiif.harvardartmuseums.org/manifests/object/303419",
-    // )?;
-
-    // let presentation = presentation::manifest::Manifest::try_from_url(
-    //     "https://iiif.harvardartmuseums.org/manifests/object/279708",
-    // )?;
-
-    // let presentation = presentation::manifest::Manifest::try_from_url(
-    //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
-    // )?;
-
-    let presentation = presentation::manifest::Manifest::try_from_url(
-        "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
-    )?;
-
-    info!(
-        "{:?}",
-        presentation
-            .model()
-            .get_sequence(0)
-            .get_canvas(0)
-            .get_image(0)
-            .get_service()
-    );
-
-    let image = TiledImage::try_from_url(
-        presentation
-            .model()
-            .get_sequence(0)
-            .get_canvas(0)
-            .get_image(0)
-            .get_service()
-            .as_str(),
-    )?;
-
-    commands.spawn(presentation);
-
-    commands.spawn(image);
+        commands.spawn(image);
+    }
 
     Ok(())
 }

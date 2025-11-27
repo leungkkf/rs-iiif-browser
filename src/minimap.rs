@@ -3,17 +3,23 @@ use crate::{
     rendering::tiled_image::TiledImage,
 };
 use bevy::{
+    camera::visibility::Visibility,
+    color::Srgba,
+    ecs::entity::ContainsEntity,
     image::TRANSPARENT_IMAGE_HANDLE,
     prelude::{
         Add, AlignSelf, AssetServer, BackgroundColor, BorderColor, Button, ButtonInput, Camera,
-        Changed, Color, Commands, Component, Display, GlobalTransform, ImageNode, Interaction,
-        JustifyContent, MessageWriter, MouseButton, Node, On, PositionType, Query, Rect, Remove,
-        Res, ResMut, Result, Single, SpawnRelated, Transform, UiRect, Val, Vec2, With, children,
-        default, info,
+        Changed, Color, Commands, Component, Display, Entity, GlobalTransform, ImageNode,
+        Interaction, JustifyContent, MessageWriter, MouseButton, Node, On, PositionType, Query,
+        Rect, Remove, Res, ResMut, Result, Single, SpawnRelated, Transform, UiRect, Val, Vec2,
+        With, children, default, info,
     },
     ui::RelativeCursorPosition,
     window::RequestRedraw,
 };
+
+#[derive(Component)]
+pub(crate) struct MinimapContainer;
 
 #[derive(Component)]
 pub(crate) struct MinimapViewRect;
@@ -24,6 +30,7 @@ pub(crate) struct MinimapImage;
 const BORDER_SIZE: f32 = 2.0;
 const MINIMAP_SIZE: f32 = 200.0;
 const THUMBNAIL_SIZE: f32 = MINIMAP_SIZE - 2.0 * BORDER_SIZE;
+const MINIMAP_ALPHA: f32 = 0.75;
 
 /// Set up the minimap using Bevy UI.
 pub(crate) fn setup(mut commands: Commands) {
@@ -35,7 +42,7 @@ pub(crate) fn setup(mut commands: Commands) {
     };
 
     let thumbnail_container = (
-        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, 1.0)),
+        BackgroundColor(Color::srgba(0.2, 0.2, 0.2, MINIMAP_ALPHA)),
         BorderColor::all(Color::srgba(0.5, 0.5, 0.5, 1.0)),
         Node {
             width: Val::Px(MINIMAP_SIZE),
@@ -54,7 +61,10 @@ pub(crate) fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             ..default()
         },
-        ImageNode::default(),
+        ImageNode {
+            color: Color::Srgba(Srgba::new(1.0, 1.0, 1.0, MINIMAP_ALPHA)),
+            ..ImageNode::default()
+        },
     );
 
     let view_rect = (
@@ -70,8 +80,10 @@ pub(crate) fn setup(mut commands: Commands) {
     );
 
     commands.spawn((
+        MinimapContainer,
         container,
         children![(thumbnail_container, children![thumbnail_image, view_rect])],
+        Visibility::Hidden,
     ));
 }
 
@@ -80,6 +92,8 @@ pub(crate) fn on_remove_image(
     remove: On<Remove, TiledImage>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
     mut minimap_image: Single<&mut ImageNode, With<MinimapImage>>,
+    mut commands: Commands,
+    minimap_container_query: Single<Entity, With<MinimapContainer>>,
 ) -> Result {
     info!("Tiled image removed (minimap). {:?}", remove.entity);
 
@@ -88,6 +102,12 @@ pub(crate) fn on_remove_image(
 
     // Trigger an update.
     redraw_request_writer.write(RequestRedraw);
+
+    let (minimap_container_entity) = minimap_container_query.into_inner();
+
+    commands
+        .entity(minimap_container_entity)
+        .insert((Visibility::Visible,));
 
     Ok(())
 }
@@ -98,6 +118,8 @@ pub(crate) fn on_add_image(
     minimap_image_query: Single<(&mut ImageNode, &mut Node), With<MinimapImage>>,
     tiled_image: Single<&TiledImage>,
     asset_server: Res<AssetServer>,
+    mut commands: Commands,
+    minimap_container_query: Single<Entity, With<MinimapContainer>>,
 ) {
     info!("Tiled image added (minimap). {:?}", add.entity);
 
@@ -108,6 +130,12 @@ pub(crate) fn on_add_image(
         Vec2::ZERO + offset,
         thumbnail_size * thumbnail_scale + offset,
     );
+
+    let (minimap_container_entity) = minimap_container_query.into_inner();
+
+    commands
+        .entity(minimap_container_entity)
+        .insert((Visibility::Visible,));
 
     let (mut minimap_image, mut minimap_node) = minimap_image_query.into_inner();
 

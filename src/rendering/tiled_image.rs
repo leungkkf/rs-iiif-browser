@@ -41,7 +41,7 @@ pub(crate) fn on_add_image(
     tiled_image: Single<&TiledImage>,
     window: Single<&mut Window>,
     camera_query: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
-    mut app_state: Single<&mut AppState>,
+    mut app_state: ResMut<AppState>,
     mut tile_mod_state: ResMut<TileModState>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) -> Result {

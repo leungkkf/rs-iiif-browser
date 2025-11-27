@@ -17,7 +17,7 @@ pub(crate) fn mouse_input_system(
         (&Camera, &GlobalTransform, &mut Transform, &mut Projection),
         With<MainCamera>,
     >,
-    mut app_state: Single<&mut AppState>,
+    mut app_state: ResMut<AppState>,
     local_params: (Local<Option<Vec2>>, Local<Option<f32>>),
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
     mouse: Res<ButtonInput<MouseButton>>,

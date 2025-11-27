@@ -138,7 +138,7 @@ pub(crate) fn update_tiles_system(
     camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
     asset_server: Res<AssetServer>,
     tiles: Query<(Entity, &Tile, &mut MeshMaterial2d<ColorMaterial>), With<Tile>>,
-    app_state: Single<&mut AppState>,
+    app_state: Res<AppState>,
     image: Single<&TiledImage>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     time: Res<Time>,
@@ -269,7 +269,7 @@ pub(crate) fn prune_tiles_system(
     tiles: Query<&Tile>,
     app_settings: Res<AppSettings>,
     image: Single<&TiledImage>,
-    app_state: Single<&mut AppState>,
+    app_state: Res<AppState>,
     asset_server: Res<AssetServer>,
 ) {
     let num_cache_items = tile_cache.cache.len();
