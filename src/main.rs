@@ -169,9 +169,9 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     //     "https://iiif.lib.harvard.edu/manifests/ids:11927378",
     // )?;
 
-    let presentation = presentation::manifest::Manifest::try_from_url(
-        "https://iiif.harvardartmuseums.org/manifests/object/21116",
-    )?;
+    // let presentation = presentation::manifest::Manifest::try_from_url(
+    //     "https://iiif.harvardartmuseums.org/manifests/object/21116",
+    // )?;
 
     // let presentation = presentation::manifest::Manifest::try_from_url(
     //     "https://iiif.harvardartmuseums.org/manifests/object/303419",
@@ -185,9 +185,9 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
     // )?;
 
-    // let presentation = presentation::manifest::Manifest::try_from_url(
-    //     "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
-    // )?;
+    let presentation = presentation::manifest::Manifest::try_from_url(
+        "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
+    )?;
 
     info!(
         "{:?}",

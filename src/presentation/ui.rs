@@ -125,17 +125,19 @@ pub(crate) fn presentation_ui_system(
                         .show(ui, |ui| -> Result {
                             let row_start = row_range.start;
 
-                            for (index, _canvas) in visible_canvases
+                            for (row_index, _) in visible_canvases
                                 .iter()
                                 .skip(row_range.start * items_per_row)
                                 .take(row_range.count() * items_per_row)
                                 .step_by(items_per_row)
                                 .enumerate()
                             {
-                                for i in 0..items_per_row {
-                                    if index * items_per_row + i < visible_canvases.len() {
-                                        let n = index * items_per_row + i;
-                                        let canvas = visible_canvases[n];
+                                for col_index in 0..items_per_row {
+                                    let canvas_index =
+                                        (row_start + row_index) * items_per_row + col_index;
+
+                                    if canvas_index < visible_canvases.len() {
+                                        let canvas = visible_canvases[canvas_index];
 
                                         if ui
                                             .vertical_centered(|ui| {
@@ -158,7 +160,7 @@ pub(crate) fn presentation_ui_system(
                                                 }
                                                 let label = format!(
                                                     "({}) {}",
-                                                    row_start * items_per_row + n + 1,
+                                                    canvas_index + 1,
                                                     canvas
                                                         .get_label()
                                                         .collect::<Vec<_>>()
