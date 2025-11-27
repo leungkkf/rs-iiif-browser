@@ -6,7 +6,7 @@ use bevy::prelude::{
 };
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::text::LayoutJob;
-use bevy_egui::egui::{Color32, FontFamily, FontId, Sense, Widget, vec2};
+use bevy_egui::egui::{Color32, FontFamily, FontId, Sense, TextBuffer, Widget, vec2};
 use bevy_egui::{EguiContext, EguiContexts, egui};
 
 #[derive(Debug, Default)]
@@ -36,12 +36,11 @@ pub(crate) fn presentation_ui_system(
     let ctx = contexts.ctx_mut()?;
     let presentation = *presentation;
 
-    let mut left = egui::SidePanel::left("left_panel")
+    let mut left = egui::Panel::left("left_panel")
         .resizable(true)
         .show(ctx, |ui| {
             add_text(
                 ui,
-                "title".to_string(),
                 presentation.model().get_title(),
                 Some(Color32::WHITE),
                 2,
@@ -49,7 +48,7 @@ pub(crate) fn presentation_ui_system(
 
             let description = presentation.model().get_description().collect::<Vec<_>>();
             if !description.is_empty() {
-                add_text(ui, "desc".to_string(), &description.join("\n"), None, 3);
+                add_text(ui, &description.join("\n"), None, 3);
             }
 
             let licence = presentation.model().get_license().collect::<Vec<_>>();
@@ -65,13 +64,7 @@ pub(crate) fn presentation_ui_system(
                 .join(",");
 
             if !license.is_empty() || !attribution.is_empty() {
-                add_text(
-                    ui,
-                    "attribution".to_string(),
-                    &format!("{} {}", attribution, license),
-                    None,
-                    3,
-                );
+                add_text(ui, &format!("{} {}", attribution, license), None, 3);
             }
 
             for logo in presentation.model().get_logo() {
@@ -102,52 +95,99 @@ pub(crate) fn presentation_ui_system(
 
             ui.separator();
 
-            egui::ScrollArea::vertical().show(ui, |ui| -> Result {
-                for (index, canvas) in presentation
-                    .model()
-                    .get_sequence(ui_state.current_sequence)
-                    .get_canvases()
-                    .enumerate()
-                {
-                    add_text(
-                        ui,
-                        format!("canvas{}", index),
-                        &canvas.get_label().collect::<Vec<_>>().join(","),
-                        None,
-                        2,
-                    );
+            let canvas_iter = presentation
+                .model()
+                .get_sequence(ui_state.current_sequence)
+                .get_canvases();
 
-                    let mut canvas_thumbnail = "".to_string();
-                    if let Some(thumbnail) = canvas.get_thumbnail().next() {
-                        canvas_thumbnail = thumbnail.to_string();
-                    } else if let Some(image) = canvas.get_images().next() {
-                        canvas_thumbnail =
-                            format!("{}/full/,64/0/default.png", image.get_service());
-                    }
+            let thumbnail_size = 64.0;
+            let text_style = egui::TextStyle::Body;
+            let row_height = thumbnail_size + 3.0 * ui.text_style_height(&text_style);
+            let column_width = thumbnail_size;
 
-                    if !canvas_thumbnail.is_empty()
-                        && ui
-                            .add_sized(
-                                vec2(ui.available_width(), ui.available_width()),
-                                bevy_egui::egui::Image::new(canvas_thumbnail).max_size(vec2(
-                                    ui.available_width() - 16.0,
-                                    ui.available_width() - 16.0,
-                                )),
-                            )
-                            .interact(Sense::CLICK)
-                            .clicked()
-                    {
-                        for (image_entity, _tiled_image) in tiled_image_query {
-                            commands.entity(image_entity).despawn();
-                        }
+            let available_width = ui.available_width();
+            let item_spacing = ui.spacing().item_spacing;
+            let items_per_row = (available_width / (column_width + item_spacing.x))
+                .round()
+                .max(1.0) as usize;
 
-                        let image = TiledImage::try_from_url(canvas.get_image(0).get_service())?;
+            let visible_canvases: Vec<_> = canvas_iter.collect();
 
-                        commands.spawn(image);
-                    }
-                }
-                Ok(())
-            });
+            egui::ScrollArea::vertical().auto_shrink(false).show_rows(
+                ui,
+                row_height,
+                visible_canvases.len().div_ceil(items_per_row).max(1),
+                |ui, row_range| {
+                    egui::Grid::new("my_grid")
+                        .min_col_width(column_width)
+                        .max_col_width(column_width)
+                        .min_row_height(row_height)
+                        .show(ui, |ui| -> Result {
+                            let row_start = row_range.start;
+
+                            for (index, _canvas) in visible_canvases
+                                .iter()
+                                .skip(row_range.start * items_per_row)
+                                .take(row_range.count() * items_per_row)
+                                .step_by(items_per_row)
+                                .enumerate()
+                            {
+                                for i in 0..items_per_row {
+                                    if index * items_per_row + i < visible_canvases.len() {
+                                        let n = index * items_per_row + i;
+                                        let canvas = visible_canvases[n];
+
+                                        if ui
+                                            .vertical_centered(|ui| {
+                                                let canvas_thumbnail = canvas
+                                                    .get_thumbnail()
+                                                    .next()
+                                                    .unwrap_or_default();
+
+                                                if !canvas_thumbnail.is_empty() {
+                                                    ui.add_sized(
+                                                        vec2(thumbnail_size, thumbnail_size),
+                                                        bevy_egui::egui::Image::new(
+                                                            canvas_thumbnail,
+                                                        )
+                                                        .max_size(vec2(
+                                                            thumbnail_size,
+                                                            thumbnail_size,
+                                                        )),
+                                                    );
+                                                }
+                                                let label = format!(
+                                                    "({}) {}",
+                                                    row_start * items_per_row + n + 1,
+                                                    canvas
+                                                        .get_label()
+                                                        .collect::<Vec<_>>()
+                                                        .join(",")
+                                                );
+                                                add_text(ui, &label, None, 3);
+                                            })
+                                            .response
+                                            .interact(Sense::CLICK)
+                                            .clicked()
+                                        {
+                                            for (image_entity, _tiled_image) in tiled_image_query {
+                                                commands.entity(image_entity).despawn();
+                                            }
+
+                                            let image = TiledImage::try_from_url(
+                                                canvas.get_image(0).get_service().as_str(),
+                                            )?;
+
+                                            commands.spawn(image);
+                                        }
+                                    }
+                                }
+                                ui.end_row();
+                            }
+                            Ok(())
+                        });
+                },
+            );
 
             // ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         })
@@ -265,30 +305,20 @@ pub(crate) fn presentation_ui_system(
     Ok(())
 }
 
-fn add_text(
-    ui: &mut egui::Ui,
-    id_salt: String,
-    text: &str,
-    color: Option<Color32>,
-    max_rows: usize,
-) {
-    egui::ScrollArea::vertical()
-        .id_salt(id_salt)
-        .show(ui, |ui| {
-            let mut job = LayoutJob::simple_format(
-                text.to_owned(),
-                egui::TextFormat {
-                    font_id: FontId::new(12.0, FontFamily::Proportional),
-                    color: color.unwrap_or(Color32::GRAY),
-                    ..Default::default()
-                },
-            );
-            job.wrap = egui::text::TextWrapping {
-                max_rows,
-                break_anywhere: true,
-                ..Default::default()
-            };
+fn add_text(ui: &mut egui::Ui, text: &str, color: Option<Color32>, max_rows: usize) {
+    let mut job = LayoutJob::simple_format(
+        text.to_owned(),
+        egui::TextFormat {
+            font_id: FontId::new(12.0, FontFamily::Proportional),
+            color: color.unwrap_or(Color32::GRAY),
+            ..Default::default()
+        },
+    );
+    job.wrap = egui::text::TextWrapping {
+        max_rows,
+        break_anywhere: true,
+        ..Default::default()
+    };
 
-            ui.label(job);
-        });
+    ui.label(job);
 }

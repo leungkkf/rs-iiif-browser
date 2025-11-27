@@ -146,10 +146,16 @@ impl TiledImage {
         let image_format = iiif_image_info
             .get_profile_details()
             .next()
-            .expect("should have at least one profile")
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "missing profile in '{}'",
+                iiif_endpoint
+            )))?
             .get_formats()
             .next()
-            .expect("should have at least one supported format");
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "missing image format in '{}'",
+                iiif_endpoint
+            )))?;
 
         Ok(TiledImage::new(
             iiif_endpoint.to_string(),
