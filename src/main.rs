@@ -8,6 +8,7 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 use bevy::render::render_resource::BlendState;
 use bevy::winit::WinitSettings;
+use bevy_egui::egui::TextBuffer;
 use bevy_egui::input::{egui_wants_any_keyboard_input, egui_wants_any_pointer_input};
 use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, PrimaryEguiContext};
 
@@ -168,23 +169,23 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
     //     "https://iiif.lib.harvard.edu/manifests/ids:11927378",
     // )?;
 
-    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
-    //     "https://iiif.harvardartmuseums.org/manifests/object/21116",
-    // )?;
+    let presentation = presentation::manifest::Manifest::try_from_url(
+        "https://iiif.harvardartmuseums.org/manifests/object/21116",
+    )?;
 
-    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    // let presentation = presentation::manifest::Manifest::try_from_url(
     //     "https://iiif.harvardartmuseums.org/manifests/object/303419",
     // )?;
 
-    let presentation = presentation::manifest::Manifest::try_from_url(
-        "https://iiif.harvardartmuseums.org/manifests/object/279708",
-    )?;
+    // let presentation = presentation::manifest::Manifest::try_from_url(
+    //     "https://iiif.harvardartmuseums.org/manifests/object/279708",
+    // )?;
 
-    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    // let presentation = presentation::manifest::Manifest::try_from_url(
     //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
     // )?;
 
-    // let presentation = presentation::manifest::ManifestComponent::try_from_url(
+    // let presentation = presentation::manifest::Manifest::try_from_url(
     //     "https://purl.stanford.edu/sr294cr5852/iiif/manifest",
     // )?;
 
@@ -204,7 +205,8 @@ fn setup_initial_presentation(mut commands: Commands) -> Result {
             .get_sequence(0)
             .get_canvas(0)
             .get_image(0)
-            .get_service(),
+            .get_service()
+            .as_str(),
     )?;
 
     commands.spawn(presentation);

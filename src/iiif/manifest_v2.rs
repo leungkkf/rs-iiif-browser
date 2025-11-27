@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 
 use crate::iiif::manifest::{Context, Language, ViewingDirection};
@@ -202,31 +204,31 @@ impl IsManifest for Manifest {
         &self.label
     }
 
-    fn get_attribution(&self) -> Box<dyn Iterator<Item = &str> + '_> {
-        Box::new(self.attribution.iter().map(|x| x.as_str()))
+    fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+        Box::new(self.attribution.iter().map(Cow::from))
     }
 
-    fn get_description(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+    fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.description {
-            Box::new(content.iter().map(|y| y.as_str()))
+            Box::new(content.iter().map(Cow::from))
         } else {
-            Box::new(std::iter::empty::<&str>())
+            Box::new(std::iter::empty::<Cow<str>>())
         }
     }
 
-    fn get_license(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+    fn get_license(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.license {
-            Box::new(content.iter().map(|y| y.id()))
+            Box::new(content.iter().map(|y| Cow::from(y.id())))
         } else {
-            Box::new(std::iter::empty::<&str>())
+            Box::new(std::iter::empty::<Cow<str>>())
         }
     }
 
-    fn get_logo(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+    fn get_logo(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.logo {
-            Box::new(content.iter().map(|y| y.id()))
+            Box::new(content.iter().map(|y| Cow::from(y.id())))
         } else {
-            Box::new(std::iter::empty::<&str>())
+            Box::new(std::iter::empty::<Cow<str>>())
         }
     }
 
@@ -240,11 +242,11 @@ impl IsManifest for Manifest {
 }
 
 impl IsSequence for Sequence {
-    fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+    fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.label {
-            Box::new(content.iter().map(|y| y.as_str()))
+            Box::new(content.iter().map(Cow::from))
         } else {
-            Box::new(std::iter::empty::<&str>())
+            Box::new(std::iter::empty::<Cow<str>>())
         }
     }
 
@@ -258,14 +260,18 @@ impl IsSequence for Sequence {
 }
 
 impl IsCavas for Canvas {
-    fn get_label(&self) -> Box<dyn Iterator<Item = &str> + '_> {
-        Box::new(self.label.iter().map(|y| y.as_str()))
+    fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+        Box::new(self.label.iter().map(Cow::from))
     }
-    fn get_thumbnail(&self) -> Box<dyn Iterator<Item = &str> + '_> {
+    fn get_thumbnail(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.thumbnail {
-            Box::new(content.iter().map(|y| y.id()))
+            Box::new(content.iter().map(|y| Cow::from(y.id())))
+        } else if let Some(image) = self.images.first() {
+            let canvas_thumbnail = format!("{}/full/,64/0/default.png", image.get_service());
+
+            Box::new(vec![canvas_thumbnail].into_iter().map(Cow::from))
         } else {
-            Box::new(std::iter::empty::<&str>())
+            Box::new(std::iter::empty::<Cow<str>>())
         }
     }
     fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_> {
@@ -283,8 +289,8 @@ impl IsImage for Image {
     fn get_width(&self) -> u32 {
         self.resource.width
     }
-    fn get_service(&self) -> &str {
-        &self.resource.service.id
+    fn get_service(&self) -> Cow<'_, str> {
+        Cow::from(&self.resource.service.id)
     }
 }
 
