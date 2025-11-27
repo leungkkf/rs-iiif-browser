@@ -9,7 +9,7 @@ use bevy::prelude::{
 };
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::text::LayoutJob;
-use bevy_egui::egui::{Color32, FontFamily, FontId, Sense, TextBuffer, Widget, vec2};
+use bevy_egui::egui::{Color32, FontFamily, FontId, RichText, Sense, TextBuffer, Widget, vec2};
 use bevy_egui::{EguiContext, EguiContexts, egui};
 
 #[derive(Debug, Default, Resource)]
@@ -68,50 +68,56 @@ pub(crate) fn presentation_ui_system(
     let mut left = egui::Panel::left("left_panel")
         .resizable(true)
         .show(ctx, |ui| {
-            if ui
-                .add(
-                    egui::TextEdit::singleline(&mut egui_ui_state.presentation_url)
-                        .hint_text("Manifest URL"),
-                )
-                .on_hover_text(&egui_ui_state.presentation_url)
-                .lost_focus()
-                && egui_ui_state.presentation_url != app_state.presentation_url
-            {
-                if let Ok(new_presentation) = crate::presentation::manifest::Manifest::try_from_url(
-                    &egui_ui_state.presentation_url,
-                ) && let Ok(new_image) = TiledImage::try_from_url(
-                    new_presentation
-                        .model()
-                        .get_sequence(0)
-                        .get_canvas(0)
-                        .get_image(0)
-                        .get_service()
-                        .as_str(),
-                ) {
-                    for (presentation_entity, _) in presentation_query {
-                        commands.entity(presentation_entity).despawn();
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("IIIF:").color(Color32::from_rgb(240, 240, 240)));
+                if ui
+                    .add(
+                        egui::TextEdit::singleline(&mut egui_ui_state.presentation_url)
+                            .text_color(Color32::from_rgb(240, 240, 240))
+                            .hint_text("Manifest URL"),
+                    )
+                    .on_hover_text(&egui_ui_state.presentation_url)
+                    .lost_focus()
+                    && egui_ui_state.presentation_url != app_state.presentation_url
+                {
+                    if let Ok(new_presentation) =
+                        crate::presentation::manifest::Manifest::try_from_url(
+                            &egui_ui_state.presentation_url,
+                        )
+                        && let Ok(new_image) = TiledImage::try_from_url(
+                            new_presentation
+                                .model()
+                                .get_sequence(0)
+                                .get_canvas(0)
+                                .get_image(0)
+                                .get_service()
+                                .as_str(),
+                        )
+                    {
+                        for (presentation_entity, _) in presentation_query {
+                            commands.entity(presentation_entity).despawn();
+                        }
+
+                        for (image_entity, _) in tiled_image_query {
+                            commands.entity(image_entity).despawn();
+                        }
+
+                        commands.spawn(new_presentation);
+
+                        commands.spawn(new_image);
+
+                        app_state.presentation_url = egui_ui_state.presentation_url.to_string();
+                        info!("loaded manifest URL '{}'", egui_ui_state.presentation_url);
+                    } else {
+                        info!(
+                            "unable to load manifest URL '{}'",
+                            egui_ui_state.presentation_url
+                        );
+                        egui_ui_state.presentation_url = app_state.presentation_url.to_string();
                     }
-
-                    for (image_entity, _) in tiled_image_query {
-                        commands.entity(image_entity).despawn();
-                    }
-
-                    commands.spawn(new_presentation);
-
-                    commands.spawn(new_image);
-
-                    app_state.presentation_url = egui_ui_state.presentation_url.to_string();
-                    info!("loaded manifest URL '{}'", egui_ui_state.presentation_url);
-                } else {
-                    info!(
-                        "unable to load manifest URL '{}'",
-                        egui_ui_state.presentation_url
-                    );
-                    egui_ui_state.presentation_url = app_state.presentation_url.to_string();
                 }
-            }
-
-            ui.add_space(6.0);
+            });
+            ui.separator();
 
             let Some((_, presentation)) = presentation_query.iter().next() else {
                 return;
