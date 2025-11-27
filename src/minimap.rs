@@ -5,7 +5,6 @@ use crate::{
 use bevy::{
     camera::visibility::Visibility,
     color::Srgba,
-    ecs::entity::ContainsEntity,
     image::TRANSPARENT_IMAGE_HANDLE,
     prelude::{
         Add, AlignSelf, AssetServer, BackgroundColor, BorderColor, Button, ButtonInput, Camera,
@@ -103,7 +102,7 @@ pub(crate) fn on_remove_image(
     // Trigger an update.
     redraw_request_writer.write(RequestRedraw);
 
-    let (minimap_container_entity) = minimap_container_query.into_inner();
+    let minimap_container_entity = minimap_container_query.into_inner();
 
     commands
         .entity(minimap_container_entity)
@@ -131,7 +130,7 @@ pub(crate) fn on_add_image(
         thumbnail_size * thumbnail_scale + offset,
     );
 
-    let (minimap_container_entity) = minimap_container_query.into_inner();
+    let minimap_container_entity = minimap_container_query.into_inner();
 
     commands
         .entity(minimap_container_entity)

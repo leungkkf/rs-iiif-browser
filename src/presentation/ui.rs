@@ -4,8 +4,8 @@ use crate::presentation::manifest::Manifest;
 use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
 use bevy::prelude::{
-    Camera, Commands, Entity, Local, Query, Res, ResMut, Resource, Result, Single, UVec2, Window,
-    With, Without, default, info,
+    Camera, Commands, Entity, Query, Res, ResMut, Resource, Result, Single, UVec2, Window, With,
+    Without, default, info,
 };
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::text::LayoutJob;
@@ -51,6 +51,7 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
 // )?;
 //
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn presentation_ui_system(
     mut commands: Commands,
     mut contexts: EguiContexts,
