@@ -3,19 +3,22 @@ use crate::app::app_state::AppState;
 use crate::presentation::manifest::Manifest;
 use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
+use bevy::log::warn;
 use bevy::prelude::{
-    Camera, Commands, Entity, Query, Res, ResMut, Resource, Result, Single, UVec2, Window, With,
-    Without, default, info,
+    Camera, Commands, Entity, MessageWriter, Query, Res, ResMut, Resource, Result, Single, UVec2,
+    Window, With, Without, default, info,
 };
-use bevy::window::PrimaryWindow;
+use bevy::window::{PrimaryWindow, RequestRedraw};
 use bevy_egui::egui::text::LayoutJob;
 use bevy_egui::egui::{Color32, FontFamily, FontId, RichText, Sense, TextBuffer, Widget, vec2};
 use bevy_egui::{EguiContext, EguiContexts, egui};
+use std::time::Duration;
 
-#[derive(Debug, Default, Resource)]
+#[derive(Resource)]
 pub(crate) struct EguiUiState {
     pub(crate) current_sequence: usize,
     pub(crate) presentation_url: String,
+    pub(crate) toasts: egui_notify::Toasts,
 }
 
 /// Set up egui.
@@ -25,7 +28,13 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
     // Set up image loaders for the thumbnails.
     egui_extras::install_image_loaders(ctx);
 
-    commands.insert_resource(EguiUiState::default());
+    let toasts = egui_notify::Toasts::default();
+
+    commands.insert_resource(EguiUiState {
+        current_sequence: 0,
+        presentation_url: "".to_string(),
+        toasts,
+    });
 
     Ok(())
 }
@@ -62,6 +71,7 @@ pub(crate) fn presentation_ui_system(
     mut app_state: ResMut<AppState>,
     presentation_query: Query<(Entity, &Manifest)>,
     tiled_image_query: Query<(Entity, &TiledImage)>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
@@ -80,39 +90,31 @@ pub(crate) fn presentation_ui_system(
                     .lost_focus()
                     && egui_ui_state.presentation_url != app_state.presentation_url
                 {
-                    if let Ok(new_presentation) =
-                        crate::presentation::manifest::Manifest::try_from_url(
-                            &egui_ui_state.presentation_url,
-                        )
-                        && let Ok(new_image) = TiledImage::try_from_url(
-                            new_presentation
-                                .model()
-                                .get_sequence(0)
-                                .get_canvas(0)
-                                .get_image(0)
-                                .get_service()
-                                .as_str(),
-                        )
+                    let presentation_url = egui_ui_state.presentation_url.to_string();
+
+                    if crate::load_presentation(
+                        &mut commands,
+                        &mut app_state,
+                        &mut egui_ui_state,
+                        &presentation_url,
+                        &presentation_query,
+                        &tiled_image_query,
+                    )
+                    .is_ok()
                     {
-                        for (presentation_entity, _) in presentation_query {
-                            commands.entity(presentation_entity).despawn();
-                        }
+                        info!("loaded manifest URL '{}'", presentation_url);
+                        app_state.presentation_url = presentation_url;
 
-                        for (image_entity, _) in tiled_image_query {
-                            commands.entity(image_entity).despawn();
-                        }
-
-                        commands.spawn(new_presentation);
-
-                        commands.spawn(new_image);
-
-                        app_state.presentation_url = egui_ui_state.presentation_url.to_string();
-                        info!("loaded manifest URL '{}'", egui_ui_state.presentation_url);
+                        redraw_request_writer.write(RequestRedraw);
                     } else {
-                        info!(
-                            "unable to load manifest URL '{}'",
-                            egui_ui_state.presentation_url
-                        );
+                        warn!("unable to load manifest URL '{}'", presentation_url);
+                        let msg = format!("Unable to load manifest URL '{}'", presentation_url);
+
+                        egui_ui_state
+                            .toasts
+                            .info(msg)
+                            .show_progress_bar(true)
+                            .duration(Duration::from_secs(5));
                         egui_ui_state.presentation_url = app_state.presentation_url.to_string();
                     }
                 }
@@ -364,29 +366,7 @@ pub(crate) fn presentation_ui_system(
         ..default()
     });
 
-    // if ui_state.open_panel {
-    //     egui::SidePanel::left("left_panel")
-    //         .frame(egui::Frame::new().fill(egui::Color32::from_white_alpha(64)))
-    //         .show_separator_line(false)
-    //         .resizable(false)
-    //         .show(ctx, |ui| {
-    //             let mut close_button_ui = ui.new_child(
-    //                 UiBuilder::new()
-    //                     .max_rect(ui.max_rect())
-    //                     .layout(Layout::right_to_left(Align::Min)),
-    //             );
-    //             if close_button_ui
-    //                 .button("❌")
-    //                 .on_hover_text("Close panel")
-    //                 .clicked()
-    //             {
-    //                 ui_state.open_panel = false;
-    //             }
-    //             ui.horizontal(|ui| {
-    //                 ui.label("text");
-    //             });
-    //         });
-    // }
+    egui_ui_state.toasts.show(ctx);
 
     Ok(())
 }

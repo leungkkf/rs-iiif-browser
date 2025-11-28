@@ -1,5 +1,6 @@
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
+use crate::presentation::manifest::Manifest;
 use crate::presentation::ui::EguiUiState;
 use crate::rendering::tile::{TileCache, TileModState, TilePruneState};
 use crate::rendering::tiled_image::TiledImage;
@@ -146,30 +147,60 @@ fn setup_initial_presentation(
     mut commands: Commands,
     mut app_state: ResMut<AppState>,
     mut egui_ui_state: ResMut<EguiUiState>,
+    presentation_query: Query<(Entity, &Manifest)>,
+    tiled_image_query: Query<(Entity, &TiledImage)>,
 ) -> Result {
     let args = Args::parse();
 
     // Try to read the manifest URL from the command line.
     if let Some(presentation_url) = args.manifest {
-        let presentation = presentation::manifest::Manifest::try_from_url(&presentation_url)?;
-
-        let image = TiledImage::try_from_url(
-            presentation
-                .model()
-                .get_sequence(0)
-                .get_canvas(0)
-                .get_image(0)
-                .get_service()
-                .as_str(),
+        load_presentation(
+            &mut commands,
+            &mut app_state,
+            &mut egui_ui_state,
+            &presentation_url,
+            &presentation_query,
+            &tiled_image_query,
         )?;
-
-        app_state.presentation_url = presentation_url.to_string();
-        egui_ui_state.presentation_url = presentation_url;
-
-        commands.spawn(presentation);
-
-        commands.spawn(image);
     }
+
+    Ok(())
+}
+
+fn load_presentation(
+    commands: &mut Commands,
+    app_state: &mut ResMut<AppState>,
+    egui_ui_state: &mut ResMut<EguiUiState>,
+    presentation_url: &str,
+    presentation_query: &Query<(Entity, &Manifest)>,
+    tiled_image_query: &Query<(Entity, &TiledImage)>,
+) -> Result {
+    let presentation = presentation::manifest::Manifest::try_from_url(&presentation_url)?;
+
+    let image = TiledImage::try_from_url(
+        presentation
+            .model()
+            .get_sequence(0)
+            .get_canvas(0)
+            .get_image(0)
+            .get_service()
+            .as_str(),
+    )?;
+
+    for (presentation_entity, _) in presentation_query {
+        commands.entity(presentation_entity).despawn();
+    }
+
+    for (image_entity, _) in tiled_image_query {
+        commands.entity(image_entity).despawn();
+    }
+
+    app_state.presentation_url = presentation_url.to_string();
+    egui_ui_state.presentation_url = presentation_url.to_string();
+
+    commands.spawn(presentation);
+
+    commands.spawn(image);
 
     Ok(())
 }
