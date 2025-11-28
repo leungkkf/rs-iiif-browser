@@ -175,7 +175,7 @@ fn load_presentation(
     presentation_query: &Query<(Entity, &Manifest)>,
     tiled_image_query: &Query<(Entity, &TiledImage)>,
 ) -> Result {
-    let presentation = presentation::manifest::Manifest::try_from_url(&presentation_url)?;
+    let presentation = presentation::manifest::Manifest::try_from_url(presentation_url)?;
 
     let image = TiledImage::try_from_url(
         presentation
