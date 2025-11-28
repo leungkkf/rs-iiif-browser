@@ -154,27 +154,27 @@ impl UriLink {
         }
     }
 
-    pub(crate) fn format(&self) -> Option<&str> {
-        match self {
-            UriLink::StringType(_) => None,
-            UriLink::IdType {
-                id: _,
-                type_: _,
-                format,
-            } => format.as_ref().map(|x| x.as_str()),
-        }
-    }
+    // pub(crate) fn format(&self) -> Option<&str> {
+    //     match self {
+    //         UriLink::StringType(_) => None,
+    //         UriLink::IdType {
+    //             id: _,
+    //             type_: _,
+    //             format,
+    //         } => format.as_ref().map(|x| x.as_str()),
+    //     }
+    // }
 
-    pub(crate) fn type_(&self) -> Option<&str> {
-        match self {
-            UriLink::StringType(_) => None,
-            UriLink::IdType {
-                id: _,
-                type_,
-                format: _,
-            } => type_.as_ref().map(|x| x.as_str()),
-        }
-    }
+    // pub(crate) fn type_(&self) -> Option<&str> {
+    //     match self {
+    //         UriLink::StringType(_) => None,
+    //         UriLink::IdType {
+    //             id: _,
+    //             type_,
+    //             format: _,
+    //         } => type_.as_ref().map(|x| x.as_str()),
+    //     }
+    // }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -274,21 +274,21 @@ impl IsCavas for Canvas {
             Box::new(std::iter::empty::<Cow<str>>())
         }
     }
-    fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_> {
-        Box::new(self.images.iter().map(|b| b as &dyn IsImage))
-    }
+    // fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_> {
+    //     Box::new(self.images.iter().map(|b| b as &dyn IsImage))
+    // }
     fn get_image(&self, index: usize) -> &dyn IsImage {
         &self.images[index]
     }
 }
 
 impl IsImage for Image {
-    fn get_height(&self) -> u32 {
-        self.resource.height
-    }
-    fn get_width(&self) -> u32 {
-        self.resource.width
-    }
+    // fn get_height(&self) -> u32 {
+    //     self.resource.height
+    // }
+    // fn get_width(&self) -> u32 {
+    //     self.resource.width
+    // }
     fn get_service(&self) -> Cow<'_, str> {
         Cow::from(&self.resource.service.id)
     }
@@ -524,7 +524,7 @@ mod tests {
             see_also[0].id(),
             "http://www.example.org/library/catalog/book1.marc"
         );
-        assert_eq!(see_also[0].format().unwrap(), "application/marc");
+        // assert_eq!(see_also[0].format().unwrap(), "application/marc");
 
         let structures = presentation_info.structures.as_ref().unwrap();
         assert_eq!(structures.len(), 1);
@@ -750,7 +750,7 @@ mod tests {
             thumbnail.id(),
             "https://ids.lib.harvard.edu/ids/iiif/11927378/full/,150/0/default.jpg"
         );
-        assert_eq!(thumbnail.type_(), Some("dctypes:Image"));
+        // assert_eq!(thumbnail.type_(), Some("dctypes:Image"));
 
         assert_eq!(canvas.images.len(), 1);
         let image = &canvas.images[0];

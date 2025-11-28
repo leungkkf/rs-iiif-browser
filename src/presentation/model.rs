@@ -22,13 +22,13 @@ pub(crate) trait IsSequence {
 pub(crate) trait IsCavas {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
     fn get_thumbnail(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
-    fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_>;
+    // fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_>;
     fn get_image(&self, index: usize) -> &dyn IsImage;
 }
 
 /// The image model.
 pub(crate) trait IsImage {
     fn get_service(&self) -> Cow<'_, str>;
-    fn get_width(&self) -> u32;
-    fn get_height(&self) -> u32;
+    // fn get_width(&self) -> u32;
+    // fn get_height(&self) -> u32;
 }
