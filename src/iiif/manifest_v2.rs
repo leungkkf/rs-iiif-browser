@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
 
 use crate::iiif::IiifError;
-use crate::iiif::manifest::{Context, Language, ViewingDirection};
-use crate::iiif::one_or_many::{OneOrMany, OneTypeOrMany};
+use crate::iiif::manifest::{Context, ViewingDirection};
+use crate::iiif::one_or_many::OneTypeOrMany;
 use crate::presentation::model::{IsCavas, IsImage, IsManifest, IsSequence};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -24,29 +24,6 @@ pub(crate) enum ManifestType {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-/// Presentation language map/pair.
-pub(crate) struct LanguageValuePair {
-    #[serde(rename = "@language")]
-    language: Language,
-    #[serde(rename = "@value")]
-    value: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub(crate) enum LabelValue {
-    StringValue(String),
-    LanguageTable(LanguageValuePair),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-/// Label value map/pair, either one string or a map.
-pub(crate) struct LabelValuePair {
-    label: String,
-    value: OneOrMany<String, LabelValue>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "kebab-case")]
 pub(crate) enum ViewingHint {
     Individuals,
@@ -61,8 +38,6 @@ pub(crate) enum ViewingHint {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Sequence {
-    #[serde(rename = "@id")]
-    id: Option<String>,
     #[serde(rename = "@type")]
     type_: ManifestType,
     pub(crate) label: Option<OneTypeOrMany<String>>,
@@ -74,8 +49,6 @@ pub(crate) struct Sequence {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Canvas {
-    #[serde(rename = "@id")]
-    id: String,
     #[serde(rename = "@type")]
     type_: ManifestType,
     pub(crate) label: OneTypeOrMany<String>,
@@ -94,20 +67,12 @@ pub(crate) struct Image {
     type_: String,
     pub(crate) motivation: Option<ManifestType>,
     pub(crate) resource: ImageResource,
-    pub(crate) on: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ImageResource {
-    #[serde(rename = "@id")]
-    id: String,
-    #[serde(rename = "@type")]
-    type_: String,
-    pub(crate) format: String,
     pub(crate) service: Service,
-    pub(crate) height: u32,
-    pub(crate) width: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -120,26 +85,12 @@ pub(crate) struct Service {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct Structure {
-    #[serde(rename = "@id")]
-    id: String,
-    #[serde(rename = "@type")]
-    type_: ManifestType,
-    label: OneTypeOrMany<String>,
-    canvases: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum UriLink {
     StringType(String),
     IdType {
         #[serde(rename = "@id")]
         id: String,
-        #[serde(rename = "@type")]
-        type_: Option<String>,
-        format: Option<String>,
         width: Option<u32>,
         height: Option<u32>,
     },
@@ -151,8 +102,6 @@ impl UriLink {
             UriLink::StringType(v) => v,
             UriLink::IdType {
                 id,
-                type_: _,
-                format: _,
                 height: _,
                 width: _,
             } => id,
@@ -164,8 +113,6 @@ impl UriLink {
             UriLink::StringType(_) => None,
             UriLink::IdType {
                 id: _,
-                type_: _,
-                format: _,
                 height: _,
                 width,
             } => width.to_owned(),
@@ -177,35 +124,11 @@ impl UriLink {
             UriLink::StringType(_) => None,
             UriLink::IdType {
                 id: _,
-                type_: _,
-                format: _,
                 height,
                 width: _,
             } => height.to_owned(),
         }
     }
-
-    // pub(crate) fn format(&self) -> Option<&str> {
-    //     match self {
-    //         UriLink::StringType(_) => None,
-    //         UriLink::IdType {
-    //             id: _,
-    //             type_: _,
-    //             format,
-    //         } => format.as_ref().map(|x| x.as_str()),
-    //     }
-    // }
-
-    // pub(crate) fn type_(&self) -> Option<&str> {
-    //     match self {
-    //         UriLink::StringType(_) => None,
-    //         UriLink::IdType {
-    //             id: _,
-    //             type_,
-    //             format: _,
-    //         } => type_.as_ref().map(|x| x.as_str()),
-    //     }
-    // }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -219,7 +142,6 @@ pub(crate) struct Manifest {
     pub(crate) id: String,
     pub(crate) attribution: OneTypeOrMany<String>,
     pub(crate) label: String,
-    pub(crate) metadata: Option<Vec<LabelValuePair>>,
     pub(crate) license: Option<OneTypeOrMany<UriLink>>,
     pub(crate) logo: Option<OneTypeOrMany<UriLink>>,
     pub(crate) description: Option<OneTypeOrMany<String>>,
@@ -227,7 +149,6 @@ pub(crate) struct Manifest {
     pub(crate) see_also: Option<OneTypeOrMany<UriLink>>,
     pub(crate) within: Option<OneTypeOrMany<String>>,
     pub(crate) sequences: Vec<Sequence>,
-    pub(crate) structures: Option<Vec<Structure>>,
 }
 
 impl IsManifest for Manifest {
@@ -557,49 +478,11 @@ mod tests {
         let attribution: Vec<_> = presentation_info.attribution.into_iter().collect();
         assert_eq!(attribution, vec!["Provided by Example Organization"]);
 
-        // let metadata = presentation_info.metadata.as_ref().unwrap();
-
-        // assert_eq!(metadata[0].label, "Author");
-        // assert_eq!(metadata[0].value, OneOrMany::One("Anne Author".into()));
-        // assert_eq!(metadata[1].label, "Published");
-        // assert_eq!(
-        //     metadata[1].value,
-        //     OneOrMany::Many(vec![
-        //         LanguageValuePair {
-        //             language: Language::En,
-        //             value: "Paris, circa 1400".into()
-        //         },
-        //         LanguageValuePair {
-        //             language: Language::Fr,
-        //             value: "Paris, environ 14eme siecle".into()
-        //         }
-        //     ])
-        // );
-
         let see_also: Vec<_> = presentation_info.see_also.unwrap().into_iter().collect();
 
         assert_eq!(
             see_also[0].id(),
             "http://www.example.org/library/catalog/book1.marc"
-        );
-        // assert_eq!(see_also[0].format().unwrap(), "application/marc");
-
-        let structures = presentation_info.structures.as_ref().unwrap();
-        assert_eq!(structures.len(), 1);
-        assert_eq!(
-            structures[0].id,
-            "http://www.example.org/iiif/book1/range/r1"
-        );
-        assert_eq!(structures[0].type_, ManifestType::Range);
-        let label: Vec<_> = (&structures[0].label).into_iter().collect();
-        assert_eq!(label, vec!["Introduction"]);
-        assert_eq!(
-            structures[0].canvases,
-            vec![
-                "http://www.example.org/iiif/book1/canvas/p1",
-                "http://www.example.org/iiif/book1/canvas/p2",
-                "http://www.example.org/iiif/book1/canvas/p3#xywh=0,0,750,300"
-            ]
         );
 
         let within: Vec<_> = presentation_info.within.unwrap().into_iter().collect();
@@ -608,10 +491,6 @@ mod tests {
         assert_eq!(presentation_info.sequences.len(), 1);
 
         let seq = &presentation_info.sequences[0];
-        assert_eq!(
-            seq.id.as_ref().unwrap(),
-            "http://www.example.org/iiif/book1/sequence/normal"
-        );
         assert_eq!(seq.type_, ManifestType::Sequence);
 
         let label: Vec<_> = seq.label.as_ref().unwrap().into_iter().collect();
@@ -628,10 +507,6 @@ mod tests {
         for (index, canvas) in seq.canvases.iter().enumerate() {
             let num = index + 1;
 
-            assert_eq!(
-                canvas.id,
-                format!("http://www.example.org/iiif/book1/canvas/p{num}")
-            );
             assert_eq!(canvas.type_, ManifestType::Canvas);
             assert_eq!(canvas.height, 1000);
             assert_eq!(canvas.width, 750);
@@ -646,27 +521,7 @@ mod tests {
             assert_eq!(image.type_, "oa:Annotation");
 
             assert_eq!(*image.motivation.as_ref().unwrap(), ManifestType::Painting);
-            assert_eq!(
-                *image.on.as_ref().unwrap(),
-                format!("http://www.example.org/iiif/book1/canvas/p{num}")
-            );
             let resource = &image.resource;
-            if num == 2 {
-                assert_eq!(
-                    resource.id,
-                    "http://www.example.org/images/book1-page2/full/1500,2000/0/default.jpg"
-                );
-            } else {
-                assert_eq!(
-                    resource.id,
-                    format!("http://www.example.org/iiif/book1/res/page{num}.jpg")
-                );
-            }
-
-            assert_eq!(resource.type_, "dctypes:Image");
-            assert_eq!(resource.format, "image/jpeg");
-            assert_eq!(resource.width, 1500);
-            assert_eq!(resource.height, 2000);
 
             let service = &resource.service;
             assert_eq!(
@@ -765,18 +620,12 @@ mod tests {
         let attribution: Vec<_> = presentation_info.attribution.iter().collect();
         assert_eq!(attribution, vec!["Provided by Harvard University"]);
 
-        // assert!(presentation_info.metadata.is_none());
         assert!(presentation_info.see_also.is_none());
-        assert!(presentation_info.structures.is_none());
         assert!(presentation_info.within.is_none());
 
         assert_eq!(presentation_info.sequences.len(), 1);
 
         let seq = &presentation_info.sequences[0];
-        assert_eq!(
-            seq.id.as_ref().unwrap(),
-            "https://iiif.lib.harvard.edu/manifests/ids:11927378/sequence/normal.json"
-        );
         assert_eq!(seq.type_, ManifestType::Sequence);
 
         let label: Vec<_> = seq.label.as_ref().unwrap().iter().collect();
@@ -794,10 +643,6 @@ mod tests {
 
         let canvas = &seq.canvases[0];
 
-        assert_eq!(
-            canvas.id,
-            "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json"
-        );
         assert_eq!(canvas.type_, ManifestType::Canvas);
         assert_eq!(canvas.height, 833);
         assert_eq!(canvas.width, 1024);
@@ -822,19 +667,7 @@ mod tests {
         );
         assert_eq!(image.type_, "oa:Annotation");
         assert_eq!(*image.motivation.as_ref().unwrap(), ManifestType::Painting);
-        assert_eq!(
-            image.on.as_ref().unwrap(),
-            "https://iiif.lib.harvard.edu/manifests/ids:11927378/canvas/canvas-11927378.json"
-        );
         let resource = &image.resource;
-        assert_eq!(
-            resource.id,
-            "https://ids.lib.harvard.edu/ids/iiif/11927378/full/full/0/default.jpg"
-        );
-        assert_eq!(resource.type_, "dctypes:Image");
-        assert_eq!(resource.format, "image/jpeg");
-        assert_eq!(resource.width, 1024);
-        assert_eq!(resource.height, 833);
 
         let service = &resource.service;
         assert_eq!(service.id, "https://ids.lib.harvard.edu/ids/iiif/11927378");
