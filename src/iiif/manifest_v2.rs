@@ -61,7 +61,7 @@ pub(crate) enum ViewingHint {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Sequence {
     #[serde(rename = "@id")]
-    id: String,
+    id: Option<String>,
     #[serde(rename = "@type")]
     type_: ManifestType,
     pub(crate) label: Option<OneTypeOrMany<String>>,
@@ -139,6 +139,8 @@ pub(crate) enum UriLink {
         #[serde(rename = "@type")]
         type_: Option<String>,
         format: Option<String>,
+        width: Option<u32>,
+        height: Option<u32>,
     },
 }
 
@@ -150,7 +152,35 @@ impl UriLink {
                 id,
                 type_: _,
                 format: _,
+                height: _,
+                width: _,
             } => id,
+        }
+    }
+
+    pub(crate) fn width(&self) -> Option<u32> {
+        match self {
+            UriLink::StringType(_) => None,
+            UriLink::IdType {
+                id: _,
+                type_: _,
+                format: _,
+                height: _,
+                width,
+            } => width.to_owned(),
+        }
+    }
+
+    pub(crate) fn height(&self) -> Option<u32> {
+        match self {
+            UriLink::StringType(_) => None,
+            UriLink::IdType {
+                id: _,
+                type_: _,
+                format: _,
+                height,
+                width: _,
+            } => height.to_owned(),
         }
     }
 
@@ -263,20 +293,29 @@ impl IsCavas for Canvas {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         Box::new(self.label.iter().map(Cow::from))
     }
-    fn get_thumbnail(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        if let Some(content) = &self.thumbnail {
-            Box::new(content.iter().map(|y| Cow::from(y.id())))
+
+    fn get_thumbnail(&self) -> Cow<'_, str> {
+        // Some thumbnails are too large. Make sure that we know the size.
+        // Or we will need to peek at the size of the remote image.
+        if let Some(content) = &self.thumbnail
+            && let Some(url_link) = content.iter().next()
+            && url_link.width().is_some_and(|x| x <= 256)
+            && url_link.height().is_some_and(|x| x <= 256)
+        {
+            Cow::from(url_link.id())
         } else if let Some(image) = self.images.first() {
             let canvas_thumbnail = format!("{}/full/,64/0/default.png", image.get_service());
 
-            Box::new(vec![canvas_thumbnail].into_iter().map(Cow::from))
+            Cow::from(canvas_thumbnail)
         } else {
-            Box::new(std::iter::empty::<Cow<str>>())
+            Cow::from("")
         }
     }
+
     // fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_> {
     //     Box::new(self.images.iter().map(|b| b as &dyn IsImage))
     // }
+
     fn get_image(&self, index: usize) -> &dyn IsImage {
         &self.images[index]
     }
@@ -550,7 +589,10 @@ mod tests {
         assert_eq!(presentation_info.sequences.len(), 1);
 
         let seq = &presentation_info.sequences[0];
-        assert_eq!(seq.id, "http://www.example.org/iiif/book1/sequence/normal");
+        assert_eq!(
+            seq.id.as_ref().unwrap(),
+            "http://www.example.org/iiif/book1/sequence/normal"
+        );
         assert_eq!(seq.type_, ManifestType::Sequence);
 
         let label: Vec<_> = seq.label.as_ref().unwrap().into_iter().collect();
@@ -713,7 +755,7 @@ mod tests {
 
         let seq = &presentation_info.sequences[0];
         assert_eq!(
-            seq.id,
+            seq.id.as_ref().unwrap(),
             "https://iiif.lib.harvard.edu/manifests/ids:11927378/sequence/normal.json"
         );
         assert_eq!(seq.type_, ManifestType::Sequence);

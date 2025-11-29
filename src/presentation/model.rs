@@ -21,7 +21,7 @@ pub(crate) trait IsSequence {
 /// The canvas model.
 pub(crate) trait IsCavas {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
-    fn get_thumbnail(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
+    fn get_thumbnail(&self) -> Cow<'_, str>;
     // fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_>;
     fn get_image(&self, index: usize) -> &dyn IsImage;
 }

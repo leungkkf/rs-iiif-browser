@@ -166,6 +166,10 @@ pub(crate) enum IiifImageFormat {
     Png,
     Tif,
     Gif,
+    Txt,
+    Jp2,
+    Pdf,
+    Webp,
 }
 
 impl fmt::Display for IiifImageFormat {
@@ -175,6 +179,10 @@ impl fmt::Display for IiifImageFormat {
             IiifImageFormat::Png => write!(f, "png"),
             IiifImageFormat::Tif => write!(f, "tif"),
             IiifImageFormat::Gif => write!(f, "gif"),
+            IiifImageFormat::Txt => write!(f, "txt"),
+            IiifImageFormat::Jp2 => write!(f, "jpg2"),
+            IiifImageFormat::Pdf => write!(f, "pdf"),
+            IiifImageFormat::Webp => write!(f, "webp"),
         }
     }
 }

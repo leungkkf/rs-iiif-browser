@@ -232,10 +232,7 @@ mod tests {
         let canvas = seq.get_canvas(0);
 
         assert_eq!(canvas.get_label().collect::<Vec<_>>(), vec!["p. 1"]);
-        assert_eq!(
-            canvas.get_thumbnail().collect::<Vec<_>>(),
-            Vec::<&str>::new()
-        );
+        assert_eq!(canvas.get_thumbnail(), "");
         // assert_eq!(canvas.get_images().count(), 1);
 
         let image = canvas.get_image(0);

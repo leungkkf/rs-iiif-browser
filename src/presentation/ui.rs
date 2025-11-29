@@ -58,6 +58,7 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
 //     "https://iiif.harvardartmuseums.org/manifests/object/323250",
 // )?;
 //
+// https://www.loc.gov/item/00007086/manifest.json
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn presentation_ui_system(
@@ -313,8 +314,7 @@ fn add_canvas_thumbnails(
 
                                 if ui
                                     .vertical_centered(|ui| {
-                                        let canvas_thumbnail =
-                                            canvas.get_thumbnail().next().unwrap_or_default();
+                                        let canvas_thumbnail = canvas.get_thumbnail();
 
                                         if !canvas_thumbnail.is_empty() {
                                             ui.add_sized(
@@ -386,35 +386,39 @@ fn add_address_bar(
         {
             let presentation_url = egui_ui_state.presentation_url.to_string();
 
-            if crate::load_presentation(
+            match crate::load_presentation(
                 commands,
                 &mut app_state,
                 egui_ui_state,
                 &presentation_url,
                 &presentation_query,
                 &tiled_image_query,
-            )
-            .is_ok()
-            {
-                let msg = format!("Loaded manifest URL '{}'", presentation_url);
+            ) {
+                Ok(_) => {
+                    let msg = format!("Loaded manifest URL '{}'", presentation_url);
 
-                egui_ui_state
-                    .toasts
-                    .info(msg)
-                    .show_progress_bar(true)
-                    .duration(Duration::from_secs(5));
-                app_state.presentation_url = presentation_url;
+                    egui_ui_state
+                        .toasts
+                        .info(msg)
+                        .show_progress_bar(true)
+                        .duration(Duration::from_secs(5));
+                    app_state.presentation_url = presentation_url;
 
-                redraw_request_writer.write(RequestRedraw);
-            } else {
-                let msg = format!("Unable to load manifest URL '{}'", presentation_url);
+                    redraw_request_writer.write(RequestRedraw);
+                }
+                Err(err) => {
+                    let msg = format!(
+                        "Unable to load manifest URL '{}'.\n Error: {:?}",
+                        presentation_url, err
+                    );
 
-                egui_ui_state
-                    .toasts
-                    .warning(msg)
-                    .show_progress_bar(true)
-                    .duration(Duration::from_secs(5));
-                egui_ui_state.presentation_url = app_state.presentation_url.to_string();
+                    egui_ui_state
+                        .toasts
+                        .warning(msg)
+                        .show_progress_bar(true)
+                        .duration(Duration::from_secs(5));
+                    egui_ui_state.presentation_url = app_state.presentation_url.to_string();
+                }
             }
         }
     });
