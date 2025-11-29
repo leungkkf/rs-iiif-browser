@@ -180,9 +180,9 @@ fn load_presentation(
     let image = TiledImage::try_from_url(
         presentation
             .model()
-            .get_sequence(0)
-            .get_canvas(0)
-            .get_image(0)
+            .get_sequence(0)?
+            .get_canvas(0)?
+            .get_image(0)?
             .get_service()
             .as_str(),
     )?;
@@ -201,6 +201,8 @@ fn load_presentation(
     commands.spawn(presentation);
 
     commands.spawn(image);
+
+    egui_ui_state.open_left_panel = true;
 
     Ok(())
 }

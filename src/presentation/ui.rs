@@ -9,7 +9,7 @@ use bevy::prelude::{
 };
 use bevy::window::{PrimaryWindow, RequestRedraw};
 use bevy_egui::egui::text::LayoutJob;
-use bevy_egui::egui::{Color32, FontFamily, FontId, RichText, Sense, Widget, vec2};
+use bevy_egui::egui::{Button, Color32, FontFamily, FontId, Sense, Widget, vec2};
 use bevy_egui::{EguiContext, EguiContexts, egui};
 use std::time::Duration;
 
@@ -18,6 +18,7 @@ pub(crate) struct EguiUiState {
     pub(crate) current_sequence: usize,
     pub(crate) presentation_url: String,
     pub(crate) toasts: egui_notify::Toasts,
+    pub(crate) open_left_panel: bool,
 }
 
 /// Set up egui.
@@ -33,6 +34,7 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
         current_sequence: 0,
         presentation_url: "".to_string(),
         toasts,
+        open_left_panel: false,
     });
 
     Ok(())
@@ -68,110 +70,136 @@ pub(crate) fn presentation_ui_system(
     window: Single<&mut Window, With<PrimaryWindow>>,
     mut egui_ui_state: ResMut<EguiUiState>,
     app_settings: Res<AppSettings>,
-    app_state: ResMut<AppState>,
+    mut app_state: ResMut<AppState>,
     presentation_query: Query<(Entity, &Manifest)>,
     tiled_image_query: Query<(Entity, &TiledImage)>,
-    redraw_request_writer: MessageWriter<RequestRedraw>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
-    let mut left = egui::Panel::left("left_panel")
-        .resizable(true)
+    let mut top = egui::Panel::top("top_panel")
+        .resizable(false)
         .show(ctx, |ui| {
-            // Add manifest address bar.
-            add_address_bar(
-                ui,
-                &mut commands,
-                &mut egui_ui_state,
-                app_state,
-                presentation_query,
-                tiled_image_query,
-                redraw_request_writer,
-            );
-            ui.separator();
+            ui.horizontal(|ui| {
+                if Button::new("☰")
+                    .fill(Color32::from_black_alpha(0))
+                    .ui(ui)
+                    .clicked()
+                {
+                    egui_ui_state.open_left_panel = !egui_ui_state.open_left_panel;
+                    redraw_request_writer.write(RequestRedraw);
+                }
 
-            // No need to build panel if no presentation.
-            let Some((_, presentation)) = presentation_query.iter().next() else {
-                return;
-            };
+                // Add address bar.
+                add_address_bar(
+                    ui,
+                    &mut commands,
+                    &mut egui_ui_state,
+                    &mut app_state,
+                    presentation_query,
+                    tiled_image_query,
+                    &mut redraw_request_writer,
+                );
+            });
 
-            // Manifest title.
-            add_text(
-                ui,
-                presentation.model().get_title(),
-                Some(Color32::WHITE),
-                2,
-            );
-
-            // Manifest description.
-            let description = presentation.model().get_description().collect::<Vec<_>>();
-            if !description.is_empty() {
-                add_text(ui, &description.join("\n"), None, 3);
-            }
-
-            // Manifest attribution and licence.
-            let licence = presentation.model().get_license().collect::<Vec<_>>();
-            let license = if !licence.is_empty() {
-                format!("(© {})", &licence.join(","))
-            } else {
-                "".into()
-            };
-            let attribution = presentation
-                .model()
-                .get_attribution()
-                .collect::<Vec<_>>()
-                .join(",");
-
-            if !license.is_empty() || !attribution.is_empty() {
-                add_text(ui, &format!("{} {}", attribution, license), None, 3);
-            }
-
-            // Manifest provider logo.
-            for logo in presentation.model().get_logo() {
-                ui.add_space(6.0);
-                bevy_egui::egui::Image::new(logo).max_height(64.0).ui(ui);
-            }
-            ui.add_space(6.0);
-
-            // Manifest sequence.
-            egui::ComboBox::from_id_salt("Sequences")
-                .selected_text(
-                    presentation
-                        .model()
-                        .get_sequence(egui_ui_state.current_sequence)
-                        .get_label()
-                        .collect::<Vec<_>>()
-                        .join(","),
-                )
-                .wrap_mode(egui::TextWrapMode::Wrap)
-                .show_ui(ui, |ui| {
-                    for (index, seq) in presentation.model().get_sequences().enumerate() {
-                        ui.selectable_value(
-                            &mut egui_ui_state.current_sequence,
-                            index,
-                            seq.get_label().collect::<Vec<_>>().join(","),
-                        );
-                    }
-                });
-
-            ui.separator();
-
-            // Canvas thumbnails.
-            add_canvas_thumbnails(
-                ui,
-                commands,
-                &mut egui_ui_state,
-                app_settings,
-                tiled_image_query,
-                presentation,
-            );
+            ui.add_space(1.0);
 
             // ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         })
         .response
         .rect
-        .width(); // height is ignored, as the panel has a hight of 100% of the screen
+        .height(); // width is ignored, as the panel has a width of 100% of the screen
+    // let mut top = 0.0;
 
+    let mut left = if egui_ui_state.open_left_panel {
+        egui::Panel::left("left_panel")
+            .resizable(true)
+            .show(ctx, |ui| -> Result {
+                // No need to build panel if no presentation.
+                let Some((_, presentation)) = presentation_query.iter().next() else {
+                    return Ok(());
+                };
+
+                // Manifest title.
+                add_text(
+                    ui,
+                    presentation.model().get_title(),
+                    Some(Color32::WHITE),
+                    2,
+                );
+
+                // Manifest description.
+                let description = presentation.model().get_description().collect::<Vec<_>>();
+                if !description.is_empty() {
+                    add_text(ui, &description.join("\n"), None, 3);
+                }
+
+                // Manifest attribution and licence.
+                let licence = presentation.model().get_license().collect::<Vec<_>>();
+                let license = if !licence.is_empty() {
+                    format!("(© {})", &licence.join(","))
+                } else {
+                    "".into()
+                };
+                let attribution = presentation
+                    .model()
+                    .get_attribution()
+                    .collect::<Vec<_>>()
+                    .join(",");
+
+                if !license.is_empty() || !attribution.is_empty() {
+                    add_text(ui, &format!("{} {}", attribution, license), None, 3);
+                }
+
+                // Manifest provider logo.
+                for logo in presentation.model().get_logo() {
+                    ui.add_space(6.0);
+                    bevy_egui::egui::Image::new(logo).max_height(64.0).ui(ui);
+                }
+                ui.add_space(6.0);
+
+                // Manifest sequence.
+                egui::ComboBox::from_id_salt("Sequences")
+                    .selected_text(
+                        presentation
+                            .model()
+                            .get_sequence(egui_ui_state.current_sequence)?
+                            .get_label()
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    )
+                    .wrap_mode(egui::TextWrapMode::Wrap)
+                    .show_ui(ui, |ui| {
+                        for (index, seq) in presentation.model().get_sequences().enumerate() {
+                            ui.selectable_value(
+                                &mut egui_ui_state.current_sequence,
+                                index,
+                                seq.get_label().collect::<Vec<_>>().join(","),
+                            );
+                        }
+                    });
+
+                ui.separator();
+
+                // Canvas thumbnails.
+                add_canvas_thumbnails(
+                    ui,
+                    &mut commands,
+                    &mut egui_ui_state,
+                    app_settings,
+                    tiled_image_query,
+                    presentation,
+                )?;
+
+                // ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+                Ok(())
+            })
+            .response
+            .rect
+            .width() // height is ignored, as the panel has a hight of 100% of the screen
+    } else {
+        0.0
+    };
     // let mut right = egui::SidePanel::right("right_panel")
     //     .resizable(true)
     //     .show(ctx, |ui| {
@@ -182,23 +210,6 @@ pub(crate) fn presentation_ui_system(
     //     .rect
     //     .width(); // height is ignored, as the panel has a height of 100% of the screen
     let mut right = 0.0;
-
-    // let mut top = egui::TopBottomPanel::top("top_panel")
-    //     .resizable(false)
-    //     .show(ctx, |ui| {
-    //         // if ui.button("☰").on_hover_text("Open panel").clicked() {
-    //         //     ui_state.open_panel = true;
-    //         // }
-    //         // ui.label(&presentation.title);
-    //         // for s in &presentation.attribution {
-    //         //     ui.label(s);
-    //         // }
-    //         ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-    //     })
-    //     .response
-    //     .rect
-    //     .height(); // width is ignored, as the panel has a width of 100% of the screen
-    let mut top = 0.0;
 
     // let mut bottom = egui::TopBottomPanel::bottom("bottom_panel")
     //     .resizable(true)
@@ -263,15 +274,15 @@ pub(crate) fn presentation_ui_system(
 /// Add the canvas thumbnail panel.
 fn add_canvas_thumbnails(
     ui: &mut egui::Ui,
-    mut commands: Commands<'_, '_>,
+    commands: &mut Commands<'_, '_>,
     egui_ui_state: &mut ResMut<'_, EguiUiState>,
     app_settings: Res<'_, AppSettings>,
     tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
     presentation: &Manifest,
-) {
+) -> Result {
     let canvas_iter = presentation
         .model()
-        .get_sequence(egui_ui_state.current_sequence)
+        .get_sequence(egui_ui_state.current_sequence)?
         .get_canvases();
 
     let thumbnail_size = app_settings.thumbnail_size;
@@ -334,7 +345,7 @@ fn add_canvas_thumbnails(
                                     .interact(Sense::CLICK)
                                     .clicked()
                                 {
-                                    let image_url = canvas.get_image(0).get_service().to_string();
+                                    let image_url = canvas.get_image(0)?.get_service().to_string();
 
                                     if let Ok(image) = TiledImage::try_from_url(&image_url) {
                                         for (image_entity, _) in tiled_image_query {
@@ -360,6 +371,8 @@ fn add_canvas_thumbnails(
                 });
         },
     );
+
+    Ok(())
 }
 
 /// Add the manifest URL address bar.
@@ -367,18 +380,19 @@ fn add_address_bar(
     ui: &mut egui::Ui,
     commands: &mut Commands<'_, '_>,
     egui_ui_state: &mut ResMut<'_, EguiUiState>,
-    mut app_state: ResMut<'_, AppState>,
+    app_state: &mut ResMut<'_, AppState>,
     presentation_query: Query<'_, '_, (Entity, &Manifest)>,
     tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
-    mut redraw_request_writer: MessageWriter<'_, RequestRedraw>,
+    redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
 ) {
     ui.horizontal(|ui| {
-        ui.label(RichText::new("IIIF:").color(Color32::from_rgb(240, 240, 240)));
+        // ui.label(RichText::new("IIIF:").color(Color32::from_rgb(240, 240, 240)));
         if ui
             .add(
                 egui::TextEdit::singleline(&mut egui_ui_state.presentation_url)
-                    .text_color(Color32::from_rgb(240, 240, 240))
-                    .hint_text("Manifest URL"),
+                    .desired_width(ui.available_width())
+                    // .text_color(Color32::from_rgb(240, 240, 240))
+                    .hint_text("IIIF Manifest URL"),
             )
             .on_hover_text(&egui_ui_state.presentation_url)
             .lost_focus()
@@ -388,7 +402,7 @@ fn add_address_bar(
 
             match crate::load_presentation(
                 commands,
-                &mut app_state,
+                app_state,
                 egui_ui_state,
                 &presentation_url,
                 &presentation_query,

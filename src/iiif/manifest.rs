@@ -59,6 +59,10 @@ fn try_from_json(info_json: &str) -> core::result::Result<Box<dyn IsManifest>, I
             todo!("add version 3")
         }
     };
+
+    // Check if we can get at least one sequence, one canvas and one image.
+    output.get_sequence(0)?.get_canvas(0)?.get_image(0)?;
+
     Ok(output)
 }
 

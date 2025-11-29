@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
 
+use crate::iiif::IiifError;
 use crate::iiif::manifest::{Context, Language, ViewingDirection};
 use crate::iiif::one_or_many::{OneOrMany, OneTypeOrMany};
 use crate::presentation::model::{IsCavas, IsImage, IsManifest, IsSequence};
@@ -266,8 +267,14 @@ impl IsManifest for Manifest {
         Box::new(self.sequences.iter().map(|b| b as &dyn IsSequence))
     }
 
-    fn get_sequence(&self, index: usize) -> &dyn IsSequence {
-        &self.sequences[index]
+    fn get_sequence(&self, index: usize) -> Result<&dyn IsSequence, IiifError> {
+        self.sequences
+            .get(index)
+            .map(|x| x as &dyn IsSequence)
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "sequence not found at pos '{}'",
+                index
+            )))
     }
 }
 
@@ -284,8 +291,14 @@ impl IsSequence for Sequence {
         Box::new(self.canvases.iter().map(|b| b as &dyn IsCavas))
     }
 
-    fn get_canvas(&self, index: usize) -> &dyn IsCavas {
-        &self.canvases[index]
+    fn get_canvas(&self, index: usize) -> Result<&dyn IsCavas, IiifError> {
+        self.canvases
+            .get(index)
+            .map(|x| x as &dyn IsCavas)
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "canvas not found at pos '{}'",
+                index
+            )))
     }
 }
 
@@ -316,8 +329,14 @@ impl IsCavas for Canvas {
     //     Box::new(self.images.iter().map(|b| b as &dyn IsImage))
     // }
 
-    fn get_image(&self, index: usize) -> &dyn IsImage {
-        &self.images[index]
+    fn get_image(&self, index: usize) -> Result<&dyn IsImage, IiifError> {
+        self.images
+            .get(index)
+            .map(|x| x as &dyn IsImage)
+            .ok_or(IiifError::IiifMissingInfo(format!(
+                "missing image at pos '{}'",
+                index
+            )))
     }
 }
 

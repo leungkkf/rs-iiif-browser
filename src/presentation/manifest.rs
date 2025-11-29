@@ -220,7 +220,7 @@ mod tests {
 
         assert_eq!(manifest.model().get_sequences().count(), 1);
 
-        let seq = manifest.model().get_sequence(0);
+        let seq = manifest.model().get_sequence(0).unwrap();
 
         assert_eq!(
             seq.get_label().collect::<Vec<_>>(),
@@ -229,13 +229,13 @@ mod tests {
 
         assert_eq!(seq.get_canvases().count(), 3);
 
-        let canvas = seq.get_canvas(0);
+        let canvas = seq.get_canvas(0).unwrap();
 
         assert_eq!(canvas.get_label().collect::<Vec<_>>(), vec!["p. 1"]);
         assert_eq!(canvas.get_thumbnail(), "");
         // assert_eq!(canvas.get_images().count(), 1);
 
-        let image = canvas.get_image(0);
+        let image = canvas.get_image(0).unwrap();
 
         // assert_eq!(image.get_width(), 1500);
         // assert_eq!(image.get_height(), 2000);
