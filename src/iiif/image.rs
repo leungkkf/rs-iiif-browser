@@ -1,3 +1,4 @@
+use crate::iiif::one_or_many::OneTypeOrMany;
 use crate::rendering::model::{IsImage, IsProfileDetails};
 use crate::{iiif::IiifError, rendering::tiled_image::Size};
 use bevy::prelude::debug;
@@ -10,7 +11,7 @@ pub(crate) struct IiifImageInfo {
     height: u32,
     sizes: Option<Vec<Size>>,
     tiles: Option<Vec<IiifTileInfo>>,
-    profile: Vec<IiifProfileInfo>,
+    profile: OneTypeOrMany<IiifProfileInfo>,
     #[serde(skip_deserializing)]
     expanded_profiles: Vec<IiifProfileDetails>,
 }
@@ -69,7 +70,8 @@ impl IiifProfileDetails {
                     IiifFeature::SizeByW,
                 ],
             },
-            "http://iiif.io/api/image/2/level2.json" => Self {
+            "http://iiif.io/api/image/2/level2.json"
+            | "https://iiif.io/api/image/2/level2.json" => Self {
                 formats: vec![IiifImageFormat::Jpg, IiifImageFormat::Png],
                 qualities: vec![IiifImageQuality::Default, IiifImageQuality::Bitonal],
                 supports: vec![
@@ -201,13 +203,15 @@ impl IiifImageInfo {
         let mut iiif_image_info: IiifImageInfo = serde_json::from_str(info_json)?;
         debug!("iiif_image_info {:?}", iiif_image_info);
 
-        if iiif_image_info.profile.is_empty() {
+        let iiif_image_info_profiles: Vec<_> = iiif_image_info.profile.iter().collect();
+
+        if iiif_image_info_profiles.is_empty() {
             return Err(IiifError::IiifMissingInfo("Missing profile".into()));
         }
 
         let mut expanded_profiles = Vec::new();
 
-        for p in &iiif_image_info.profile {
+        for p in iiif_image_info_profiles {
             let profile = match p {
                 IiifProfileInfo::ProfileDetails(profile_details) => (*profile_details).clone(),
                 IiifProfileInfo::Url(url) => IiifProfileDetails::from_url(url)?,
@@ -297,6 +301,7 @@ impl IsImage for IiifImageInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::iiif::one_or_many::OneTypeOrMany;
     use crate::rendering::model::{IsImage, IsProfileDetails};
 
     #[test]
@@ -345,7 +350,8 @@ mod tests {
         assert_eq!(tiles[0].height, Some(256));
         assert_eq!(tiles[0].scale_factors, vec![1, 2, 4, 8, 16, 32]);
 
-        assert_eq!(image_info.profile.len(), 2);
+        let image_info_profiles: Vec<_> = image_info.profile.iter().collect();
+        assert_eq!(image_info_profiles.len(), 2);
 
         for p in &image_info.profile {
             match p {
@@ -422,11 +428,13 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 0,
             width: 0,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
+            profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![IiifProfileInfo::ProfileDetails(
+                IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Jpg],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                },
+            )]),
             tiles: None,
             sizes: None,
             expanded_profiles: Vec::new(),
@@ -438,11 +446,13 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 0,
             width: 0,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
+            profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![IiifProfileInfo::ProfileDetails(
+                IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Jpg],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                },
+            )]),
             tiles: Some(vec![IiifTileInfo {
                 width: 100,
                 height: Some(110),
@@ -458,11 +468,13 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 0,
             width: 0,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
+            profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![IiifProfileInfo::ProfileDetails(
+                IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Jpg],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                },
+            )]),
             tiles: Some(vec![IiifTileInfo {
                 width: 100,
                 height: None,
@@ -481,11 +493,13 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 20,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
+            profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![IiifProfileInfo::ProfileDetails(
+                IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Jpg],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                },
+            )]),
             tiles: None,
             sizes: None,
             expanded_profiles: Vec::new(),
@@ -497,11 +511,13 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 20,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
+            profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![IiifProfileInfo::ProfileDetails(
+                IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Jpg],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                },
+            )]),
             tiles: None,
             sizes: Some(vec![
                 Size::new(440, 361),
@@ -528,11 +544,13 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 20,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Png],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
+            profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![IiifProfileInfo::ProfileDetails(
+                IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Png],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                },
+            )]),
             tiles: None,
             sizes: None,
             expanded_profiles: vec![IiifProfileDetails {
@@ -558,11 +576,13 @@ mod tests {
         let image_info = IiifImageInfo {
             height: 10,
             width: 10,
-            profile: vec![IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: Vec::new(),
-                supports: Vec::new(),
-            })],
+            profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![IiifProfileInfo::ProfileDetails(
+                IiifProfileDetails {
+                    formats: vec![IiifImageFormat::Jpg],
+                    qualities: Vec::new(),
+                    supports: Vec::new(),
+                },
+            )]),
             tiles: Some(vec![IiifTileInfo {
                 width: 100,
                 height: None,

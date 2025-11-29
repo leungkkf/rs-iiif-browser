@@ -232,7 +232,10 @@ mod tests {
         let canvas = seq.get_canvas(0).unwrap();
 
         assert_eq!(canvas.get_label().collect::<Vec<_>>(), vec!["p. 1"]);
-        assert_eq!(canvas.get_thumbnail(), "");
+        assert_eq!(
+            canvas.get_thumbnail(),
+            "http://www.example.org/images/book1-page1/full/,64/0/default.jpg"
+        );
         // assert_eq!(canvas.get_images().count(), 1);
 
         let image = canvas.get_image(0).unwrap();

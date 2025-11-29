@@ -238,7 +238,7 @@ impl IsCavas for Canvas {
         {
             Cow::from(url_link.id())
         } else if let Some(image) = self.images.first() {
-            let canvas_thumbnail = format!("{}/full/,64/0/default.png", image.get_service());
+            let canvas_thumbnail = format!("{}/full/,64/0/default.jpg", image.get_service());
 
             Cow::from(canvas_thumbnail)
         } else {
