@@ -152,8 +152,8 @@ pub(crate) struct Manifest {
 }
 
 impl IsManifest for Manifest {
-    fn get_title(&self) -> &str {
-        &self.label
+    fn get_title(&self) -> Cow<'_, str> {
+        Cow::from(&self.label)
     }
 
     fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {

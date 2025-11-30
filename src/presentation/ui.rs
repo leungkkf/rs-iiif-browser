@@ -124,7 +124,7 @@ pub(crate) fn presentation_ui_system(
                 // Manifest title.
                 add_text(
                     ui,
-                    presentation.model().get_title(),
+                    &presentation.model().get_title(),
                     Some(Color32::WHITE),
                     2,
                 );
