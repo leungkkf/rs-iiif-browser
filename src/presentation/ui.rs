@@ -19,6 +19,7 @@ pub(crate) struct EguiUiState {
     pub(crate) presentation_url: String,
     pub(crate) toasts: egui_notify::Toasts,
     pub(crate) open_left_panel: bool,
+    pub(crate) canvas_index: String,
 }
 
 /// Set up egui.
@@ -35,6 +36,7 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
         presentation_url: "".to_string(),
         toasts,
         open_left_panel: false,
+        canvas_index: "".to_string(),
     });
 
     Ok(())
@@ -91,6 +93,19 @@ pub(crate) fn presentation_ui_system(
                     redraw_request_writer.write(RequestRedraw);
                 }
 
+                let num_canvases = presentation_query
+                    .iter()
+                    .next()
+                    .and_then(|(_, manifest)| {
+                        (*manifest)
+                            .model()
+                            .get_sequence(0)
+                            .ok()
+                            .map(|x| x.get_canvases())
+                    })
+                    .map(|x| x.len())
+                    .unwrap_or_default();
+
                 // Add address bar.
                 add_address_bar(
                     ui,
@@ -99,6 +114,19 @@ pub(crate) fn presentation_ui_system(
                     &mut app_state,
                     presentation_query,
                     tiled_image_query,
+                    &mut redraw_request_writer,
+                    ui.available_width() - if num_canvases > 1 { 85.0 } else { 0.0 },
+                );
+
+                // Add page controls.
+                add_page_controls(
+                    &mut commands,
+                    &mut egui_ui_state,
+                    &mut app_state,
+                    presentation_query,
+                    tiled_image_query,
+                    ui,
+                    num_canvases,
                     &mut redraw_request_writer,
                 );
             });
@@ -189,7 +217,9 @@ pub(crate) fn presentation_ui_system(
                     &mut egui_ui_state,
                     app_settings,
                     tiled_image_query,
+                    &mut app_state,
                     presentation,
+                    &mut redraw_request_writer,
                 )?;
 
                 // ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
@@ -272,6 +302,84 @@ pub(crate) fn presentation_ui_system(
     Ok(())
 }
 
+/// Add controls to change pages.
+fn add_page_controls(
+    commands: &mut Commands<'_, '_>,
+    egui_ui_state: &mut ResMut<'_, EguiUiState>,
+    app_state: &mut ResMut<'_, AppState>,
+    presentation_query: Query<'_, '_, (Entity, &Manifest)>,
+    tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
+    ui: &mut egui::Ui,
+    num_canvases: usize,
+    redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
+) {
+    if num_canvases > 1 {
+        ui.spacing_mut().item_spacing.x = 1.0;
+
+        let mut new_canvas_index = app_state.canvas_index;
+
+        if ui.button("<").clicked() {
+            new_canvas_index = app_state.canvas_index.saturating_sub(1);
+        }
+
+        let egui_index = egui_ui_state.canvas_index.clone();
+        let response = ui
+            .add(egui::TextEdit::singleline(&mut egui_ui_state.canvas_index).desired_width(30.0))
+            .on_hover_text(format!(
+                "Page {}/{}",
+                app_state.canvas_index.saturating_add(1),
+                num_canvases
+            ));
+
+        if response.changed() && !egui_ui_state.canvas_index.is_empty() {
+            if let Ok(index) = egui_ui_state.canvas_index.parse::<usize>()
+                && index > 0
+                && index <= num_canvases
+            {
+                egui_ui_state.canvas_index = index.to_string();
+            } else {
+                egui_ui_state.canvas_index = egui_index;
+            }
+        }
+
+        if response.lost_focus() {
+            new_canvas_index = egui_ui_state
+                .canvas_index
+                .parse::<usize>()
+                .unwrap_or_default()
+                .saturating_sub(1);
+        }
+        if ui.button(">").clicked() {
+            new_canvas_index = (app_state.canvas_index.saturating_add(1)).min(num_canvases - 1);
+        }
+
+        if new_canvas_index != app_state.canvas_index {
+            let (_, manifest) = presentation_query
+                .iter()
+                .next()
+                .expect("should have a manifest due to prevous check on the number of canvas > 1");
+
+            if let Err(err) = crate::load_canvas(
+                manifest,
+                commands,
+                &tiled_image_query,
+                app_state,
+                egui_ui_state,
+                new_canvas_index,
+                redraw_request_writer,
+            ) {
+                let msg = format!("Unable to load canvas.\n'{}'", err);
+
+                egui_ui_state
+                    .toasts
+                    .warning(msg)
+                    .show_progress_bar(true)
+                    .duration(Duration::from_secs(5));
+            }
+        }
+    }
+}
+
 /// Add the canvas thumbnail panel.
 fn add_canvas_thumbnails(
     ui: &mut egui::Ui,
@@ -279,7 +387,9 @@ fn add_canvas_thumbnails(
     egui_ui_state: &mut ResMut<'_, EguiUiState>,
     app_settings: Res<'_, AppSettings>,
     tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
+    app_state: &mut ResMut<'_, AppState>,
     presentation: &Manifest,
+    redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
 ) -> Result {
     let canvas_iter = presentation
         .model()
@@ -297,12 +407,12 @@ fn add_canvas_thumbnails(
         .round()
         .max(1.0) as usize;
 
-    let visible_canvases: Vec<_> = canvas_iter.collect();
+    let canvases: Vec<_> = canvas_iter.collect();
 
     egui::ScrollArea::vertical().auto_shrink(false).show_rows(
         ui,
         row_height,
-        visible_canvases.len().div_ceil(items_per_row).max(1),
+        canvases.len().div_ceil(items_per_row).max(1),
         |ui, row_range| {
             egui::Grid::new("my_grid")
                 .min_col_width(column_width)
@@ -311,7 +421,7 @@ fn add_canvas_thumbnails(
                 .show(ui, |ui| -> Result {
                     let row_start = row_range.start;
 
-                    for (row_index, _) in visible_canvases
+                    for (row_index, _) in canvases
                         .iter()
                         .skip(row_range.start * items_per_row)
                         .take(row_range.count() * items_per_row)
@@ -321,8 +431,8 @@ fn add_canvas_thumbnails(
                         for col_index in 0..items_per_row {
                             let canvas_index = (row_start + row_index) * items_per_row + col_index;
 
-                            if canvas_index < visible_canvases.len() {
-                                let canvas = visible_canvases[canvas_index];
+                            if canvas_index < canvases.len() {
+                                let canvas = canvases[canvas_index];
 
                                 if ui
                                     .vertical_centered(|ui| {
@@ -345,24 +455,23 @@ fn add_canvas_thumbnails(
                                     .response
                                     .interact(Sense::CLICK)
                                     .clicked()
+                                    && let Err(err) = crate::load_canvas(
+                                        presentation,
+                                        commands,
+                                        &tiled_image_query,
+                                        app_state,
+                                        egui_ui_state,
+                                        canvas_index,
+                                        redraw_request_writer,
+                                    )
                                 {
-                                    let image_url = canvas.get_image(0)?.get_service().to_string();
+                                    let msg = format!("Unable to load canvas.\n'{}'", err);
 
-                                    if let Ok(image) = TiledImage::try_from_url(&image_url) {
-                                        for (image_entity, _) in tiled_image_query {
-                                            commands.entity(image_entity).despawn();
-                                        }
-                                        commands.spawn(image);
-                                    } else {
-                                        let msg =
-                                            format!("Unable to load image URL '{}'", image_url);
-
-                                        egui_ui_state
-                                            .toasts
-                                            .warning(msg)
-                                            .show_progress_bar(true)
-                                            .duration(Duration::from_secs(5));
-                                    }
+                                    egui_ui_state
+                                        .toasts
+                                        .warning(msg)
+                                        .show_progress_bar(true)
+                                        .duration(Duration::from_secs(5));
                                 }
                             }
                         }
@@ -377,6 +486,7 @@ fn add_canvas_thumbnails(
 }
 
 /// Add the manifest URL address bar.
+#[allow(clippy::too_many_arguments)]
 fn add_address_bar(
     ui: &mut egui::Ui,
     commands: &mut Commands<'_, '_>,
@@ -385,58 +495,55 @@ fn add_address_bar(
     presentation_query: Query<'_, '_, (Entity, &Manifest)>,
     tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
     redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
+    width: f32,
 ) {
-    ui.horizontal(|ui| {
-        // ui.label(RichText::new("IIIF:").color(Color32::from_rgb(240, 240, 240)));
-        if ui
-            .add(
-                egui::TextEdit::singleline(&mut egui_ui_state.presentation_url)
-                    .desired_width(ui.available_width())
-                    // .text_color(Color32::from_rgb(240, 240, 240))
-                    .hint_text("IIIF Manifest URL"),
-            )
-            .on_hover_text(&egui_ui_state.presentation_url)
-            .lost_focus()
-            && egui_ui_state.presentation_url != app_state.presentation_url
-        {
-            let presentation_url = egui_ui_state.presentation_url.to_string();
+    if ui
+        .add(
+            egui::TextEdit::singleline(&mut egui_ui_state.presentation_url)
+                .desired_width(width)
+                .hint_text("IIIF Manifest URL"),
+        )
+        .on_hover_text(&egui_ui_state.presentation_url)
+        .lost_focus()
+        && egui_ui_state.presentation_url != app_state.presentation_url
+    {
+        let presentation_url = egui_ui_state.presentation_url.to_string();
 
-            match crate::load_presentation(
-                commands,
-                app_state,
-                egui_ui_state,
-                &presentation_url,
-                &presentation_query,
-                &tiled_image_query,
-            ) {
-                Ok(_) => {
-                    let msg = format!("Loaded manifest URL '{}'", presentation_url);
+        match crate::load_presentation(
+            commands,
+            app_state,
+            egui_ui_state,
+            &presentation_url,
+            &presentation_query,
+            &tiled_image_query,
+        ) {
+            Ok(_) => {
+                let msg = format!("Loaded manifest URL '{}'", presentation_url);
 
-                    egui_ui_state
-                        .toasts
-                        .info(msg)
-                        .show_progress_bar(true)
-                        .duration(Duration::from_secs(5));
-                    app_state.presentation_url = presentation_url;
+                egui_ui_state
+                    .toasts
+                    .info(msg)
+                    .show_progress_bar(true)
+                    .duration(Duration::from_secs(5));
+                app_state.presentation_url = presentation_url;
 
-                    redraw_request_writer.write(RequestRedraw);
-                }
-                Err(err) => {
-                    let msg = format!(
-                        "Unable to load manifest URL '{}'.\n Error: {:?}",
-                        presentation_url, err
-                    );
+                redraw_request_writer.write(RequestRedraw);
+            }
+            Err(err) => {
+                let msg = format!(
+                    "Unable to load manifest URL '{}'.\n Error: {:?}",
+                    presentation_url, err
+                );
 
-                    egui_ui_state
-                        .toasts
-                        .warning(msg)
-                        .show_progress_bar(true)
-                        .duration(Duration::from_secs(5));
-                    egui_ui_state.presentation_url = app_state.presentation_url.to_string();
-                }
+                egui_ui_state
+                    .toasts
+                    .warning(msg)
+                    .show_progress_bar(true)
+                    .duration(Duration::from_secs(5));
+                egui_ui_state.presentation_url = app_state.presentation_url.to_string();
             }
         }
-    });
+    }
 }
 
 /// Add a multi-line wrapped text.

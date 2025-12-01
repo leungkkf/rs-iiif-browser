@@ -15,12 +15,12 @@ pub(crate) trait IsManifest: Send + Sync {
 /// The sequence model.
 pub(crate) trait IsSequence {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
-    fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCavas> + '_>;
-    fn get_canvas(&self, index: usize) -> Result<&dyn IsCavas, IiifError>;
+    fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCanvas> + '_>;
+    fn get_canvas(&self, index: usize) -> Result<&dyn IsCanvas, IiifError>;
 }
 
 /// The canvas model.
-pub(crate) trait IsCavas {
+pub(crate) trait IsCanvas {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
     fn get_thumbnail(&self) -> Cow<'_, str>;
     // fn get_images(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsImage> + '_>;

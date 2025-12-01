@@ -9,6 +9,7 @@ use bevy::asset::io::web::WebAssetPlugin;
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
 use bevy::render::render_resource::BlendState;
+use bevy::window::RequestRedraw;
 use bevy::winit::WinitSettings;
 use bevy_egui::egui::TextBuffer;
 use bevy_egui::input::{egui_wants_any_keyboard_input, egui_wants_any_pointer_input};
@@ -111,7 +112,7 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     commands.insert_resource(TileCache::new());
 
     // App state.
-    commands.insert_resource(AppState::new(0, "".to_string()));
+    commands.insert_resource(AppState::new(0, "".to_string(), 0));
 
     // Tile mod state.
     commands.insert_resource(TileModState::new());
@@ -196,13 +197,46 @@ fn load_presentation(
     }
 
     app_state.presentation_url = presentation_url.to_string();
-    egui_ui_state.presentation_url = presentation_url.to_string();
+    app_state.canvas_index = 0;
+    egui_ui_state.presentation_url = app_state.presentation_url.to_string();
+    egui_ui_state.canvas_index = (app_state.canvas_index.saturating_add(1)).to_string();
 
     commands.spawn(presentation);
 
     commands.spawn(image);
 
     egui_ui_state.open_left_panel = true;
+
+    Ok(())
+}
+
+fn load_canvas(
+    presentation: &Manifest,
+    commands: &mut Commands,
+    tiled_image_query: &Query<(Entity, &TiledImage)>,
+    app_state: &mut ResMut<AppState>,
+    egui_ui_state: &mut ResMut<EguiUiState>,
+    canvas_index: usize,
+    redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
+) -> Result {
+    let canvas = presentation
+        .model()
+        .get_sequence(0)?
+        .get_canvas(canvas_index)?;
+
+    let image_url = canvas.get_image(0)?.get_service().to_string();
+
+    let image = TiledImage::try_from_url(&image_url)?;
+
+    for (image_entity, _) in tiled_image_query {
+        commands.entity(image_entity).despawn();
+    }
+    commands.spawn(image);
+
+    app_state.canvas_index = canvas_index;
+    egui_ui_state.canvas_index = (app_state.canvas_index.saturating_add(1)).to_string();
+
+    redraw_request_writer.write(RequestRedraw);
 
     Ok(())
 }

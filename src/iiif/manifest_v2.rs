@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::iiif::IiifError;
 use crate::iiif::manifest::{Context, ViewingDirection};
 use crate::iiif::one_or_many::OneTypeOrMany;
-use crate::presentation::model::{IsCavas, IsImage, IsManifest, IsSequence};
+use crate::presentation::model::{IsCanvas, IsImage, IsManifest, IsSequence};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) enum ManifestType {
@@ -208,14 +208,14 @@ impl IsSequence for Sequence {
         }
     }
 
-    fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCavas> + '_> {
-        Box::new(self.canvases.iter().map(|b| b as &dyn IsCavas))
+    fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCanvas> + '_> {
+        Box::new(self.canvases.iter().map(|b| b as &dyn IsCanvas))
     }
 
-    fn get_canvas(&self, index: usize) -> Result<&dyn IsCavas, IiifError> {
+    fn get_canvas(&self, index: usize) -> Result<&dyn IsCanvas, IiifError> {
         self.canvases
             .get(index)
-            .map(|x| x as &dyn IsCavas)
+            .map(|x| x as &dyn IsCanvas)
             .ok_or(IiifError::IiifMissingInfo(format!(
                 "canvas not found at pos '{}'",
                 index
@@ -223,7 +223,7 @@ impl IsSequence for Sequence {
     }
 }
 
-impl IsCavas for Canvas {
+impl IsCanvas for Canvas {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         Box::new(self.label.iter().map(Cow::from))
     }
