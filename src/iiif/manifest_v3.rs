@@ -1,6 +1,6 @@
 use crate::{
     iiif::{IiifError, manifest::Language, one_or_many::OneTypeOrMany},
-    presentation::model::{IsCavas, IsImage, IsManifest, IsSequence},
+    presentation::model::{IsCanvas, IsImage, IsManifest, IsSequence},
 };
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, collections::HashMap};
@@ -198,14 +198,14 @@ impl IsSequence for Manifest {
         Box::new(std::iter::empty::<Cow<str>>())
     }
 
-    fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCavas> + '_> {
-        Box::new(self.items.iter().map(|b| b as &dyn IsCavas))
+    fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCanvas> + '_> {
+        Box::new(self.items.iter().map(|b| b as &dyn IsCanvas))
     }
 
-    fn get_canvas(&self, index: usize) -> Result<&dyn IsCavas, IiifError> {
+    fn get_canvas(&self, index: usize) -> Result<&dyn IsCanvas, IiifError> {
         self.items
             .get(index)
-            .map(|x| x as &dyn IsCavas)
+            .map(|x| x as &dyn IsCanvas)
             .ok_or(IiifError::IiifMissingInfo(format!(
                 "canvas not found at pos '{}'",
                 index
@@ -213,7 +213,7 @@ impl IsSequence for Manifest {
     }
 }
 
-impl IsCavas for CanvasItem {
+impl IsCanvas for CanvasItem {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(label) = &self.label {
             return Box::new(
