@@ -313,69 +313,71 @@ fn add_page_controls(
     num_canvases: usize,
     redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
 ) {
-    if num_canvases > 1 {
-        ui.spacing_mut().item_spacing.x = 1.0;
+    if num_canvases <= 1 {
+        return;
+    }
 
-        let mut new_canvas_index = app_state.canvas_index;
+    ui.spacing_mut().item_spacing.x = 1.0;
 
-        if ui.button("<").clicked() {
-            new_canvas_index = app_state.canvas_index.saturating_sub(1);
+    let mut new_canvas_index = app_state.canvas_index;
+
+    if ui.button("<").clicked() {
+        new_canvas_index = app_state.canvas_index.saturating_sub(1);
+    }
+
+    let egui_index = egui_ui_state.canvas_index.clone();
+    let response = ui
+        .add(egui::TextEdit::singleline(&mut egui_ui_state.canvas_index).desired_width(30.0))
+        .on_hover_text(format!(
+            "Page {}/{}",
+            app_state.canvas_index.saturating_add(1),
+            num_canvases
+        ));
+
+    if response.changed() && !egui_ui_state.canvas_index.is_empty() {
+        if let Ok(index) = egui_ui_state.canvas_index.parse::<usize>()
+            && index > 0
+            && index <= num_canvases
+        {
+            egui_ui_state.canvas_index = index.to_string();
+        } else {
+            egui_ui_state.canvas_index = egui_index;
         }
+    }
 
-        let egui_index = egui_ui_state.canvas_index.clone();
-        let response = ui
-            .add(egui::TextEdit::singleline(&mut egui_ui_state.canvas_index).desired_width(30.0))
-            .on_hover_text(format!(
-                "Page {}/{}",
-                app_state.canvas_index.saturating_add(1),
-                num_canvases
-            ));
+    if response.lost_focus() {
+        new_canvas_index = egui_ui_state
+            .canvas_index
+            .parse::<usize>()
+            .unwrap_or_default()
+            .saturating_sub(1);
+    }
+    if ui.button(">").clicked() {
+        new_canvas_index = (app_state.canvas_index.saturating_add(1)).min(num_canvases - 1);
+    }
 
-        if response.changed() && !egui_ui_state.canvas_index.is_empty() {
-            if let Ok(index) = egui_ui_state.canvas_index.parse::<usize>()
-                && index > 0
-                && index <= num_canvases
-            {
-                egui_ui_state.canvas_index = index.to_string();
-            } else {
-                egui_ui_state.canvas_index = egui_index;
-            }
-        }
+    if new_canvas_index != app_state.canvas_index {
+        let (_, manifest) = presentation_query
+            .iter()
+            .next()
+            .expect("should have a manifest due to prevous check on the number of canvas > 1");
 
-        if response.lost_focus() {
-            new_canvas_index = egui_ui_state
-                .canvas_index
-                .parse::<usize>()
-                .unwrap_or_default()
-                .saturating_sub(1);
-        }
-        if ui.button(">").clicked() {
-            new_canvas_index = (app_state.canvas_index.saturating_add(1)).min(num_canvases - 1);
-        }
+        if let Err(err) = crate::load_canvas(
+            manifest,
+            commands,
+            &tiled_image_query,
+            app_state,
+            egui_ui_state,
+            new_canvas_index,
+            redraw_request_writer,
+        ) {
+            let msg = format!("Unable to load canvas.\n'{}'", err);
 
-        if new_canvas_index != app_state.canvas_index {
-            let (_, manifest) = presentation_query
-                .iter()
-                .next()
-                .expect("should have a manifest due to prevous check on the number of canvas > 1");
-
-            if let Err(err) = crate::load_canvas(
-                manifest,
-                commands,
-                &tiled_image_query,
-                app_state,
-                egui_ui_state,
-                new_canvas_index,
-                redraw_request_writer,
-            ) {
-                let msg = format!("Unable to load canvas.\n'{}'", err);
-
-                egui_ui_state
-                    .toasts
-                    .warning(msg)
-                    .show_progress_bar(true)
-                    .duration(Duration::from_secs(5));
-            }
+            egui_ui_state
+                .toasts
+                .warning(msg)
+                .show_progress_bar(true)
+                .duration(Duration::from_secs(5));
         }
     }
 }
