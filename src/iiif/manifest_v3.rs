@@ -152,7 +152,7 @@ impl IsManifest for Manifest {
             self.provider
                 .iter()
                 .flat_map(|x| x.label.get(Language::En))
-                .map(|x| Cow::from(x))
+                .map(Cow::from)
                 .collect::<Vec<_>>()
                 .into_iter(),
         )
@@ -163,7 +163,7 @@ impl IsManifest for Manifest {
             self.summary
                 .iter()
                 .flat_map(|x| x.get(Language::En))
-                .map(|x| Cow::from(x))
+                .map(Cow::from)
                 .collect::<Vec<_>>()
                 .into_iter(),
         )
@@ -216,16 +216,16 @@ impl IsSequence for Manifest {
 impl IsCanvas for CanvasItem {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(label) = &self.label {
-            return Box::new(
+            Box::new(
                 label
                     .get(Language::En)
                     .iter()
                     .map(|y| Cow::from(*y))
                     .collect::<Vec<_>>()
                     .into_iter(),
-            );
+            )
         } else {
-            return Box::new(Vec::new().into_iter());
+            Box::new(Vec::new().into_iter())
         }
     }
 
@@ -233,7 +233,7 @@ impl IsCanvas for CanvasItem {
         if let Some(thumbnail) = &self.thumbnail
             && let Some(thumbnail) = thumbnail.iter().next()
         {
-            return Cow::from(&thumbnail.id);
+            Cow::from(&thumbnail.id)
         } else if let Some(annotation_page) = self.items.first()
             && let Some(image) = annotation_page.items.first()
         {
@@ -263,7 +263,7 @@ impl IsCanvas for CanvasItem {
 
 impl IsImage for AnnotationItem {
     fn get_service(&self) -> Cow<'_, str> {
-        if let Some(service) = self.body.service.get(0) {
+        if let Some(service) = self.body.service.first() {
             Cow::from(&service.id)
         } else {
             Cow::from("")

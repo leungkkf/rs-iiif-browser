@@ -1,6 +1,8 @@
 use thiserror::Error;
 
 pub(crate) mod image;
+pub(crate) mod image_v2;
+pub(crate) mod image_v3;
 pub(crate) mod manifest;
 pub(crate) mod manifest_v2;
 pub(crate) mod manifest_v3;

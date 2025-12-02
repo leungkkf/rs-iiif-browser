@@ -40,30 +40,30 @@ pub(crate) enum Manifest {
     Version3(manifest_v3::Manifest),
 }
 
-/// Build from a URL.
-pub(crate) fn try_from_url(url: &str) -> core::result::Result<Box<dyn IsManifest>, IiifError> {
-    let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
-    debug!("info {:?}", info_json);
+impl Manifest {
+    /// Build from a URL.
+    pub(crate) fn try_from_url(url: &str) -> core::result::Result<Box<dyn IsManifest>, IiifError> {
+        let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
+        debug!("info {:?}", info_json);
 
-    try_from_json(&info_json)
-}
+        Self::try_from_json(&info_json)
+    }
 
-/// Build from a Json string.
-fn try_from_json(info_json: &str) -> core::result::Result<Box<dyn IsManifest>, IiifError> {
-    let iiif_presentation_info: Manifest = serde_json::from_str(info_json)?;
-    debug!("iiif_image_info {:?}", iiif_presentation_info);
+    /// Build from a Json string.
+    fn try_from_json(info_json: &str) -> core::result::Result<Box<dyn IsManifest>, IiifError> {
+        let iiif_presentation_info: Manifest = serde_json::from_str(info_json)?;
+        debug!("iiif_image_info {:?}", iiif_presentation_info);
 
-    let output = match iiif_presentation_info {
-        Manifest::Version2(v) => Box::new(v),
-        Manifest::Version3(_v) => {
-            todo!("add version 3")
-        }
-    };
+        let output = match iiif_presentation_info {
+            Manifest::Version2(v) => Box::new(v) as Box<dyn IsManifest>,
+            Manifest::Version3(v) => Box::new(v) as Box<dyn IsManifest>,
+        };
 
-    // Check if we can get at least one sequence, one canvas and one image.
-    output.get_sequence(0)?.get_canvas(0)?.get_image(0)?;
+        // Check if we can get at least one sequence, one canvas and one image.
+        output.get_sequence(0)?.get_canvas(0)?.get_image(0)?;
 
-    Ok(output)
+        Ok(output)
+    }
 }
 
 #[cfg(test)]
@@ -119,7 +119,7 @@ mod tests {
                 }]
             }"#;
 
-        assert!(try_from_json(&json).is_ok());
+        assert!(Manifest::try_from_json(&json).is_ok());
 
         let _json = r#"{
           "@context": "http://iiif.io/api/presentation/3/context.json",
@@ -301,7 +301,6 @@ mod tests {
         }
         "#;
 
-        // TODO:
-        // assert!(try_from_json(&json).is_ok());
+        assert!(Manifest::try_from_json(&json).is_ok());
     }
 }

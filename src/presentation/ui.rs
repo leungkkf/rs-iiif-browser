@@ -305,6 +305,7 @@ pub(crate) fn presentation_ui_system(
 }
 
 /// Add controls to change pages.
+#[allow(clippy::too_many_arguments)]
 fn add_page_controls(
     commands: &mut Commands<'_, '_>,
     egui_ui_state: &mut ResMut<'_, EguiUiState>,
@@ -381,6 +382,7 @@ fn add_page_controls(
 }
 
 /// Add the canvas thumbnail panel.
+#[allow(clippy::too_many_arguments)]
 fn add_canvas_thumbnails(
     ui: &mut egui::Ui,
     commands: &mut Commands<'_, '_>,

@@ -22,7 +22,7 @@ impl Manifest {
 
     /// Try to create the manifest from the URL.
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
-        let iiif_manifest = manifest::try_from_url(url)?;
+        let iiif_manifest = manifest::Manifest::try_from_url(url)?;
 
         Ok(Manifest::from(iiif_manifest))
     }

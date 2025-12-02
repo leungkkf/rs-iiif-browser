@@ -5,7 +5,6 @@ use crate::{
         IiifError,
         image::{IiifFeature, IiifImageFormat, IiifImageInfo},
     },
-    rendering::model::{IsImage, IsProfileDetails},
     rendering::tile::{Tile, TileIndex, TileModState},
 };
 use bevy::{
