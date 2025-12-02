@@ -52,11 +52,36 @@ pub(crate) enum DataType {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Service {
+pub(crate) struct Service2 {
+    #[serde(rename = "@id")]
+    id: String,
+    #[serde(rename = "@type")]
+    type_: String,
+    profile: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct Service3 {
     id: String,
     #[serde(rename = "type")]
-    service_type: String,
+    type_: String,
     profile: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub(crate) enum Service {
+    Service2(Service2),
+    Service3(Service3),
+}
+
+impl Service {
+    fn get_id(&self) -> &str {
+        match self {
+            Self::Service2(v) => &v.id,
+            Self::Service3(v) => &v.id,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,7 +93,7 @@ pub(crate) struct Thumbnail {
     width: Option<u32>,
     height: Option<u32>,
     duration: Option<u32>,
-    service: Option<Vec<Service>>,
+    // service: Option<Vec<Service>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -137,8 +162,8 @@ pub(crate) struct Manifest {
     label: Label,
     summary: OneTypeOrMany<Label>,
     rights: String,
-    required_statement: LabelValue,
-    provider: Vec<Provider>,
+    required_statement: Option<LabelValue>,
+    provider: Option<Vec<Provider>>,
     items: Vec<CanvasItem>,
 }
 
@@ -148,14 +173,16 @@ impl IsManifest for Manifest {
     }
 
     fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(
-            self.provider
-                .iter()
-                .flat_map(|x| x.label.get(Language::En))
-                .map(Cow::from)
-                .collect::<Vec<_>>()
-                .into_iter(),
-        )
+        match &self.provider {
+            None => Box::new(Vec::new().into_iter()),
+            Some(v) => Box::new(
+                v.iter()
+                    .flat_map(|x| x.label.get(Language::En))
+                    .map(Cow::from)
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            ),
+        }
     }
 
     fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
@@ -174,14 +201,16 @@ impl IsManifest for Manifest {
     }
 
     fn get_logo(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(
-            self.provider
-                .iter()
-                .flat_map(|x| &x.logo)
-                .map(|x| Cow::from(&x.id))
-                .collect::<Vec<_>>()
-                .into_iter(),
-        )
+        match &self.provider {
+            None => Box::new(Vec::new().into_iter()),
+            Some(v) => Box::new(
+                v.iter()
+                    .flat_map(|x| &x.logo)
+                    .map(|x| Cow::from(&x.id))
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            ),
+        }
     }
 
     fn get_sequences(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsSequence> + '_> {
@@ -264,7 +293,7 @@ impl IsCanvas for CanvasItem {
 impl IsImage for AnnotationItem {
     fn get_service(&self) -> Cow<'_, str> {
         if let Some(service) = self.body.service.first() {
-            Cow::from(&service.id)
+            Cow::from(service.get_id())
         } else {
             Cow::from("")
         }
@@ -277,7 +306,9 @@ mod tests {
 
     #[test]
     fn test_json() {
+        // let url = "https://bl.digirati.io/iiif/ark:/81055/vdc_100110232122.0x000001";
         let url = "https://iiif.rbge.org.uk/herb/iiif/E00008781/manifest";
+
         let json = ureq::get(url)
             .call()
             .unwrap()
