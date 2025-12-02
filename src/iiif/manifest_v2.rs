@@ -1,11 +1,9 @@
-use std::borrow::Cow;
-
-use serde::{Deserialize, Serialize};
-
 use crate::iiif::IiifError;
-use crate::iiif::manifest::{Context, ViewingDirection};
+use crate::iiif::manifest::{Context, Language, ViewingDirection};
 use crate::iiif::one_or_many::OneTypeOrMany;
 use crate::presentation::model::{IsCanvas, IsImage, IsManifest, IsSequence};
+use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) enum ManifestType {
@@ -35,12 +33,99 @@ pub(crate) enum ViewingHint {
     FacingPages,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub(crate) struct LanguageValuePair {
+    #[serde(rename = "@language")]
+    language: Language,
+    #[serde(rename = "@value")]
+    value: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub(crate) enum TextValue {
+    SimpleText(String),
+    LanguageValuePair(LanguageValuePair),
+}
+
+impl TextValue {
+    fn get(&self) -> Cow<'_, LanguageValuePair> {
+        match self {
+            TextValue::SimpleText(v) => Cow::Owned(LanguageValuePair {
+                language: Language::None,
+                value: v.clone(),
+            }),
+            TextValue::LanguageValuePair(v) => Cow::Borrowed(v),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct Text(OneTypeOrMany<TextValue>);
+
+impl Text {
+    fn get(&self, lang: Language) -> Vec<Cow<'_, str>> {
+        let lvp: Vec<_> = self.0.iter().collect();
+
+        if lvp.is_empty() {
+            return Vec::new();
+        }
+
+        let output: Vec<_>;
+
+        // If none of the values have a language associated with them, the client must display all of the values.
+        if lvp.iter().all(|x| x.get().language == Language::None) {
+            output = lvp;
+        }
+        // If any of the values have a language associated with them,
+        // the client must display all of the values associated with the language that best matches the language preference.
+        else if lvp.iter().any(|x| x.get().language == lang) {
+            output = lvp
+                .into_iter()
+                .filter(|x| x.get().language == lang)
+                .collect();
+        }
+        // If all of the values have a language associated with them,
+        // and none match the language preference,
+        // the client must select a language and display all of the values associated with that language.
+        else if !lvp.iter().any(|x| x.get().language == Language::None) {
+            let first_language = lvp
+                .first()
+                .expect("should have at least one item with a language at this point")
+                .get()
+                .language
+                .clone();
+
+            output = lvp
+                .into_iter()
+                .filter(|x| x.get().language == first_language)
+                .collect();
+        }
+        // If some of the values have a language associated with them, but none match the language preference,
+        // the client must display all of the values that do not have a language associated with them.
+        else {
+            output = lvp
+                .into_iter()
+                .filter(|x| x.get().language == Language::None)
+                .collect();
+        }
+
+        return output
+            .into_iter()
+            .map(|x| match x.get() {
+                Cow::Borrowed(v) => Cow::from(&v.value),
+                Cow::Owned(v) => Cow::from(v.value),
+            })
+            .collect();
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Sequence {
     #[serde(rename = "@type")]
     type_: ManifestType,
-    pub(crate) label: Option<OneTypeOrMany<String>>,
+    pub(crate) label: Option<Text>,
     pub(crate) viewing_direction: Option<ViewingDirection>,
     pub(crate) viewing_hint: Option<OneTypeOrMany<ViewingHint>>,
     pub(crate) canvases: Vec<Canvas>,
@@ -51,7 +136,7 @@ pub(crate) struct Sequence {
 pub(crate) struct Canvas {
     #[serde(rename = "@type")]
     type_: ManifestType,
-    pub(crate) label: OneTypeOrMany<String>,
+    pub(crate) label: Text,
     pub(crate) width: u32,
     pub(crate) height: u32,
     pub(crate) images: Vec<Image>,
@@ -140,29 +225,29 @@ pub(crate) struct Manifest {
     pub(crate) type_: ManifestType,
     #[serde(rename = "@id")]
     pub(crate) id: String,
-    pub(crate) attribution: OneTypeOrMany<String>,
-    pub(crate) label: String,
+    pub(crate) attribution: Text,
+    pub(crate) label: Text,
     pub(crate) license: Option<OneTypeOrMany<UriLink>>,
     pub(crate) logo: Option<OneTypeOrMany<UriLink>>,
-    pub(crate) description: Option<OneTypeOrMany<String>>,
+    pub(crate) description: Option<Text>,
     pub(crate) service: Option<Service>,
     pub(crate) see_also: Option<OneTypeOrMany<UriLink>>,
-    pub(crate) within: Option<OneTypeOrMany<String>>,
+    pub(crate) within: Option<Text>,
     pub(crate) sequences: Vec<Sequence>,
 }
 
 impl IsManifest for Manifest {
     fn get_title(&self) -> Cow<'_, str> {
-        Cow::from(&self.label)
+        Cow::from(self.label.get(Language::En).join("\n"))
     }
 
     fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(self.attribution.iter().map(Cow::from))
+        Box::new(self.attribution.get(Language::En).into_iter())
     }
 
     fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.description {
-            Box::new(content.iter().map(Cow::from))
+            Box::new(content.get(Language::En).into_iter())
         } else {
             Box::new(std::iter::empty::<Cow<str>>())
         }
@@ -202,7 +287,7 @@ impl IsManifest for Manifest {
 impl IsSequence for Sequence {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.label {
-            Box::new(content.iter().map(Cow::from))
+            Box::new(content.get(Language::En).into_iter())
         } else {
             Box::new(std::iter::empty::<Cow<str>>())
         }
@@ -225,7 +310,7 @@ impl IsSequence for Sequence {
 
 impl IsCanvas for Canvas {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(self.label.iter().map(Cow::from))
+        Box::new(self.label.get(Language::En).into_iter())
     }
 
     fn get_thumbnail(&self) -> Cow<'_, str> {
@@ -279,7 +364,7 @@ mod tests {
 
     // #[test]
     // fn test_2() {
-    //     let url = "https://purl.stanford.edu/sr294cr5852/iiif/manifest";
+    //     let url = "https://api.digitale-sammlungen.de/iiif/presentation/v2/bsb00042199/manifest";
     //     let info_json = ureq::get(url)
     //         .call()
     //         .unwrap()
@@ -287,11 +372,7 @@ mod tests {
     //         .read_to_string()
     //         .unwrap();
 
-    //     println!("parse start");
-    //     let now = Instant::now();
-    //     let value: PresentationInfo = serde_json::de::from_str(&info_json).unwrap();
-    //     let elapsed_time = now.elapsed();
-    //     println!("parse done {}s", elapsed_time.as_secs_f32());
+    //     let presentation_info: Manifest = serde_json::from_str(&info_json).unwrap();
 
     //     // println!("{:?}", value);
     // }
@@ -458,14 +539,23 @@ mod tests {
             presentation_info.id,
             "http://www.example.org/iiif/book1/manifest"
         );
-        let description: Vec<_> = presentation_info.description.unwrap().into_iter().collect();
+        let description: Vec<_> = presentation_info
+            .description
+            .as_ref()
+            .unwrap()
+            .get(Language::En)
+            .into_iter()
+            .collect();
         assert_eq!(
             description,
             vec![
                 "A longer description of this example book. It should give some real information."
             ]
         );
-        assert_eq!(presentation_info.label, "Book 1");
+        assert_eq!(
+            presentation_info.label.get(Language::En).join("\n"),
+            "Book 1"
+        );
         let license: Vec<_> = presentation_info
             .license
             .as_ref()
@@ -475,7 +565,7 @@ mod tests {
             .collect();
         assert_eq!(license, vec!["http://www.example.org/license.html"]);
         assert!(presentation_info.logo.is_none());
-        let attribution: Vec<_> = presentation_info.attribution.into_iter().collect();
+        let attribution: Vec<_> = presentation_info.attribution.get(Language::En);
         assert_eq!(attribution, vec!["Provided by Example Organization"]);
 
         let see_also: Vec<_> = presentation_info.see_also.unwrap().into_iter().collect();
@@ -485,7 +575,13 @@ mod tests {
             "http://www.example.org/library/catalog/book1.marc"
         );
 
-        let within: Vec<_> = presentation_info.within.unwrap().into_iter().collect();
+        let within: Vec<_> = presentation_info
+            .within
+            .as_ref()
+            .unwrap()
+            .get(Language::En)
+            .into_iter()
+            .collect();
         assert_eq!(within, vec!["http://www.example.org/collections/books/"]);
 
         assert_eq!(presentation_info.sequences.len(), 1);
@@ -493,7 +589,13 @@ mod tests {
         let seq = &presentation_info.sequences[0];
         assert_eq!(seq.type_, ManifestType::Sequence);
 
-        let label: Vec<_> = seq.label.as_ref().unwrap().into_iter().collect();
+        let label: Vec<_> = seq
+            .label
+            .as_ref()
+            .unwrap()
+            .get(Language::En)
+            .into_iter()
+            .collect();
         assert_eq!(label, vec!["Current Page Order"]);
 
         let viewing_direction = seq.viewing_direction.as_ref().unwrap();
@@ -510,8 +612,8 @@ mod tests {
             assert_eq!(canvas.type_, ManifestType::Canvas);
             assert_eq!(canvas.height, 1000);
             assert_eq!(canvas.width, 750);
-            let label: Vec<_> = canvas.label.iter().collect();
-            assert_eq!(label, vec![&format!("p. {num}")]);
+            let label: Vec<_> = canvas.label.get(Language::En).into_iter().collect();
+            assert_eq!(label, vec![format!("p. {num}")]);
             assert!(canvas.thumbnail.is_none());
 
             assert_eq!(canvas.images.len(), 1);
@@ -592,7 +694,7 @@ mod tests {
         );
         assert!(presentation_info.description.is_none());
         assert_eq!(
-            presentation_info.label,
+            presentation_info.label.get(Language::En).join("\n"),
             "Harvard University, Harvard Art Museums, INV204583"
         );
         let license: Vec<_> = presentation_info
@@ -617,7 +719,7 @@ mod tests {
             logo,
             vec!["https://iiif.lib.harvard.edu/static/manifests/harvard_logo.jpg"]
         );
-        let attribution: Vec<_> = presentation_info.attribution.iter().collect();
+        let attribution: Vec<_> = presentation_info.attribution.get(Language::En);
         assert_eq!(attribution, vec!["Provided by Harvard University"]);
 
         assert!(presentation_info.see_also.is_none());
@@ -628,7 +730,13 @@ mod tests {
         let seq = &presentation_info.sequences[0];
         assert_eq!(seq.type_, ManifestType::Sequence);
 
-        let label: Vec<_> = seq.label.as_ref().unwrap().iter().collect();
+        let label: Vec<_> = seq
+            .label
+            .as_ref()
+            .unwrap()
+            .get(Language::En)
+            .into_iter()
+            .collect();
         assert_eq!(
             label,
             vec!["Harvard University, Harvard Art Museums, INV204583"]
@@ -646,7 +754,7 @@ mod tests {
         assert_eq!(canvas.type_, ManifestType::Canvas);
         assert_eq!(canvas.height, 833);
         assert_eq!(canvas.width, 1024);
-        let label: Vec<_> = canvas.label.iter().collect();
+        let label: Vec<_> = canvas.label.get(Language::En).into_iter().collect();
         assert_eq!(
             label,
             vec!["Harvard University, Harvard Art Museums, INV204583"]
@@ -673,5 +781,75 @@ mod tests {
         assert_eq!(service.id, "https://ids.lib.harvard.edu/ids/iiif/11927378");
         assert_eq!(service.context, "http://iiif.io/api/image/2/context.json");
         assert_eq!(service.profile, "http://iiif.io/api/image/2/level2.json");
+    }
+
+    #[test]
+    fn test_text_simple_one() {
+        let text = Text(OneTypeOrMany::<TextValue>::One(TextValue::SimpleText(
+            "Simple".to_string(),
+        )));
+
+        assert_eq!(text.get(Language::En).join(" "), "Simple");
+    }
+
+    #[test]
+    fn test_text_simple_many() {
+        let text = Text(OneTypeOrMany::<TextValue>::Many(vec![
+            TextValue::SimpleText("Simple".to_string()),
+            TextValue::SimpleText("Text".to_string()),
+        ]));
+
+        assert_eq!(text.get(Language::En).join(" "), "Simple Text");
+        assert_eq!(text.get(Language::De).join(" "), "Simple Text");
+    }
+
+    #[test]
+    fn test_text_language_value_one() {
+        let text = Text(OneTypeOrMany::<TextValue>::One(
+            TextValue::LanguageValuePair(LanguageValuePair {
+                language: Language::En,
+                value: "Simple".to_string(),
+            }),
+        ));
+
+        assert_eq!(text.get(Language::En).join(" "), "Simple");
+        assert_eq!(text.get(Language::De).join(" "), "Simple");
+    }
+
+    #[test]
+    fn test_text_language_value_many() {
+        let text = Text(OneTypeOrMany::<TextValue>::Many(vec![
+            TextValue::LanguageValuePair(LanguageValuePair {
+                language: Language::En,
+                value: "Simple".to_string(),
+            }),
+            TextValue::LanguageValuePair(LanguageValuePair {
+                language: Language::De,
+                value: "De".to_string(),
+            }),
+        ]));
+
+        assert_eq!(text.get(Language::En).join(" "), "Simple");
+        assert_eq!(text.get(Language::De).join(" "), "De");
+        assert_eq!(text.get(Language::Zh).join(" "), "Simple");
+    }
+
+    #[test]
+    fn test_text_language_value_many_with_no_language() {
+        let text = Text(OneTypeOrMany::<TextValue>::Many(vec![
+            TextValue::SimpleText("Default".to_string()),
+            TextValue::LanguageValuePair(LanguageValuePair {
+                language: Language::En,
+                value: "Simple".to_string(),
+            }),
+            TextValue::LanguageValuePair(LanguageValuePair {
+                language: Language::De,
+                value: "De".to_string(),
+            }),
+        ]));
+
+        assert_eq!(text.get(Language::En).join(" "), "Simple");
+        assert_eq!(text.get(Language::De).join(" "), "De");
+        assert_eq!(text.get(Language::Zh).join(" "), "Default");
     }
 }

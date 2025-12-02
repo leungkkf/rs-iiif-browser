@@ -14,13 +14,15 @@ pub(crate) enum Context {
     Version3,
 }
 
-#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 /// Presentation language.
 pub(crate) enum Language {
     None,
     En,
     Fr,
+    De,
+    Zh,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

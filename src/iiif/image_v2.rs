@@ -30,17 +30,17 @@ pub(crate) enum IiifProfileInfo {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct IiifProfileDetails {
-    formats: Vec<IiifImageFormat>,
-    qualities: Vec<IiifImageQuality>,
-    supports: Vec<IiifFeature>,
+    formats: Option<Vec<IiifImageFormat>>,
+    qualities: Option<Vec<IiifImageQuality>>,
+    supports: Option<Vec<IiifFeature>>,
 }
 
 impl Default for IiifProfileDetails {
     fn default() -> Self {
         Self {
-            formats: vec![IiifImageFormat::Jpg],
-            qualities: vec![IiifImageQuality::Default],
-            supports: vec![],
+            formats: Some(vec![IiifImageFormat::Jpg]),
+            qualities: Some(vec![IiifImageQuality::Default]),
+            supports: Some(vec![]),
         }
     }
 }
@@ -54,14 +54,14 @@ impl IiifProfileDetails {
     fn from_url(url: &str) -> core::result::Result<IiifProfileDetails, IiifError> {
         let profile = match url {
             "http://iiif.io/api/image/2/level0.json" => Self {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: vec![IiifImageQuality::Default],
-                supports: vec![IiifFeature::SizeByWhListed],
+                formats: Some(vec![IiifImageFormat::Jpg]),
+                qualities: Some(vec![IiifImageQuality::Default]),
+                supports: Some(vec![IiifFeature::SizeByWhListed]),
             },
             "http://iiif.io/api/image/2/level1.json" => Self {
-                formats: vec![IiifImageFormat::Jpg],
-                qualities: vec![IiifImageQuality::Default],
-                supports: vec![
+                formats: Some(vec![IiifImageFormat::Jpg]),
+                qualities: Some(vec![IiifImageQuality::Default]),
+                supports: Some(vec![
                     IiifFeature::SizeByWhListed,
                     IiifFeature::BaseUriRedirect,
                     IiifFeature::Cors,
@@ -70,13 +70,13 @@ impl IiifProfileDetails {
                     IiifFeature::SizeByH,
                     IiifFeature::SizeByPct,
                     IiifFeature::SizeByW,
-                ],
+                ]),
             },
             "http://iiif.io/api/image/2/level2.json"
             | "https://iiif.io/api/image/2/level2.json" => Self {
-                formats: vec![IiifImageFormat::Jpg, IiifImageFormat::Png],
-                qualities: vec![IiifImageQuality::Default, IiifImageQuality::Bitonal],
-                supports: vec![
+                formats: Some(vec![IiifImageFormat::Jpg, IiifImageFormat::Png]),
+                qualities: Some(vec![IiifImageQuality::Default, IiifImageQuality::Bitonal]),
+                supports: Some(vec![
                     IiifFeature::SizeByWhListed,
                     IiifFeature::BaseUriRedirect,
                     IiifFeature::Cors,
@@ -91,7 +91,7 @@ impl IiifProfileDetails {
                     IiifFeature::SizeByDistortedWh,
                     IiifFeature::SizeByForcedWh,
                     IiifFeature::SizeByWh,
-                ],
+                ]),
             },
             _ => {
                 return Err(IiifError::IiifFormatError(format!(
@@ -107,11 +107,17 @@ impl IiifProfileDetails {
 
 impl IsProfileDetails for IiifProfileDetails {
     fn get_supported_features(&self) -> Box<dyn ExactSizeIterator<Item = IiifFeature> + '_> {
-        Box::new(self.supports.iter().map(|x| x.to_owned()))
+        match &self.supports {
+            None => Box::new(Vec::new().into_iter()),
+            Some(v) => Box::new(v.iter().map(|x| x.to_owned())),
+        }
     }
 
     fn get_formats(&self) -> Box<dyn ExactSizeIterator<Item = IiifImageFormat> + '_> {
-        Box::new(self.formats.iter().map(|x| x.to_owned()))
+        match &self.formats {
+            None => Box::new(Vec::new().into_iter()),
+            Some(v) => Box::new(v.iter().map(|x| x.to_owned())),
+        }
     }
 }
 
@@ -290,18 +296,18 @@ mod tests {
                     assert_eq!(url, "http://iiif.io/api/image/2/level0.json");
                 }
                 IiifProfileInfo::ProfileDetails(detail) => {
-                    assert_eq!(detail.formats, vec![IiifImageFormat::Jpg]);
+                    assert_eq!(detail.formats, Some(vec![IiifImageFormat::Jpg]));
                     assert_eq!(
                         detail.qualities,
-                        vec![
+                        Some(vec![
                             IiifImageQuality::Native,
                             IiifImageQuality::Color,
                             IiifImageQuality::Gray
-                        ]
+                        ])
                     );
                     assert_eq!(
                         detail.supports,
-                        vec![
+                        Some(vec![
                             IiifFeature::RegionByPct,
                             IiifFeature::RegionSquare,
                             IiifFeature::SizeByForcedWh,
@@ -309,7 +315,7 @@ mod tests {
                             IiifFeature::SizeAboveFull,
                             IiifFeature::RotationBy90s,
                             IiifFeature::Mirroring
-                        ]
+                        ])
                     );
                 }
             }
@@ -319,32 +325,32 @@ mod tests {
 
         assert_eq!(
             image_info.expanded_profiles[0].formats,
-            vec![IiifImageFormat::Jpg]
+            Some(vec![IiifImageFormat::Jpg])
         );
         assert_eq!(
             image_info.expanded_profiles[0].qualities,
-            vec![IiifImageQuality::Default,]
+            Some(vec![IiifImageQuality::Default,])
         );
         assert_eq!(
             image_info.expanded_profiles[0].supports,
-            vec![IiifFeature::SizeByWhListed]
+            Some(vec![IiifFeature::SizeByWhListed])
         );
 
         assert_eq!(
             image_info.expanded_profiles[1].formats,
-            vec![IiifImageFormat::Jpg]
+            Some(vec![IiifImageFormat::Jpg])
         );
         assert_eq!(
             image_info.expanded_profiles[1].qualities,
-            vec![
+            Some(vec![
                 IiifImageQuality::Native,
                 IiifImageQuality::Color,
                 IiifImageQuality::Gray
-            ]
+            ])
         );
         assert_eq!(
             image_info.expanded_profiles[1].supports,
-            vec![
+            Some(vec![
                 IiifFeature::RegionByPct,
                 IiifFeature::RegionSquare,
                 IiifFeature::SizeByForcedWh,
@@ -352,7 +358,7 @@ mod tests {
                 IiifFeature::SizeAboveFull,
                 IiifFeature::RotationBy90s,
                 IiifFeature::Mirroring
-            ]
+            ])
         );
     }
 
@@ -364,9 +370,9 @@ mod tests {
                 width: 0,
                 profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![
                     IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                        formats: vec![IiifImageFormat::Jpg],
-                        qualities: Vec::new(),
-                        supports: Vec::new(),
+                        formats: Some(vec![IiifImageFormat::Jpg]),
+                        qualities: Some(Vec::new()),
+                        supports: Some(Vec::new()),
                     }),
                 ]),
                 tiles: None,
@@ -384,9 +390,9 @@ mod tests {
                 width: 0,
                 profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![
                     IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                        formats: vec![IiifImageFormat::Jpg],
-                        qualities: Vec::new(),
-                        supports: Vec::new(),
+                        formats: Some(vec![IiifImageFormat::Jpg]),
+                        qualities: Some(Vec::new()),
+                        supports: Some(Vec::new()),
                     }),
                 ]),
                 tiles: Some(vec![IiifTileInfo {
@@ -408,9 +414,9 @@ mod tests {
                 width: 0,
                 profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![
                     IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                        formats: vec![IiifImageFormat::Jpg],
-                        qualities: Vec::new(),
-                        supports: Vec::new(),
+                        formats: Some(vec![IiifImageFormat::Jpg]),
+                        qualities: Some(Vec::new()),
+                        supports: Some(Vec::new()),
                     }),
                 ]),
                 tiles: Some(vec![IiifTileInfo {
@@ -435,9 +441,9 @@ mod tests {
                 width: 20,
                 profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![
                     IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                        formats: vec![IiifImageFormat::Jpg],
-                        qualities: Vec::new(),
-                        supports: Vec::new(),
+                        formats: Some(vec![IiifImageFormat::Jpg]),
+                        qualities: Some(Vec::new()),
+                        supports: Some(Vec::new()),
                     }),
                 ]),
                 tiles: None,
@@ -455,9 +461,9 @@ mod tests {
                 width: 20,
                 profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![
                     IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                        formats: vec![IiifImageFormat::Jpg],
-                        qualities: Vec::new(),
-                        supports: Vec::new(),
+                        formats: Some(vec![IiifImageFormat::Jpg]),
+                        qualities: Some(Vec::new()),
+                        supports: Some(Vec::new()),
                     }),
                 ]),
                 tiles: None,
@@ -490,18 +496,18 @@ mod tests {
                 width: 20,
                 profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![
                     IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                        formats: vec![IiifImageFormat::Png],
-                        qualities: Vec::new(),
-                        supports: Vec::new(),
+                        formats: Some(vec![IiifImageFormat::Png]),
+                        qualities: Some(Vec::new()),
+                        supports: Some(Vec::new()),
                     }),
                 ]),
                 tiles: None,
                 sizes: None,
             },
             expanded_profiles: vec![IiifProfileDetails {
-                formats: vec![IiifImageFormat::Png],
-                qualities: Vec::new(),
-                supports: Vec::new(),
+                formats: Some(vec![IiifImageFormat::Png]),
+                qualities: Some(Vec::new()),
+                supports: Some(Vec::new()),
             }],
         };
 
@@ -524,9 +530,9 @@ mod tests {
                 width: 10,
                 profile: OneTypeOrMany::<IiifProfileInfo>::Many(vec![
                     IiifProfileInfo::ProfileDetails(IiifProfileDetails {
-                        formats: vec![IiifImageFormat::Jpg],
-                        qualities: Vec::new(),
-                        supports: Vec::new(),
+                        formats: Some(vec![IiifImageFormat::Jpg]),
+                        qualities: Some(Vec::new()),
+                        supports: Some(Vec::new()),
                     }),
                 ]),
                 tiles: Some(vec![IiifTileInfo {
