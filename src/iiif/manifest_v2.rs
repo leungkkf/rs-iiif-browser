@@ -137,8 +137,6 @@ pub(crate) struct Canvas {
     #[serde(rename = "@type")]
     type_: ManifestType,
     pub(crate) label: Text,
-    pub(crate) width: u32,
-    pub(crate) height: u32,
     pub(crate) images: Vec<Image>,
     pub(crate) thumbnail: Option<OneTypeOrMany<UriLink>>,
 }
@@ -176,8 +174,6 @@ pub(crate) enum UriLink {
     IdType {
         #[serde(rename = "@id")]
         id: String,
-        width: Option<u32>,
-        height: Option<u32>,
     },
 }
 
@@ -185,33 +181,7 @@ impl UriLink {
     pub(crate) fn id(&self) -> &str {
         match self {
             UriLink::StringType(v) => v,
-            UriLink::IdType {
-                id,
-                height: _,
-                width: _,
-            } => id,
-        }
-    }
-
-    pub(crate) fn width(&self) -> Option<u32> {
-        match self {
-            UriLink::StringType(_) => None,
-            UriLink::IdType {
-                id: _,
-                height: _,
-                width,
-            } => width.to_owned(),
-        }
-    }
-
-    pub(crate) fn height(&self) -> Option<u32> {
-        match self {
-            UriLink::StringType(_) => None,
-            UriLink::IdType {
-                id: _,
-                height,
-                width: _,
-            } => height.to_owned(),
+            UriLink::IdType { id } => id,
         }
     }
 }
@@ -225,7 +195,7 @@ pub(crate) struct Manifest {
     pub(crate) type_: ManifestType,
     #[serde(rename = "@id")]
     pub(crate) id: String,
-    pub(crate) attribution: Text,
+    pub(crate) attribution: Option<Text>,
     pub(crate) label: Text,
     pub(crate) license: Option<OneTypeOrMany<UriLink>>,
     pub(crate) logo: Option<OneTypeOrMany<UriLink>>,
@@ -242,7 +212,11 @@ impl IsManifest for Manifest {
     }
 
     fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(self.attribution.get(Language::En).into_iter())
+        if let Some(content) = &self.attribution {
+            Box::new(content.get(Language::En).into_iter())
+        } else {
+            Box::new(std::iter::empty::<Cow<str>>())
+        }
     }
 
     fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
@@ -318,8 +292,6 @@ impl IsCanvas for Canvas {
         // Or we will need to peek at the size of the remote image.
         if let Some(content) = &self.thumbnail
             && let Some(url_link) = content.iter().next()
-            && url_link.width().is_some_and(|x| x <= 256)
-            && url_link.height().is_some_and(|x| x <= 256)
         {
             Cow::from(url_link.id())
         } else if let Some(image) = self.images.first() {
@@ -362,20 +334,20 @@ impl IsImage for Image {
 mod tests {
     use super::*;
 
-    // #[test]
-    // fn test_2() {
-    //     let url = "https://api.digitale-sammlungen.de/iiif/presentation/v2/bsb00042199/manifest";
-    //     let info_json = ureq::get(url)
-    //         .call()
-    //         .unwrap()
-    //         .body_mut()
-    //         .read_to_string()
-    //         .unwrap();
+    #[test]
+    fn test_2() {
+        let url = "https://digitalarchive.npm.gov.tw/Integrate/GetJson?cid=6742&dept=P";
+        let info_json = ureq::get(url)
+            .call()
+            .unwrap()
+            .body_mut()
+            .read_to_string()
+            .unwrap();
 
-    //     let presentation_info: Manifest = serde_json::from_str(&info_json).unwrap();
+        let presentation_info: Manifest = serde_json::from_str(&info_json).unwrap();
 
-    //     // println!("{:?}", value);
-    // }
+        println!("{:?}", presentation_info);
+    }
 
     #[test]
     fn test_standard_json() {
@@ -565,7 +537,11 @@ mod tests {
             .collect();
         assert_eq!(license, vec!["http://www.example.org/license.html"]);
         assert!(presentation_info.logo.is_none());
-        let attribution: Vec<_> = presentation_info.attribution.get(Language::En);
+        let attribution: Vec<_> = presentation_info
+            .attribution
+            .as_ref()
+            .unwrap()
+            .get(Language::En);
         assert_eq!(attribution, vec!["Provided by Example Organization"]);
 
         let see_also: Vec<_> = presentation_info.see_also.unwrap().into_iter().collect();
@@ -610,8 +586,6 @@ mod tests {
             let num = index + 1;
 
             assert_eq!(canvas.type_, ManifestType::Canvas);
-            assert_eq!(canvas.height, 1000);
-            assert_eq!(canvas.width, 750);
             let label: Vec<_> = canvas.label.get(Language::En).into_iter().collect();
             assert_eq!(label, vec![format!("p. {num}")]);
             assert!(canvas.thumbnail.is_none());
@@ -719,7 +693,11 @@ mod tests {
             logo,
             vec!["https://iiif.lib.harvard.edu/static/manifests/harvard_logo.jpg"]
         );
-        let attribution: Vec<_> = presentation_info.attribution.get(Language::En);
+        let attribution: Vec<_> = presentation_info
+            .attribution
+            .as_ref()
+            .unwrap()
+            .get(Language::En);
         assert_eq!(attribution, vec!["Provided by Harvard University"]);
 
         assert!(presentation_info.see_also.is_none());
@@ -752,8 +730,6 @@ mod tests {
         let canvas = &seq.canvases[0];
 
         assert_eq!(canvas.type_, ManifestType::Canvas);
-        assert_eq!(canvas.height, 833);
-        assert_eq!(canvas.width, 1024);
         let label: Vec<_> = canvas.label.get(Language::En).into_iter().collect();
         assert_eq!(
             label,
