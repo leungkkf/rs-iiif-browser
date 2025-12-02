@@ -118,17 +118,19 @@ pub(crate) fn presentation_ui_system(
                     ui.available_width() - if num_canvases > 1 { 85.0 } else { 0.0 },
                 );
 
-                // Add page controls.
-                add_page_controls(
-                    &mut commands,
-                    &mut egui_ui_state,
-                    &mut app_state,
-                    presentation_query,
-                    tiled_image_query,
-                    ui,
-                    num_canvases,
-                    &mut redraw_request_writer,
-                );
+                if num_canvases > 1 {
+                    // Add page controls.
+                    add_page_controls(
+                        &mut commands,
+                        &mut egui_ui_state,
+                        &mut app_state,
+                        presentation_query,
+                        tiled_image_query,
+                        ui,
+                        num_canvases,
+                        &mut redraw_request_writer,
+                    );
+                }
             });
 
             ui.add_space(1.0);
@@ -313,10 +315,6 @@ fn add_page_controls(
     num_canvases: usize,
     redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
 ) {
-    if num_canvases <= 1 {
-        return;
-    }
-
     ui.spacing_mut().item_spacing.x = 1.0;
 
     let mut new_canvas_index = app_state.canvas_index;
