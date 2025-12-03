@@ -15,6 +15,7 @@ use bevy::{
 use std::{collections::HashMap, ops::RangeInclusive};
 
 #[derive(Resource)]
+/// Invalidate this to trigger the tile update.
 pub(crate) struct TileModState(u32);
 
 impl TileModState {
@@ -28,6 +29,7 @@ impl TileModState {
 }
 
 #[derive(Resource)]
+/// Invalidate this to trigger the tile pruning.
 pub(crate) struct TilePruneState(u32);
 
 impl TilePruneState {

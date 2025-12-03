@@ -1,7 +1,7 @@
 use crate::iiif::IiifError;
 use std::borrow::Cow;
 
-/// The manifest model.
+/// Trait that represents an IIIF manifest needed by the UI.
 pub(crate) trait IsManifest: Send + Sync {
     fn get_title(&self) -> Cow<'_, str>;
     fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
@@ -12,14 +12,14 @@ pub(crate) trait IsManifest: Send + Sync {
     fn get_sequence(&self, index: usize) -> Result<&dyn IsSequence, IiifError>;
 }
 
-/// The sequence model.
+/// Trait that represents a sequence in IIIF manifest needed by the UI.
 pub(crate) trait IsSequence {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
     fn get_canvases(&self) -> Box<dyn ExactSizeIterator<Item = &dyn IsCanvas> + '_>;
     fn get_canvas(&self, index: usize) -> Result<&dyn IsCanvas, IiifError>;
 }
 
-/// The canvas model.
+/// Trait that represents a canvas in a sequence in IIIF manifest needed by the UI.
 pub(crate) trait IsCanvas {
     fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
     fn get_thumbnail(&self) -> Cow<'_, str>;
@@ -27,7 +27,7 @@ pub(crate) trait IsCanvas {
     fn get_image(&self, index: usize) -> Result<&dyn IsImage, IiifError>;
 }
 
-/// The image model.
+/// Trait that represents a image in a canvas in a sequence in IIIF manifest needed by the UI.
 pub(crate) trait IsImage {
     fn get_service(&self) -> Cow<'_, str>;
     // fn get_width(&self) -> u32;

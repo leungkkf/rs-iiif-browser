@@ -53,12 +53,14 @@ pub(crate) struct ImageInfo {
 impl IiifProfileDetails {
     fn from_url(url: &str) -> core::result::Result<IiifProfileDetails, IiifError> {
         let profile = match url {
-            "http://iiif.io/api/image/2/level0.json" => Self {
+            "http://iiif.io/api/image/2/level0.json"
+            | "https://iiif.io/api/image/2/level0.json" => Self {
                 formats: Some(vec![IiifImageFormat::Jpg]),
                 qualities: Some(vec![IiifImageQuality::Default]),
                 supports: Some(vec![IiifFeature::SizeByWhListed]),
             },
-            "http://iiif.io/api/image/2/level1.json" => Self {
+            "http://iiif.io/api/image/2/level1.json"
+            | "https://iiif.io/api/image/2/level1.json" => Self {
                 formats: Some(vec![IiifImageFormat::Jpg]),
                 qualities: Some(vec![IiifImageQuality::Default]),
                 supports: Some(vec![

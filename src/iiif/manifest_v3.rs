@@ -5,13 +5,13 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, collections::HashMap};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub(crate) enum PresentationType {
     Manifest,
     Collection,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub(crate) enum Label {
     Map(HashMap<Language, Vec<String>>),
@@ -304,20 +304,416 @@ impl IsImage for AnnotationItem {
 mod tests {
     use super::*;
 
+    // #[test]
+    // fn test_url_json() {
+    //     // let url = "https://bl.digirati.io/iiif/ark:/81055/vdc_100110232122.0x000001";
+    //     let url = "https://iiif.rbge.org.uk/herb/iiif/E00008781/manifest";
+
+    //     let json = ureq::get(url)
+    //         .call()
+    //         .unwrap()
+    //         .body_mut()
+    //         .read_to_string()
+    //         .unwrap();
+
+    //     let presentation_info: Manifest = serde_json::from_str(&json).unwrap();
+
+    //     println!("{:?}", presentation_info);
+    // }
+
     #[test]
     fn test_json() {
-        // let url = "https://bl.digirati.io/iiif/ark:/81055/vdc_100110232122.0x000001";
-        let url = "https://iiif.rbge.org.uk/herb/iiif/E00008781/manifest";
+        let json = r#"{
+          "@context": "http://iiif.io/api/presentation/3/context.json",
+          "id": "https://example.org/iiif/book1/manifest",
+          "type": "Manifest",
+          "label": { "en": [ "Book 1" ] },
+          "metadata": [
+            {
+              "label": { "en": [ "Author" ] },
+              "value": { "none": [ "Anne Author" ] }
+            },
+            {
+              "label": { "en": [ "Published" ] },
+              "value": {
+                "en": [ "Paris, circa 1400" ],
+                "fr": [ "Paris, environ 1400" ]
+              }
+            },
+            {
+              "label": { "en": [ "Notes" ] },
+              "value": {
+                "en": [
+                  "Text of note 1",
+                  "Text of note 2"
+                ]
+              }
+            },
+            {
+              "label": { "en": [ "Source" ] },
+              "value": { "none": [ "<span>From: <a href=\"https://example.org/db/1.html\">Some Collection</a></span>" ] }
+            }
+          ],
+          "summary": { "en": [ "Book 1, written be Anne Author, published in Paris around 1400." ] },
 
-        let json = ureq::get(url)
-            .call()
-            .unwrap()
-            .body_mut()
-            .read_to_string()
-            .unwrap();
+          "thumbnail": [
+            {
+              "id": "https://example.org/iiif/book1/page1/full/80,100/0/default.jpg",
+              "type": "Image",
+              "format": "image/jpeg",
+              "service": [
+                {
+                  "id": "https://example.org/iiif/book1/page1",
+                  "type": "ImageService3",
+                  "profile": "level1"
+                }
+              ]
+            }
+          ],
+
+          "viewingDirection": "right-to-left",
+          "behavior": [ "paged" ],
+          "navDate": "1856-01-01T00:00:00Z",
+
+          "rights": "https://creativecommons.org/licenses/by/4.0/",
+          "requiredStatement": {
+            "label": { "en": [ "Attribution" ] },
+            "value": { "en": [ "Provided by Example Organization" ] }
+          },
+
+          "provider": [
+              {
+                "id": "https://example.org/about",
+                "type": "Agent",
+                "label": { "en": [ "Example Organization" ] },
+                "homepage": [
+                  {
+                    "id": "https://example.org/",
+                    "type": "Text",
+                    "label": { "en": [ "Example Organization Homepage" ] },
+                    "format": "text/html"
+                  }
+                ],
+                "logo": [
+                  {
+                    "id": "https://example.org/service/inst1/full/max/0/default.png",
+                    "type": "Image",
+                    "format": "image/png",
+                    "service": [
+                      {
+                        "id": "https://example.org/service/inst1",
+                        "type": "ImageService3",
+                        "profile": "level2"
+                      }
+                    ]
+                  }
+                ],
+                "seeAlso": [
+                  {
+                    "id": "https://data.example.org/about/us.jsonld",
+                    "type": "Dataset",
+                    "format": "application/ld+json",
+                    "profile": "https://schema.org/"
+                  }
+                ]
+              }
+            ],
+          "homepage": [
+            {
+              "id": "https://example.org/info/book1/",
+              "type": "Text",
+              "label": { "en": [ "Home page for Book 1" ] },
+              "format": "text/html"
+            }
+          ],
+          "service": [
+            {
+              "id": "https://example.org/service/example",
+              "type": "ExampleExtensionService",
+              "profile": "https://example.org/docs/example-service.html"
+            }
+          ],
+          "seeAlso": [
+            {
+              "id": "https://example.org/library/catalog/book1.xml",
+              "type": "Dataset",
+              "format": "text/xml",
+              "profile": "https://example.org/profiles/bibliographic"
+            }
+          ],
+          "rendering": [
+            {
+              "id": "https://example.org/iiif/book1.pdf",
+              "type": "Text",
+              "label": { "en": [ "Download as PDF" ] },
+              "format": "application/pdf"
+            }
+          ],
+          "partOf": [
+            {
+              "id": "https://example.org/collections/books/",
+              "type": "Collection"
+            }
+          ],
+          "start": {
+            "id": "https://example.org/iiif/book1/canvas/p2",
+            "type": "Canvas"
+          },
+
+          "services": [
+            {
+              "@id": "https://example.org/iiif/auth/login",
+              "@type": "AuthCookieService1",
+              "profile": "http://iiif.io/api/auth/1/login",
+              "label": "Login to Example Institution",
+              "service": [
+                {
+                  "@id": "https://example.org/iiif/auth/token",
+                  "@type": "AuthTokenService1",
+                  "profile": "http://iiif.io/api/auth/1/token"
+                }
+              ]
+            }
+          ],
+
+          "items": [
+            {
+              "id": "https://example.org/iiif/book1/canvas/p1",
+              "type": "Canvas",
+              "label": { "none": [ "p. 1" ] },
+              "height": 1000,
+              "width": 750,
+              "items": [
+                {
+                  "id": "https://example.org/iiif/book1/page/p1/1",
+                  "type": "AnnotationPage",
+                  "items": [
+                    {
+                      "id": "https://example.org/iiif/book1/annotation/p0001-image",
+                      "type": "Annotation",
+                      "motivation": "painting",
+                      "body": {
+                        "id": "https://example.org/iiif/book1/page1/full/max/0/default.jpg",
+                        "type": "Image",
+                        "format": "image/jpeg",
+                        "service": [
+                          {
+                            "id": "https://example.org/iiif/book1/page1",
+                            "type": "ImageService3",
+                            "profile": "level2",
+                            "service": [
+                              {
+                                "@id": "https://example.org/iiif/auth/login",
+                                "@type": "AuthCookieService1"
+                              }
+                            ]
+                          }
+                        ],
+                        "height": 2000,
+                        "width": 1500
+                      },
+                      "target": "https://example.org/iiif/book1/canvas/p1"
+                    }
+                  ]
+                }
+              ],
+              "annotations": [
+                {
+                  "id": "https://example.org/iiif/book1/comments/p1/1",
+                  "type": "AnnotationPage"
+                }
+              ]
+            },
+            {
+              "id": "https://example.org/iiif/book1/canvas/p2",
+              "type": "Canvas",
+              "label": { "none": [ "p. 2" ] },
+              "height": 1000,
+              "width": 750,
+              "items": [
+                {
+                  "id": "https://example.org/iiif/book1/page/p2/1",
+                  "type": "AnnotationPage",
+                  "items": [
+                    {
+                      "id": "https://example.org/iiif/book1/annotation/p0002-image",
+                      "type": "Annotation",
+                      "motivation": "painting",
+                      "body": {
+                        "id": "https://example.org/iiif/book1/page2/full/max/0/default.jpg",
+                        "type": "Image",
+                        "format": "image/jpeg",
+                        "service": [
+                          {
+                            "id": "https://example.org/iiif/book1/page2",
+                            "type": "ImageService3",
+                            "profile": "level2"
+                          }
+                        ],
+                        "height": 2000,
+                        "width": 1500
+                      },
+                      "target": "https://example.org/iiif/book1/canvas/p2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+
+          "structures": [
+            {
+              "id": "https://example.org/iiif/book1/range/r0",
+              "type": "Range",
+              "label": { "en": [ "Table of Contents" ] },
+              "items": [
+                {
+                  "id": "https://example.org/iiif/book1/range/r1",
+                  "type": "Range",
+                  "label": { "en": [ "Introduction" ] },
+                  "supplementary": {
+                    "id": "https://example.org/iiif/book1/annocoll/introTexts",
+                    "type": "AnnotationCollection"
+                  },
+                  "items": [
+                    {
+                      "id": "https://example.org/iiif/book1/canvas/p1",
+                      "type": "Canvas"
+                    },
+                    {
+                      "type": "SpecificResource",
+                      "source": "https://example.org/iiif/book1/canvas/p2",
+                      "selector": {
+                        "type": "FragmentSelector",
+                        "value": "xywh=0,0,750,300"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+
+          "annotations": [
+            {
+              "id": "https://example.org/iiif/book1/page/manifest/1",
+              "type": "AnnotationPage",
+              "items": [
+                {
+                  "id": "https://example.org/iiif/book1/page/manifest/a1",
+                  "type": "Annotation",
+                  "motivation": "commenting",
+                  "body": {
+                    "type": "TextualBody",
+                    "language": "en",
+                    "value": "I love this manifest!"
+                  },
+                  "target": "https://example.org/iiif/book1/manifest"
+                }
+              ]
+            }
+          ]
+        }"#;
 
         let presentation_info: Manifest = serde_json::from_str(&json).unwrap();
+        // println!("{:?}", presentation_info);
 
-        println!("{:?}", presentation_info);
+        assert_eq!(presentation_info.label.get(Language::En).join(""), "Book 1");
+
+        assert_eq!(
+            presentation_info.presentation_type,
+            PresentationType::Manifest
+        );
+
+        assert_eq!(
+            presentation_info.context.iter().collect::<Vec<_>>(),
+            vec!["http://iiif.io/api/presentation/3/context.json"]
+        );
+
+        assert_eq!(
+            presentation_info.rights,
+            "https://creativecommons.org/licenses/by/4.0/"
+        );
+
+        assert_eq!(
+            presentation_info
+                .required_statement
+                .as_ref()
+                .unwrap()
+                .label
+                .get(Language::En)
+                .join(""),
+            "Attribution"
+        );
+        assert_eq!(
+            presentation_info
+                .required_statement
+                .as_ref()
+                .unwrap()
+                .value
+                .get(Language::En)
+                .join(""),
+            "Provided by Example Organization"
+        );
+
+        assert_eq!(
+            presentation_info
+                .summary
+                .iter()
+                .next()
+                .unwrap()
+                .get(Language::En),
+            vec!["Book 1, written be Anne Author, published in Paris around 1400."]
+        );
+
+        let provider = presentation_info
+            .provider
+            .as_ref()
+            .unwrap()
+            .iter()
+            .next()
+            .unwrap();
+
+        assert_eq!(provider.id, "https://example.org/about");
+        assert_eq!(
+            provider.label.get(Language::En),
+            vec!["Example Organization"]
+        );
+        let homepage = provider.homepage.iter().next().unwrap();
+
+        assert_eq!(homepage.id, "https://example.org/");
+        assert_eq!(homepage.format, "text/html");
+        assert_eq!(
+            homepage.label.get(Language::En),
+            vec!["Example Organization Homepage"]
+        );
+
+        let canvas = &presentation_info.items[0];
+
+        assert_eq!(canvas.id, "https://example.org/iiif/book1/canvas/p1");
+        assert!(canvas.thumbnail.is_none());
+        assert_eq!(
+            canvas.label.as_ref().unwrap().get(Language::En),
+            vec!["p. 1"]
+        );
+        let image = &(&canvas.items[0]).items[0];
+
+        assert_eq!(
+            image.id,
+            "https://example.org/iiif/book1/annotation/p0001-image"
+        );
+
+        assert_eq!(
+            image.body.id,
+            "https://example.org/iiif/book1/page1/full/max/0/default.jpg"
+        );
+
+        assert_eq!(image.body.width, 1500);
+        assert_eq!(image.body.height, 2000);
+
+        assert_eq!(
+            image.body.service[0].get_id(),
+            "https://example.org/iiif/book1/page1"
+        );
     }
 }

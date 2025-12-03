@@ -334,20 +334,20 @@ impl IsImage for Image {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_2() {
-        let url = "https://digitalarchive.npm.gov.tw/Integrate/GetJson?cid=6742&dept=P";
-        let info_json = ureq::get(url)
-            .call()
-            .unwrap()
-            .body_mut()
-            .read_to_string()
-            .unwrap();
+    // #[test]
+    // fn test_2() {
+    //     let url = "https://digitalarchive.npm.gov.tw/Integrate/GetJson?cid=6742&dept=P";
+    //     let info_json = ureq::get(url)
+    //         .call()
+    //         .unwrap()
+    //         .body_mut()
+    //         .read_to_string()
+    //         .unwrap();
 
-        let presentation_info: Manifest = serde_json::from_str(&info_json).unwrap();
+    //     let presentation_info: Manifest = serde_json::from_str(&info_json).unwrap();
 
-        println!("{:?}", presentation_info);
-    }
+    //     println!("{:?}", presentation_info);
+    // }
 
     #[test]
     fn test_standard_json() {
