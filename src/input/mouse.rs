@@ -1,6 +1,8 @@
 use crate::{
-    AppState, camera::main_camera::MainCamera, rendering::tile::TileModState,
-    rendering::tiled_image::TiledImage,
+    AppState,
+    app::app_settings::AppSettings,
+    camera::main_camera::MainCamera,
+    rendering::{tile::TileModState, tiled_image::TiledImage},
 };
 use bevy::{
     input::mouse::AccumulatedMouseScroll,
@@ -18,6 +20,7 @@ pub(crate) fn mouse_input_system(
         With<MainCamera>,
     >,
     mut app_state: ResMut<AppState>,
+    app_settings: Res<AppSettings>,
     local_params: (Local<Option<Vec2>>, Local<Option<f32>>),
     mouse_wheel_input: Res<AccumulatedMouseScroll>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -68,7 +71,14 @@ pub(crate) fn mouse_input_system(
         redraw_request_writer.write(RequestRedraw);
     }
 
-    let delta_zoom = 1.0 - mouse_wheel_input.delta.y * 0.1;
+    let max_zoom_scale =
+        tiled_image.get_world_max_size_rect().size().max_element() / app_settings.min_image_size;
+    let max_delta_zoom = max_zoom_scale / orthogonal.scale;
+    let min_delta_zoom = app_settings.min_camera_zoom_scale / orthogonal.scale;
+
+    let delta_zoom = (1.0 - mouse_wheel_input.delta.y * 0.1)
+        .max(min_delta_zoom)
+        .min(max_delta_zoom);
 
     if delta_zoom != 1.0 {
         // Zoom at the mouse position.

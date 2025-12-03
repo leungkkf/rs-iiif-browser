@@ -119,7 +119,7 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     commands.insert_resource(TileModState::new());
 
     // App settings.
-    commands.insert_resource(AppSettings::new(4096, 64.0));
+    commands.insert_resource(AppSettings::new(4096, 64.0, 1.0 / 4.0, 256.0));
 
     // Tile mod state.
     commands.insert_resource(TilePruneState::new());
