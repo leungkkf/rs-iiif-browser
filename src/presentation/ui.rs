@@ -8,8 +8,9 @@ use bevy::prelude::{
     Window, With, Without, default,
 };
 use bevy::window::{PrimaryWindow, RequestRedraw};
+use bevy_egui::egui::epaint::text::{FontInsert, FontPriority, InsertFontFamily};
 use bevy_egui::egui::text::LayoutJob;
-use bevy_egui::egui::{Button, Color32, FontFamily, FontId, Sense, Widget, vec2};
+use bevy_egui::egui::{Button, Color32, FontData, FontFamily, FontId, Sense, Widget, vec2};
 use bevy_egui::{EguiContext, EguiContexts, egui};
 use std::time::Duration;
 
@@ -29,15 +30,23 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
     // Set up image loaders for the thumbnails.
     egui_extras::install_image_loaders(ctx);
 
-    let toasts = egui_notify::Toasts::default();
-
     commands.insert_resource(EguiUiState {
         current_sequence: 0,
         presentation_url: "".to_string(),
-        toasts,
+        toasts: egui_notify::Toasts::default(),
         open_left_panel: false,
         canvas_index: "".to_string(),
     });
+
+    // Add a CJK font.
+    ctx.add_font(FontInsert::new(
+        "NotoSansTC",
+        FontData::from_static(crate::fonts::NOTOSANSTC_REGULAR),
+        vec![InsertFontFamily {
+            family: FontFamily::Proportional,
+            priority: FontPriority::Highest,
+        }],
+    ));
 
     Ok(())
 }
@@ -63,7 +72,9 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
 // )?;
 //
 // https://www.loc.gov/item/00007086/manifest.json
+//
 // https://www.vam.ac.uk/collections
+// https://digitalarchive.npm.gov.tw/Collection/Featured
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn presentation_ui_system(

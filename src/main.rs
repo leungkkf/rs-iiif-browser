@@ -18,6 +18,7 @@ use clap::Parser;
 
 mod app;
 mod camera;
+mod fonts;
 mod iiif;
 mod input;
 mod minimap;
