@@ -2,8 +2,11 @@ use bevy::prelude::Resource;
 
 #[derive(Resource)]
 pub(crate) struct AppState {
+    /// Current image scale level.
     pub(crate) level: usize,
+    /// Current presentation manifest URL.
     pub(crate) presentation_url: String,
+    /// Current canvas index.
     pub(crate) canvas_index: usize,
 }
 
