@@ -110,13 +110,13 @@ impl Text {
                 .collect();
         }
 
-        return output
+        output
             .into_iter()
             .map(|x| match x.get() {
                 Cow::Borrowed(v) => Cow::from(&v.value),
                 Cow::Owned(v) => Cow::from(v.value),
             })
-            .collect();
+            .collect()
     }
 }
 
