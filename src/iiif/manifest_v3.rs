@@ -175,16 +175,16 @@ pub(crate) struct Manifest {
 }
 
 impl IsManifest for Manifest {
-    fn get_title(&self) -> Cow<'_, str> {
-        Cow::from(self.label.get(language::EN).join("\n"))
+    fn get_title(&self, language: &str) -> Cow<'_, str> {
+        Cow::from(self.label.get(language).join("\n"))
     }
 
-    fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_attribution(&self, language: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         match &self.provider {
             None => Box::new(Vec::new().into_iter()),
             Some(v) => Box::new(
                 v.iter()
-                    .flat_map(|x| x.label.get(language::EN))
+                    .flat_map(|x| x.label.get(language))
                     .map(Cow::from)
                     .collect::<Vec<_>>()
                     .into_iter(),
@@ -192,15 +192,18 @@ impl IsManifest for Manifest {
         }
     }
 
-    fn get_required_statements(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_required_statements(
+        &self,
+        language: &str,
+    ) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         match &self.required_statement {
             None => Box::new(Vec::new().into_iter()),
             Some(required_statement) => Box::new(
                 required_statement
                     .label
-                    .get(language::EN)
+                    .get(language)
                     .iter()
-                    .zip(required_statement.value.get(language::EN))
+                    .zip(required_statement.value.get(language))
                     .map(|(label, value)| Cow::from(format!("{}: {}", label, value)))
                     .collect::<Vec<_>>()
                     .into_iter(),
@@ -208,12 +211,12 @@ impl IsManifest for Manifest {
         }
     }
 
-    fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_description(&self, language: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         match &self.summary {
             None => Box::new(Vec::new().into_iter()),
             Some(v) => Box::new(
                 v.iter()
-                    .flat_map(|x| x.get(language::EN))
+                    .flat_map(|x| x.get(language))
                     .map(Cow::from)
                     .collect::<Vec<_>>()
                     .into_iter(),
@@ -251,7 +254,7 @@ impl IsManifest for Manifest {
 }
 
 impl IsSequence for Manifest {
-    fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_label(&self, _: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         Box::new(std::iter::empty::<Cow<str>>())
     }
 
@@ -271,11 +274,11 @@ impl IsSequence for Manifest {
 }
 
 impl IsCanvas for CanvasItem {
-    fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_label(&self, language: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(label) = &self.label {
             Box::new(
                 label
-                    .get(language::EN)
+                    .get(language)
                     .iter()
                     .map(|y| Cow::from(*y))
                     .collect::<Vec<_>>()

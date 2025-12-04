@@ -181,25 +181,25 @@ pub(crate) struct Manifest {
 }
 
 impl IsManifest for Manifest {
-    fn get_title(&self) -> Cow<'_, str> {
-        Cow::from(self.label.get(language::EN).join("\n"))
+    fn get_title(&self, language: &str) -> Cow<'_, str> {
+        Cow::from(self.label.get(language).join("\n"))
     }
 
-    fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_attribution(&self, language: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.attribution {
-            Box::new(content.get(language::EN).into_iter())
+            Box::new(content.get(language).into_iter())
         } else {
             Box::new(std::iter::empty::<Cow<str>>())
         }
     }
 
-    fn get_required_statements(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_required_statements(&self, _: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         Box::new(Vec::new().into_iter())
     }
 
-    fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_description(&self, language: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.description {
-            Box::new(content.get(language::EN).into_iter())
+            Box::new(content.get(language).into_iter())
         } else {
             Box::new(std::iter::empty::<Cow<str>>())
         }
@@ -237,9 +237,9 @@ impl IsManifest for Manifest {
 }
 
 impl IsSequence for Sequence {
-    fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+    fn get_label(&self, language: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
         if let Some(content) = &self.label {
-            Box::new(content.get(language::EN).into_iter())
+            Box::new(content.get(language).into_iter())
         } else {
             Box::new(std::iter::empty::<Cow<str>>())
         }
@@ -261,8 +261,8 @@ impl IsSequence for Sequence {
 }
 
 impl IsCanvas for Canvas {
-    fn get_label(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(self.label.get(language::EN).into_iter())
+    fn get_label(&self, language: &str) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+        Box::new(self.label.get(language).into_iter())
     }
 
     fn get_thumbnail(&self) -> Cow<'_, str> {

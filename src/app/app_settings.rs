@@ -11,6 +11,8 @@ pub(crate) struct AppSettings {
     pub(crate) min_camera_zoom_scale: f32,
     /// Min image size allowed when zoom-out.
     pub(crate) min_image_size: f32,
+    /// User language setting, e.g. "en", "fr".
+    pub(crate) language: String,
 }
 
 impl AppSettings {
@@ -19,12 +21,14 @@ impl AppSettings {
         thumbnail_size: f32,
         min_camera_zoom_scale: f32,
         min_image_size: f32,
+        language: String,
     ) -> Self {
         Self {
             max_cache_items,
             thumbnail_size,
             min_camera_zoom_scale,
             min_image_size,
+            language,
         }
     }
 }

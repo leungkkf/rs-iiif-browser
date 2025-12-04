@@ -165,13 +165,16 @@ pub(crate) fn presentation_ui_system(
                 // Manifest title.
                 add_text(
                     ui,
-                    &presentation.model().get_title(),
+                    &presentation.model().get_title(&app_settings.language),
                     Some(Color32::WHITE),
                     2,
                 );
 
                 // Manifest description.
-                let description = presentation.model().get_description().collect::<Vec<_>>();
+                let description = presentation
+                    .model()
+                    .get_description(&app_settings.language)
+                    .collect::<Vec<_>>();
                 if !description.is_empty() {
                     add_text(ui, &description.join("\n"), None, 3);
                 }
@@ -185,7 +188,7 @@ pub(crate) fn presentation_ui_system(
                 };
                 let attribution = presentation
                     .model()
-                    .get_attribution()
+                    .get_attribution(&app_settings.language)
                     .collect::<Vec<_>>()
                     .join(",");
 
@@ -195,7 +198,7 @@ pub(crate) fn presentation_ui_system(
 
                 let required_statements = presentation
                     .model()
-                    .get_required_statements()
+                    .get_required_statements(&app_settings.language)
                     .collect::<Vec<_>>()
                     .join(". ");
 
@@ -216,7 +219,7 @@ pub(crate) fn presentation_ui_system(
                         presentation
                             .model()
                             .get_sequence(egui_ui_state.current_sequence)?
-                            .get_label()
+                            .get_label(&app_settings.language)
                             .collect::<Vec<_>>()
                             .join(","),
                     )
@@ -226,7 +229,9 @@ pub(crate) fn presentation_ui_system(
                             ui.selectable_value(
                                 &mut egui_ui_state.current_sequence,
                                 index,
-                                seq.get_label().collect::<Vec<_>>().join(","),
+                                seq.get_label(&app_settings.language)
+                                    .collect::<Vec<_>>()
+                                    .join(","),
                             );
                         }
                     });
@@ -471,7 +476,10 @@ fn add_canvas_thumbnails(
                                         let label = format!(
                                             "({}) {}",
                                             canvas_index + 1,
-                                            canvas.get_label().collect::<Vec<_>>().join(",")
+                                            canvas
+                                                .get_label(&app_settings.language)
+                                                .collect::<Vec<_>>()
+                                                .join(",")
                                         );
                                         add_text(ui, &label, None, 3);
                                     })

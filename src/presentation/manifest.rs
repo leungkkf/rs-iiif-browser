@@ -197,22 +197,29 @@ mod tests {
         let iiif_manifest: iiif::manifest_v2::Manifest = serde_json::from_str(&json).unwrap();
 
         let manifest = Manifest::new(Box::new(iiif_manifest));
+        let language = crate::iiif::manifest::language::EN;
 
         assert_eq!(
-            manifest.model().get_attribution().collect::<Vec<_>>(),
+            manifest
+                .model()
+                .get_attribution(language)
+                .collect::<Vec<_>>(),
             vec!["Provided by Example Organization"]
         );
         assert_eq!(
             manifest.model().get_license().collect::<Vec<_>>(),
             vec!["http://www.example.org/license.html"]
         );
-        assert_eq!(manifest.model().get_title(), "Book 1");
+        assert_eq!(manifest.model().get_title(language), "Book 1");
         assert_eq!(
             manifest.model().get_logo().collect::<Vec<_>>(),
             Vec::<String>::new()
         );
         assert_eq!(
-            manifest.model().get_description().collect::<Vec<_>>(),
+            manifest
+                .model()
+                .get_description(language)
+                .collect::<Vec<_>>(),
             vec![
                 "A longer description of this example book. It should give some real information."
             ]
@@ -223,7 +230,7 @@ mod tests {
         let seq = manifest.model().get_sequence(0).unwrap();
 
         assert_eq!(
-            seq.get_label().collect::<Vec<_>>(),
+            seq.get_label(language).collect::<Vec<_>>(),
             vec!["Current Page Order"]
         );
 
@@ -231,7 +238,7 @@ mod tests {
 
         let canvas = seq.get_canvas(0).unwrap();
 
-        assert_eq!(canvas.get_label().collect::<Vec<_>>(), vec!["p. 1"]);
+        assert_eq!(canvas.get_label(language).collect::<Vec<_>>(), vec!["p. 1"]);
         assert_eq!(
             canvas.get_thumbnail(),
             "http://www.example.org/images/book1-page1/full/,64/0/default.jpg"
