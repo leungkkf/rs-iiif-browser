@@ -1,34 +1,69 @@
 use crate::{
-    iiif::{IiifError, manifest::Language, one_or_many::OneTypeOrMany},
+    iiif::{
+        IiifError,
+        manifest::language::{self},
+        one_or_many::OneTypeOrMany,
+    },
     presentation::model::{IsCanvas, IsImage, IsManifest, IsSequence},
 };
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, collections::HashMap};
+use std::{borrow::Cow, collections::HashMap, vec};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub(crate) enum PresentationType {
+pub(crate) enum ManifestType {
     Manifest,
     Collection,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub(crate) enum Label {
-    Map(HashMap<Language, Vec<String>>),
-    Text(String),
+pub(crate) enum LabelText {
+    Map(HashMap<String, Vec<String>>),
+    Text(OneTypeOrMany<String>),
 }
 
-impl Label {
-    fn get(&self, lang: Language) -> Vec<&str> {
+impl LabelText {
+    fn get(&self, lang: &str) -> Vec<&str> {
         match self {
-            Self::Text(v) => vec![v],
+            Self::Text(v) =>
+            //If all of the values are associated with the none key, the client must display all of those values.
+            {
+                v.iter().map(|x| x.as_str()).collect::<Vec<_>>()
+            }
             Self::Map(map) => {
-                if let Some(v) = map.get(&lang) {
-                    v.iter().map(|x| x.as_str()).collect()
-                } else if let Some(v) = map.get(&Language::None) {
-                    v.iter().map(|x| x.as_str()).collect()
-                } else {
+                if map.is_empty() {
                     Vec::new()
+                }
+                //If all of the values are associated with the none key, the client must display all of those values.
+                else if let Some(v) = map.get(language::NONE)
+                    && map.len() == 1
+                {
+                    v.iter().map(|x| x.as_str()).collect()
+                }
+                // If any of the values have a language associated with them,
+                // the client must display all of the values associated with the language that best matches the language preference.
+                else if let Some(v) = map.get(lang) {
+                    v.iter().map(|x| x.as_str()).collect()
+                }
+                // If all of the values have a language associated with them, and none match the language preference,
+                // the client must select a language and display all of the values associated with that language
+                else if map.get(language::NONE).is_none() {
+                    let mut keys = map.keys().collect::<Vec<_>>();
+
+                    // Hash map doesn't garuantee the order.
+                    // Try to be a bit consistent at least and pick the first language in alphabetically order.
+                    keys.sort();
+
+                    let first_key = keys
+                        .first()
+                        .expect("should have at least one item with a language at this point");
+
+                    map[*first_key].iter().map(|x| x.as_str()).collect()
+                }
+                // If some of the values have a language associated with them, but none match the language preference,
+                // the client must display all of the values that do not have a language associated with them.
+                else {
+                    map[language::NONE].iter().map(|x| x.as_str()).collect()
                 }
             }
         }
@@ -37,8 +72,8 @@ impl Label {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct LabelValue {
-    label: Label,
-    value: Label,
+    label: LabelText,
+    value: LabelText,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -101,7 +136,7 @@ pub(crate) struct HomePage {
     id: String,
     #[serde(rename = "type")]
     type_: String,
-    label: Label,
+    label: LabelText,
     format: String,
 }
 
@@ -111,7 +146,7 @@ pub(crate) struct Provider {
     id: String,
     #[serde(rename = "type")]
     type_: String,
-    label: Label,
+    label: LabelText,
     homepage: OneTypeOrMany<HomePage>,
     logo: OneTypeOrMany<Thumbnail>,
 }
@@ -121,7 +156,7 @@ pub(crate) struct CanvasItem {
     id: String,
     #[serde(rename = "type")]
     type_: String,
-    label: Option<Label>,
+    label: Option<LabelText>,
     thumbnail: Option<OneTypeOrMany<Thumbnail>>,
     items: Vec<AnnotationPageItem>,
 }
@@ -158,9 +193,9 @@ pub(crate) struct Manifest {
     #[serde(rename = "@context")]
     context: OneTypeOrMany<String>,
     #[serde(rename = "type")]
-    presentation_type: PresentationType,
-    label: Label,
-    summary: OneTypeOrMany<Label>,
+    presentation_type: ManifestType,
+    label: LabelText,
+    summary: OneTypeOrMany<LabelText>,
     rights: String,
     required_statement: Option<LabelValue>,
     provider: Option<Vec<Provider>>,
@@ -169,7 +204,7 @@ pub(crate) struct Manifest {
 
 impl IsManifest for Manifest {
     fn get_title(&self) -> Cow<'_, str> {
-        Cow::from(self.label.get(Language::En).join("\n"))
+        Cow::from(self.label.get(language::EN).join("\n"))
     }
 
     fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
@@ -177,7 +212,7 @@ impl IsManifest for Manifest {
             None => Box::new(Vec::new().into_iter()),
             Some(v) => Box::new(
                 v.iter()
-                    .flat_map(|x| x.label.get(Language::En))
+                    .flat_map(|x| x.label.get(language::EN))
                     .map(Cow::from)
                     .collect::<Vec<_>>()
                     .into_iter(),
@@ -189,7 +224,7 @@ impl IsManifest for Manifest {
         Box::new(
             self.summary
                 .iter()
-                .flat_map(|x| x.get(Language::En))
+                .flat_map(|x| x.get(language::EN))
                 .map(Cow::from)
                 .collect::<Vec<_>>()
                 .into_iter(),
@@ -247,7 +282,7 @@ impl IsCanvas for CanvasItem {
         if let Some(label) = &self.label {
             Box::new(
                 label
-                    .get(Language::En)
+                    .get(language::EN)
                     .iter()
                     .map(|y| Cow::from(*y))
                     .collect::<Vec<_>>()
@@ -303,6 +338,7 @@ impl IsImage for AnnotationItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::iiif::manifest::language::{DE, EN, FR, NONE};
 
     // #[test]
     // fn test_url_json() {
@@ -618,12 +654,9 @@ mod tests {
         let presentation_info: Manifest = serde_json::from_str(&json).unwrap();
         // println!("{:?}", presentation_info);
 
-        assert_eq!(presentation_info.label.get(Language::En).join(""), "Book 1");
+        assert_eq!(presentation_info.label.get(language::EN).join(""), "Book 1");
 
-        assert_eq!(
-            presentation_info.presentation_type,
-            PresentationType::Manifest
-        );
+        assert_eq!(presentation_info.presentation_type, ManifestType::Manifest);
 
         assert_eq!(
             presentation_info.context.iter().collect::<Vec<_>>(),
@@ -641,7 +674,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .label
-                .get(Language::En)
+                .get(language::EN)
                 .join(""),
             "Attribution"
         );
@@ -651,7 +684,7 @@ mod tests {
                 .as_ref()
                 .unwrap()
                 .value
-                .get(Language::En)
+                .get(language::EN)
                 .join(""),
             "Provided by Example Organization"
         );
@@ -662,7 +695,7 @@ mod tests {
                 .iter()
                 .next()
                 .unwrap()
-                .get(Language::En),
+                .get(language::EN),
             vec!["Book 1, written be Anne Author, published in Paris around 1400."]
         );
 
@@ -676,7 +709,7 @@ mod tests {
 
         assert_eq!(provider.id, "https://example.org/about");
         assert_eq!(
-            provider.label.get(Language::En),
+            provider.label.get(language::EN),
             vec!["Example Organization"]
         );
         let homepage = provider.homepage.iter().next().unwrap();
@@ -684,7 +717,7 @@ mod tests {
         assert_eq!(homepage.id, "https://example.org/");
         assert_eq!(homepage.format, "text/html");
         assert_eq!(
-            homepage.label.get(Language::En),
+            homepage.label.get(language::EN),
             vec!["Example Organization Homepage"]
         );
 
@@ -693,7 +726,7 @@ mod tests {
         assert_eq!(canvas.id, "https://example.org/iiif/book1/canvas/p1");
         assert!(canvas.thumbnail.is_none());
         assert_eq!(
-            canvas.label.as_ref().unwrap().get(Language::En),
+            canvas.label.as_ref().unwrap().get(language::EN),
             vec!["p. 1"]
         );
         let image = &(&canvas.items[0]).items[0];
@@ -715,5 +748,61 @@ mod tests {
             image.body.service[0].get_id(),
             "https://example.org/iiif/book1/page1"
         );
+    }
+
+    #[test]
+    fn test_label_text_plain_text() {
+        let label = LabelText::Text(OneTypeOrMany::<String>::One("text".to_string()));
+
+        assert_eq!(label.get(EN), vec!["text"]);
+        assert_eq!(label.get(DE), vec!["text"]);
+    }
+
+    #[test]
+    fn test_label_text_plain_texts() {
+        let label = LabelText::Text(OneTypeOrMany::<String>::Many(vec![
+            "text".to_string(),
+            "test".to_string(),
+        ]));
+
+        assert_eq!(label.get(EN), vec!["text", "test"]);
+        assert_eq!(label.get(DE), vec!["text", "test"]);
+    }
+
+    #[test]
+    fn test_label_text_map_with_none() {
+        let label = LabelText::Map(HashMap::from([(
+            NONE.to_string(),
+            vec!["text".to_string()],
+        )]));
+
+        assert_eq!(label.get(DE), vec!["text"]);
+        assert_eq!(label.get(EN), vec!["text"]);
+    }
+
+    #[test]
+    fn test_label_text_map_with_en_de() {
+        let label = LabelText::Map(HashMap::from([
+            (EN.to_string(), vec!["text".to_string()]),
+            (DE.to_string(), vec!["de".to_string()]),
+        ]));
+
+        assert_eq!(label.get(EN), vec!["text"]);
+        assert_eq!(label.get(DE), vec!["de"]);
+        assert_eq!(label.get(FR), vec!["de"]);
+    }
+
+    #[test]
+    fn test_label_text_map_with_en_none() {
+        let label = LabelText::Map(HashMap::from([
+            (EN.to_string(), vec!["text".to_string()]),
+            (DE.to_string(), vec!["de".to_string()]),
+            (NONE.to_string(), vec!["none".to_string()]),
+        ]));
+
+        assert_eq!(label.get(EN), vec!["text"]);
+        assert_eq!(label.get(DE), vec!["de"]);
+        assert_eq!(label.get(FR), vec!["none"]);
+        assert_eq!(label.get(NONE), vec!["none"]);
     }
 }

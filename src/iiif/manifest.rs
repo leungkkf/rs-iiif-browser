@@ -5,24 +5,13 @@ use crate::{
 use bevy::prelude::debug;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-/// Presentation context.
-pub(crate) enum Context {
-    #[serde(rename = "http://iiif.io/api/presentation/2/context.json")]
-    Version2,
-    #[serde(rename = "http://iiif.io/api/presentation/3/context.json")]
-    Version3,
-}
-
-#[derive(Debug, Serialize, Deserialize, Hash, Eq, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-/// Presentation language.
-pub(crate) enum Language {
-    None,
-    En,
-    Fr,
-    De,
-    Zh,
+#[allow(dead_code)]
+pub(crate) mod language {
+    pub(crate) const NONE: &str = "none";
+    pub(crate) const EN: &str = "en";
+    pub(crate) const FR: &str = "fr";
+    pub(crate) const DE: &str = "de";
+    pub(crate) const ZH: &str = "zh";
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
