@@ -156,8 +156,6 @@ pub(crate) struct AnnotationItemBody {
     id: String,
     #[serde(rename = "type")]
     type_: String,
-    width: u32,
-    height: u32,
     service: Vec<Service>,
 }
 
@@ -169,8 +167,8 @@ pub(crate) struct Manifest {
     #[serde(rename = "type")]
     manifest_type: ManifestType,
     label: LabelText,
-    summary: OneTypeOrMany<LabelText>,
-    rights: String,
+    summary: Option<OneTypeOrMany<LabelText>>,
+    rights: Option<String>,
     required_statement: Option<LabelValue>,
     provider: Option<Vec<Provider>>,
     items: Vec<CanvasItem>,
@@ -211,18 +209,23 @@ impl IsManifest for Manifest {
     }
 
     fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(
-            self.summary
-                .iter()
-                .flat_map(|x| x.get(language::EN))
-                .map(Cow::from)
-                .collect::<Vec<_>>()
-                .into_iter(),
-        )
+        match &self.summary {
+            None => Box::new(Vec::new().into_iter()),
+            Some(v) => Box::new(
+                v.iter()
+                    .flat_map(|x| x.get(language::EN))
+                    .map(Cow::from)
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            ),
+        }
     }
 
     fn get_license(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
-        Box::new(vec![Cow::from(&self.rights)].into_iter())
+        match &self.rights {
+            None => Box::new(Vec::new().into_iter()),
+            Some(v) => Box::new(vec![Cow::from(v)].into_iter()),
+        }
     }
 
     fn get_logo(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
@@ -333,7 +336,8 @@ mod tests {
     // #[test]
     // fn test_url_json() {
     //     // let url = "https://bl.digirati.io/iiif/ark:/81055/vdc_100110232122.0x000001";
-    //     let url = "https://iiif.rbge.org.uk/herb/iiif/E00008781/manifest";
+    //     // let url = "https://iiif.rbge.org.uk/herb/iiif/E00008781/manifest";
+    //     let url = "https://iiif.library.ucla.edu/ark%3A%2F21198%2Fz1bs2wr9/manifest";
 
     //     let json = ureq::get(url)
     //         .call()
@@ -654,7 +658,7 @@ mod tests {
         );
 
         assert_eq!(
-            presentation_info.rights,
+            presentation_info.rights.unwrap(),
             "https://creativecommons.org/licenses/by/4.0/"
         );
 
@@ -682,6 +686,7 @@ mod tests {
         assert_eq!(
             presentation_info
                 .summary
+                .unwrap()
                 .iter()
                 .next()
                 .unwrap()
@@ -721,9 +726,6 @@ mod tests {
             image.body.id,
             "https://example.org/iiif/book1/page1/full/max/0/default.jpg"
         );
-
-        assert_eq!(image.body.width, 1500);
-        assert_eq!(image.body.height, 2000);
 
         assert_eq!(
             image.body.service[0].get_id(),
