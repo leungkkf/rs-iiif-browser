@@ -83,8 +83,8 @@ impl fmt::Display for IiifImageFormat {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum IiifImageInfo {
-    Version2(image_v2::IiifImageInfo),
     Version3(image_v3::IiifImageInfo),
+    Version2(image_v2::IiifImageInfo),
 }
 
 impl IiifImageInfo {
