@@ -14,16 +14,6 @@ pub(crate) mod language {
     pub(crate) const ZH: &str = "zh";
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-/// Presentation viewing direction.
-pub(crate) enum ViewingDirection {
-    RightToLeft,
-    LeftToRight,
-    TopToBottom,
-    BottomToTop,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum Manifest {

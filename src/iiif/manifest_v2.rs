@@ -1,5 +1,5 @@
 use crate::iiif::IiifError;
-use crate::iiif::manifest::{ViewingDirection, language};
+use crate::iiif::manifest::language;
 use crate::iiif::one_or_many::OneTypeOrMany;
 use crate::presentation::model::{IsCanvas, IsImage, IsManifest, IsSequence};
 use serde::{Deserialize, Serialize};
@@ -19,18 +19,6 @@ pub(crate) enum ManifestType {
     Canvas,
     #[serde(rename = "sc:Range")]
     Range,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub(crate) enum ViewingHint {
-    Individuals,
-    Paged,
-    Continuous,
-    MultiPart,
-    NonPaged,
-    Top,
-    FacingPages,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -126,8 +114,6 @@ pub(crate) struct Sequence {
     #[serde(rename = "@type")]
     type_: ManifestType,
     pub(crate) label: Option<LabelText>,
-    pub(crate) viewing_direction: Option<ViewingDirection>,
-    pub(crate) viewing_hint: Option<OneTypeOrMany<ViewingHint>>,
     pub(crate) canvases: Vec<Canvas>,
 }
 
@@ -144,11 +130,6 @@ pub(crate) struct Canvas {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Image {
-    #[serde(rename = "@id")]
-    id: Option<String>,
-    #[serde(rename = "@type")]
-    type_: String,
-    pub(crate) motivation: Option<ManifestType>,
     pub(crate) resource: ImageResource,
 }
 
@@ -160,8 +141,6 @@ pub(crate) struct ImageResource {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Service {
-    #[serde(rename = "@context")]
-    pub(crate) context: String,
     #[serde(rename = "@id")]
     pub(crate) id: String,
     pub(crate) profile: String,
@@ -198,9 +177,6 @@ pub(crate) struct Manifest {
     pub(crate) license: Option<OneTypeOrMany<UriLink>>,
     pub(crate) logo: Option<OneTypeOrMany<UriLink>>,
     pub(crate) description: Option<LabelText>,
-    pub(crate) service: Option<Service>,
-    pub(crate) see_also: Option<OneTypeOrMany<UriLink>>,
-    pub(crate) within: Option<LabelText>,
     pub(crate) sequences: Vec<Sequence>,
 }
 
@@ -215,6 +191,10 @@ impl IsManifest for Manifest {
         } else {
             Box::new(std::iter::empty::<Cow<str>>())
         }
+    }
+
+    fn get_required_statements(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+        Box::new(Vec::new().into_iter())
     }
 
     fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
@@ -541,22 +521,6 @@ mod tests {
             .get(language::EN);
         assert_eq!(attribution, vec!["Provided by Example Organization"]);
 
-        let see_also: Vec<_> = presentation_info.see_also.unwrap().into_iter().collect();
-
-        assert_eq!(
-            see_also[0].id(),
-            "http://www.example.org/library/catalog/book1.marc"
-        );
-
-        let within: Vec<_> = presentation_info
-            .within
-            .as_ref()
-            .unwrap()
-            .get(language::EN)
-            .into_iter()
-            .collect();
-        assert_eq!(within, vec!["http://www.example.org/collections/books/"]);
-
         assert_eq!(presentation_info.sequences.len(), 1);
 
         let seq = &presentation_info.sequences[0];
@@ -571,12 +535,6 @@ mod tests {
             .collect();
         assert_eq!(label, vec!["Current Page Order"]);
 
-        let viewing_direction = seq.viewing_direction.as_ref().unwrap();
-        assert_eq!(*viewing_direction, ViewingDirection::LeftToRight);
-
-        let viewing_hint: Vec<_> = seq.viewing_hint.as_ref().unwrap().iter().collect();
-        assert_eq!(viewing_hint, vec![&ViewingHint::Paged]);
-
         assert_eq!(seq.canvases.len(), 3);
 
         for (index, canvas) in seq.canvases.iter().enumerate() {
@@ -590,10 +548,6 @@ mod tests {
             assert_eq!(canvas.images.len(), 1);
             let image = &canvas.images[0];
 
-            assert!(image.id.is_none());
-            assert_eq!(image.type_, "oa:Annotation");
-
-            assert_eq!(*image.motivation.as_ref().unwrap(), ManifestType::Painting);
             let resource = &image.resource;
 
             let service = &resource.service;
@@ -601,7 +555,6 @@ mod tests {
                 service.id,
                 format!("http://www.example.org/images/book1-page{num}")
             );
-            assert_eq!(service.context, "http://iiif.io/api/image/2/context.json");
             assert_eq!(service.profile, "http://iiif.io/api/image/2/level1.json");
         }
     }
@@ -696,9 +649,6 @@ mod tests {
             .get(language::EN);
         assert_eq!(attribution, vec!["Provided by Harvard University"]);
 
-        assert!(presentation_info.see_also.is_none());
-        assert!(presentation_info.within.is_none());
-
         assert_eq!(presentation_info.sequences.len(), 1);
 
         let seq = &presentation_info.sequences[0];
@@ -715,11 +665,6 @@ mod tests {
             label,
             vec!["Harvard University, Harvard Art Museums, INV204583"]
         );
-
-        assert!(seq.viewing_direction.is_none());
-
-        let viewing_hint: Vec<_> = seq.viewing_hint.as_ref().unwrap().iter().collect();
-        assert_eq!(viewing_hint, vec![&ViewingHint::Individuals]);
 
         assert_eq!(seq.canvases.len(), 1);
 
@@ -741,17 +686,10 @@ mod tests {
         assert_eq!(canvas.images.len(), 1);
         let image = &canvas.images[0];
 
-        assert_eq!(
-            image.id.as_ref().unwrap(),
-            "https://iiif.lib.harvard.edu/manifests/ids:11927378/annotation/anno-11927378.json"
-        );
-        assert_eq!(image.type_, "oa:Annotation");
-        assert_eq!(*image.motivation.as_ref().unwrap(), ManifestType::Painting);
         let resource = &image.resource;
 
         let service = &resource.service;
         assert_eq!(service.id, "https://ids.lib.harvard.edu/ids/iiif/11927378");
-        assert_eq!(service.context, "http://iiif.io/api/image/2/context.json");
         assert_eq!(service.profile, "http://iiif.io/api/image/2/level2.json");
     }
 

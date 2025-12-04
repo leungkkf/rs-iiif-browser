@@ -5,6 +5,7 @@ use std::borrow::Cow;
 pub(crate) trait IsManifest: Send + Sync {
     fn get_title(&self) -> Cow<'_, str>;
     fn get_attribution(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
+    fn get_required_statements(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
     fn get_description(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
     fn get_license(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;
     fn get_logo(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_>;

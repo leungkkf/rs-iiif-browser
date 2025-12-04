@@ -193,6 +193,16 @@ pub(crate) fn presentation_ui_system(
                     add_text(ui, &format!("{} {}", attribution, license), None, 3);
                 }
 
+                let required_statements = presentation
+                    .model()
+                    .get_required_statements()
+                    .collect::<Vec<_>>()
+                    .join(". ");
+
+                if !required_statements.is_empty() {
+                    add_text(ui, &required_statements, None, 3);
+                }
+
                 // Manifest provider logo.
                 for logo in presentation.model().get_logo() {
                     ui.add_space(6.0);

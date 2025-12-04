@@ -87,26 +87,15 @@ pub(crate) enum DataType {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Service2 {
-    #[serde(rename = "@id")]
-    id: String,
-    #[serde(rename = "@type")]
-    type_: String,
-    profile: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Service3 {
     id: String,
-    #[serde(rename = "type")]
-    type_: String,
     profile: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub(crate) enum Service {
-    Service2(Service2),
+    Service2(crate::iiif::manifest_v2::Service),
     Service3(Service3),
 }
 
@@ -124,20 +113,6 @@ pub(crate) struct Thumbnail {
     id: String,
     #[serde(rename = "type")]
     type_: DataType,
-    format: Option<String>,
-    width: Option<u32>,
-    height: Option<u32>,
-    duration: Option<u32>,
-    // service: Option<Vec<Service>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct HomePage {
-    id: String,
-    #[serde(rename = "type")]
-    type_: String,
-    label: LabelText,
-    format: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -147,7 +122,6 @@ pub(crate) struct Provider {
     #[serde(rename = "type")]
     type_: String,
     label: LabelText,
-    homepage: OneTypeOrMany<HomePage>,
     logo: OneTypeOrMany<Thumbnail>,
 }
 
@@ -193,7 +167,7 @@ pub(crate) struct Manifest {
     #[serde(rename = "@context")]
     context: OneTypeOrMany<String>,
     #[serde(rename = "type")]
-    presentation_type: ManifestType,
+    manifest_type: ManifestType,
     label: LabelText,
     summary: OneTypeOrMany<LabelText>,
     rights: String,
@@ -214,6 +188,22 @@ impl IsManifest for Manifest {
                 v.iter()
                     .flat_map(|x| x.label.get(language::EN))
                     .map(Cow::from)
+                    .collect::<Vec<_>>()
+                    .into_iter(),
+            ),
+        }
+    }
+
+    fn get_required_statements(&self) -> Box<dyn Iterator<Item = Cow<'_, str>> + '_> {
+        match &self.required_statement {
+            None => Box::new(Vec::new().into_iter()),
+            Some(required_statement) => Box::new(
+                required_statement
+                    .label
+                    .get(language::EN)
+                    .iter()
+                    .zip(required_statement.value.get(language::EN))
+                    .map(|(label, value)| Cow::from(format!("{}: {}", label, value)))
                     .collect::<Vec<_>>()
                     .into_iter(),
             ),
@@ -656,7 +646,7 @@ mod tests {
 
         assert_eq!(presentation_info.label.get(language::EN).join(""), "Book 1");
 
-        assert_eq!(presentation_info.presentation_type, ManifestType::Manifest);
+        assert_eq!(presentation_info.manifest_type, ManifestType::Manifest);
 
         assert_eq!(
             presentation_info.context.iter().collect::<Vec<_>>(),
@@ -712,15 +702,6 @@ mod tests {
             provider.label.get(language::EN),
             vec!["Example Organization"]
         );
-        let homepage = provider.homepage.iter().next().unwrap();
-
-        assert_eq!(homepage.id, "https://example.org/");
-        assert_eq!(homepage.format, "text/html");
-        assert_eq!(
-            homepage.label.get(language::EN),
-            vec!["Example Organization Homepage"]
-        );
-
         let canvas = &presentation_info.items[0];
 
         assert_eq!(canvas.id, "https://example.org/iiif/book1/canvas/p1");
