@@ -90,9 +90,9 @@ pub(crate) enum IiifImageInfo {
 impl IiifImageInfo {
     /// Build from a URL.
     pub(crate) fn try_from_url(url: &str) -> core::result::Result<Box<dyn IsImage>, IiifError> {
-        let info_json = ureq::get(url).call()?.body_mut().read_to_string()?;
-        debug!("info {:?}", info_json);
+        let info_json = crate::iiif::fetch_json(url)?;
 
+        debug!("info {:?}", info_json);
         Self::try_from_json(&info_json)
     }
 
