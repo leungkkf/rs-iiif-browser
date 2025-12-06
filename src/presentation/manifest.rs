@@ -20,9 +20,9 @@ impl Manifest {
         self.inner.as_ref()
     }
 
-    /// Try to create the manifest from the URL.
-    pub(crate) fn try_from_url(url: &str) -> core::result::Result<Self, IiifError> {
-        let iiif_manifest = manifest::Manifest::try_from_url(url)?;
+    /// Try to create the manifest from JSON.
+    pub(crate) fn try_from_json(json: &str) -> core::result::Result<Self, IiifError> {
+        let iiif_manifest = manifest::Manifest::try_from_json(json)?;
 
         Ok(Manifest::from(iiif_manifest))
     }

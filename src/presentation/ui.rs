@@ -1,11 +1,11 @@
+use crate::UserNotification;
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
 use crate::presentation::manifest::Manifest;
-use crate::rendering::tiled_image::TiledImage;
 use bevy::camera::Viewport;
 use bevy::prelude::{
-    Camera, Commands, Entity, MessageWriter, Query, Res, ResMut, Resource, Result, Single, UVec2,
-    Window, With, Without, default,
+    Camera, Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, Resource, Result,
+    Single, UVec2, Window, With, Without, default,
 };
 use bevy::window::{PrimaryWindow, RequestRedraw};
 use bevy_egui::egui::epaint::text::{FontInsert, FontPriority, InsertFontFamily};
@@ -78,7 +78,6 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn presentation_ui_system(
-    mut commands: Commands,
     mut contexts: EguiContexts,
     mut camera: Single<&mut Camera, Without<EguiContext>>,
     window: Single<&mut Window, With<PrimaryWindow>>,
@@ -86,10 +85,19 @@ pub(crate) fn presentation_ui_system(
     app_settings: Res<AppSettings>,
     mut app_state: ResMut<AppState>,
     presentation_query: Query<(Entity, &Manifest)>,
-    tiled_image_query: Query<(Entity, &TiledImage)>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
+    mut messages: MessageReader<UserNotification>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
+
+    // Display user notifications.
+    for UserNotification(msg) in messages.read() {
+        egui_ui_state
+            .toasts
+            .info(msg)
+            .show_progress_bar(true)
+            .duration(Duration::from_secs(5));
+    }
 
     let mut top = egui::Panel::top("top_panel")
         .resizable(false)
@@ -120,26 +128,19 @@ pub(crate) fn presentation_ui_system(
                 // Add address bar.
                 add_address_bar(
                     ui,
-                    &mut commands,
                     &mut egui_ui_state,
                     &mut app_state,
-                    presentation_query,
-                    tiled_image_query,
-                    &mut redraw_request_writer,
                     ui.available_width() - if num_canvases > 1 { 85.0 } else { 0.0 },
                 );
 
                 if num_canvases > 1 {
                     // Add page controls.
                     add_page_controls(
-                        &mut commands,
                         &mut egui_ui_state,
                         &mut app_state,
                         presentation_query,
-                        tiled_image_query,
                         ui,
                         num_canvases,
-                        &mut redraw_request_writer,
                     );
                 }
             });
@@ -241,13 +242,10 @@ pub(crate) fn presentation_ui_system(
                 // Canvas thumbnails.
                 add_canvas_thumbnails(
                     ui,
-                    &mut commands,
                     &mut egui_ui_state,
                     app_settings,
-                    tiled_image_query,
                     &mut app_state,
                     presentation,
-                    &mut redraw_request_writer,
                 )?;
 
                 // ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
@@ -333,14 +331,11 @@ pub(crate) fn presentation_ui_system(
 /// Add controls to change pages.
 #[allow(clippy::too_many_arguments)]
 fn add_page_controls(
-    commands: &mut Commands<'_, '_>,
     egui_ui_state: &mut ResMut<'_, EguiUiState>,
     app_state: &mut ResMut<'_, AppState>,
     presentation_query: Query<'_, '_, (Entity, &Manifest)>,
-    tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
     ui: &mut egui::Ui,
     num_canvases: usize,
-    redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
 ) {
     ui.spacing_mut().item_spacing.x = 1.0;
 
@@ -387,15 +382,7 @@ fn add_page_controls(
             .next()
             .expect("should have a manifest due to prevous check on the number of canvas > 1");
 
-        if let Err(err) = crate::load_canvas(
-            manifest,
-            commands,
-            &tiled_image_query,
-            app_state,
-            egui_ui_state,
-            new_canvas_index,
-            redraw_request_writer,
-        ) {
+        if let Err(err) = crate::web::load_canvas(manifest, app_state, new_canvas_index) {
             let msg = format!("Unable to load canvas.\n'{}'", err);
 
             egui_ui_state
@@ -411,13 +398,10 @@ fn add_page_controls(
 #[allow(clippy::too_many_arguments)]
 fn add_canvas_thumbnails(
     ui: &mut egui::Ui,
-    commands: &mut Commands<'_, '_>,
     egui_ui_state: &mut ResMut<'_, EguiUiState>,
     app_settings: Res<'_, AppSettings>,
-    tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
     app_state: &mut ResMut<'_, AppState>,
     presentation: &Manifest,
-    redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
 ) -> Result {
     let canvas_iter = presentation
         .model()
@@ -486,14 +470,10 @@ fn add_canvas_thumbnails(
                                     .response
                                     .interact(Sense::CLICK)
                                     .clicked()
-                                    && let Err(err) = crate::load_canvas(
+                                    && let Err(err) = crate::web::load_canvas(
                                         presentation,
-                                        commands,
-                                        &tiled_image_query,
                                         app_state,
-                                        egui_ui_state,
                                         canvas_index,
-                                        redraw_request_writer,
                                     )
                                 {
                                     let msg = format!("Unable to load canvas.\n'{}'", err);
@@ -520,12 +500,8 @@ fn add_canvas_thumbnails(
 #[allow(clippy::too_many_arguments)]
 fn add_address_bar(
     ui: &mut egui::Ui,
-    commands: &mut Commands<'_, '_>,
     egui_ui_state: &mut ResMut<'_, EguiUiState>,
     app_state: &mut ResMut<'_, AppState>,
-    presentation_query: Query<'_, '_, (Entity, &Manifest)>,
-    tiled_image_query: Query<'_, '_, (Entity, &TiledImage)>,
-    redraw_request_writer: &mut MessageWriter<'_, RequestRedraw>,
     width: f32,
 ) {
     if ui
@@ -540,40 +516,7 @@ fn add_address_bar(
     {
         let presentation_url = egui_ui_state.presentation_url.to_string();
 
-        match crate::load_presentation(
-            commands,
-            app_state,
-            egui_ui_state,
-            &presentation_url,
-            &presentation_query,
-            &tiled_image_query,
-        ) {
-            Ok(_) => {
-                let msg = format!("Loaded manifest URL '{}'", presentation_url);
-
-                egui_ui_state
-                    .toasts
-                    .info(msg)
-                    .show_progress_bar(true)
-                    .duration(Duration::from_secs(5));
-                app_state.presentation_url = presentation_url;
-
-                redraw_request_writer.write(RequestRedraw);
-            }
-            Err(err) => {
-                let msg = format!(
-                    "Unable to load manifest URL '{}'.\n Error: {:?}",
-                    presentation_url, err
-                );
-
-                egui_ui_state
-                    .toasts
-                    .warning(msg)
-                    .show_progress_bar(true)
-                    .duration(Duration::from_secs(5));
-                egui_ui_state.presentation_url = app_state.presentation_url.to_string();
-            }
-        }
+        crate::web::load_presentation(app_state, &presentation_url);
     }
 }
 

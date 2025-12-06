@@ -109,12 +109,12 @@ impl TiledImage {
         }
     }
 
-    /// Create the image from the IFFF image info URL.
-    pub(crate) fn try_from_url(iiif_endpoint: &str) -> core::result::Result<Self, IiifError> {
-        // Fetch IIIF image info.json.
-        let url = TiledImage::get_image_info_url(iiif_endpoint);
-        // let iiif_image_info = IiifImageInfo::from_url(&url)?;
-        let iiif_image_info = IiifImageInfo::try_from_url(&url)?;
+    /// Create the image from the IFFF image info JSON.
+    pub(crate) fn try_from_json(
+        json: &str,
+        iiif_endpoint: &str,
+    ) -> core::result::Result<Self, IiifError> {
+        let iiif_image_info = IiifImageInfo::try_from_json(json)?;
 
         // Get tile size and levels.
         // We require both region by px and size by width/height for the tiling.
@@ -361,7 +361,7 @@ impl TiledImage {
     }
 
     /// Get the image info end point.
-    fn get_image_info_url(iif_endpoint: &str) -> String {
+    pub(crate) fn get_image_info_url(iif_endpoint: &str) -> String {
         format!("{iif_endpoint}/info.json")
     }
 }
