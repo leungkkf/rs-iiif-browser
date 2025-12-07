@@ -7,11 +7,10 @@ use bevy::{
     color::Srgba,
     image::TRANSPARENT_IMAGE_HANDLE,
     prelude::{
-        Add, AlignSelf, AssetServer, BackgroundColor, BorderColor, Button, ButtonInput, Camera,
-        Changed, Color, Commands, Component, Display, Entity, GlobalTransform, ImageNode,
-        Interaction, JustifyContent, MessageWriter, MouseButton, Node, On, PositionType, Query,
-        Rect, Remove, Res, ResMut, Result, Single, SpawnRelated, Transform, UiRect, Val, Vec2,
-        With, children, default, info,
+        Add, AlignSelf, AssetServer, BackgroundColor, BorderColor, Button, Camera, Changed, Color,
+        Commands, Component, Display, Entity, GlobalTransform, ImageNode, Interaction,
+        JustifyContent, MessageWriter, Node, On, PositionType, Query, Rect, Remove, Res, ResMut,
+        Result, Single, SpawnRelated, Transform, UiRect, Val, Vec2, With, children, default, info,
     },
     ui::RelativeCursorPosition,
     window::RequestRedraw,
@@ -196,10 +195,20 @@ pub(crate) fn update_view_rect_system(
     view_rect.display = Display::Block;
 }
 
+/// Check if the bevy UI has mouse input.
+pub(crate) fn ui_has_mouse_input(cursor_query: Query<&RelativeCursorPosition>) -> bool {
+    if let Ok(cursor) = cursor_query.single()
+        && cursor.cursor_over
+    {
+        true
+    } else {
+        false
+    }
+}
+
 /// Handle the mouse events of the minimap.
 pub(crate) fn mouse_input_system(
     interaction: Single<&Interaction, (Changed<Interaction>, With<MinimapImage>)>,
-    mut mouse: ResMut<ButtonInput<MouseButton>>,
     cursor_query: Query<&RelativeCursorPosition>,
     camera_query: Single<&mut Transform, With<MainCamera>>,
     tiled_image: Single<&TiledImage>,
@@ -222,6 +231,4 @@ pub(crate) fn mouse_input_system(
         transform.translation = world_pos;
         tile_mod_state.invalidate();
     }
-
-    mouse.clear();
 }

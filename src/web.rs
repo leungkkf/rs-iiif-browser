@@ -152,7 +152,7 @@ pub(crate) fn load_canvas(
         Arc::clone(&app_state.image_json_download_state),
         ImageDownloadInfo {
             iiif_endpoint: iiif_endpoint.to_string(),
-            canvas_index: canvas_index,
+            canvas_index,
         },
     );
 

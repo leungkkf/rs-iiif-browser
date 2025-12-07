@@ -79,7 +79,9 @@ fn main() {
                 (
                     input::keyboard::keyboard_input_system
                         .run_if(not(egui_wants_any_keyboard_input)),
-                    input::mouse::mouse_input_system.run_if(not(egui_wants_any_pointer_input)),
+                    input::mouse::mouse_input_system
+                        .run_if(not(egui_wants_any_pointer_input))
+                        .run_if(not(minimap::ui_has_mouse_input)),
                     minimap::mouse_input_system,
                     rendering::tile::asset_event_system,
                     web::load_presentation_system,
@@ -168,10 +170,10 @@ fn setup_initial_presentation(mut app_state: ResMut<AppState>) -> Result {
     if let Some(presentation_url) = args.manifest {
         web::load_presentation(&mut app_state, &presentation_url);
     }
-    // load_presentation(
-    //     &mut app_state,
-    //     "https://iiif.harvardartmuseums.org/manifests/object/21116",
-    // );
+    web::load_presentation(
+        &mut app_state,
+        "https://iiif.harvardartmuseums.org/manifests/object/21116",
+    );
 
     Ok(())
 }
