@@ -43,6 +43,16 @@ fn main() {
                     meta_check: AssetMetaCheck::Never,
                     ..default()
                 })
+                // Required for the pasting to egui (prevent_default_event_handling to false) in wasm.
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        // You may want this set to `true` if you need virtual keyboard work in mobile browsers.
+                        prevent_default_event_handling: false,
+                        fit_canvas_to_parent: true,
+                        ..default()
+                    }),
+                    ..default()
+                })
                 // Understood the warning.
                 .set(WebAssetPlugin {
                     silence_startup_warning: true,

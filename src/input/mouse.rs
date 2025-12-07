@@ -76,7 +76,14 @@ pub(crate) fn mouse_input_system(
     let max_delta_zoom = max_zoom_scale / orthogonal.scale;
     let min_delta_zoom = app_settings.min_camera_zoom_scale / orthogonal.scale;
 
-    let delta_zoom = (1.0 - mouse_wheel_input.delta.y * 0.1)
+    // Keep it consistent across different platforms.
+    let wheel_delta = if mouse_wheel_input.delta.y != 0.0 {
+        mouse_wheel_input.delta.y.signum()
+    } else {
+        0.0
+    };
+
+    let delta_zoom = (1.0 - wheel_delta * 0.1)
         .max(min_delta_zoom)
         .min(max_delta_zoom);
 
