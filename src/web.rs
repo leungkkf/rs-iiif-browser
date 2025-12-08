@@ -82,7 +82,6 @@ pub(crate) fn load_presentation_system(
             match Manifest::try_from_json(json) {
                 Ok(presentation) => {
                     app_state.presentation_url = info.url.to_string();
-                    *download_state_mutex = DownloadState::None;
 
                     for (presentation_entity, _) in presentation_query {
                         commands.entity(presentation_entity).despawn();
@@ -108,12 +107,13 @@ pub(crate) fn load_presentation_system(
                 }
                 Err(e) => {
                     messages.write(UserNotification(format!(
-                        "failed to parse manifest JSON from '{}'.\n{:?}",
-                        app_state.presentation_url, e
+                        "failed to processing manifest from '{}'.\n{:?}",
+                        info.url, e
                     )));
                 }
             };
 
+            *download_state_mutex = DownloadState::None;
             redraw_request_writer.write(RequestRedraw);
         }
         DownloadState::InProgress { .. } => {
@@ -177,7 +177,6 @@ pub(crate) fn load_canvas_system(
             match TiledImage::try_from_json(json, &info.iiif_endpoint) {
                 Ok(image) => {
                     app_state.canvas_index = info.canvas_index;
-                    *download_state_mutex = DownloadState::None;
 
                     for (image_entity, _) in tiled_image_query {
                         commands.entity(image_entity).despawn();
@@ -195,6 +194,7 @@ pub(crate) fn load_canvas_system(
                 }
             }
 
+            *download_state_mutex = DownloadState::None;
             redraw_request_writer.write(RequestRedraw);
         }
         DownloadState::InProgress { .. } => {
