@@ -19,9 +19,11 @@ pub(crate) struct TouchHistory {
     touches: [Option<Touch>; 2],
 }
 
-fn compute_centre_and_distance(touches: [&Touch; 2]) -> (Vec2, f32) {
+fn compute_centre_and_distance_squared(touches: [&Touch; 2]) -> (Vec2, f32) {
     let centre = (touches[0].position() + touches[1].position()) / 2.0;
-    let distance = touches[1].position().distance(touches[0].position());
+    let distance = touches[1]
+        .position()
+        .distance_squared(touches[0].position());
 
     (centre, distance)
 }
@@ -78,7 +80,10 @@ pub(crate) fn touch_input_system(
                 .iter()
                 .enumerate()
                 .filter(|(_, touch)| {
-                    touch.is_some_and(|x| x.position().distance(just_pressed.position()) > 0.01)
+                    touch.is_some_and(|x| {
+                        x.id() != just_pressed.id()
+                            && x.position().distance(just_pressed.position()) > 0.01
+                    })
                 })
                 .map(|(index, _)| 1 - index)
                 .next();
@@ -95,7 +100,7 @@ pub(crate) fn touch_input_system(
     // If two pressed events and the history records are filled,
     // zoom and translate according to the events.
     if all_pressed_events.len() == 2 && touch_history.touches.iter().all(|x| x.is_some()) {
-        let (current_centre, current_distance) = compute_centre_and_distance(
+        let (current_centre, current_distance_squared) = compute_centre_and_distance_squared(
             all_pressed_events[0..2]
                 .try_into()
                 .expect("should have two items in the pressed events"),
@@ -103,9 +108,10 @@ pub(crate) fn touch_input_system(
 
         let start_1 = touch_history.touches[0].expect("should have two items in the history");
         let start_2 = touch_history.touches[1].expect("should have two items in the history");
-        let (start_centre, start_distance) = compute_centre_and_distance([&start_1, &start_2]);
+        let (start_centre, start_distance_squared) =
+            compute_centre_and_distance_squared([&start_1, &start_2]);
 
-        let delta_zoom = start_distance / current_distance.max(0.01);
+        let delta_zoom = start_distance_squared / current_distance_squared.max(0.01);
         let max_camera_zoom_scale = tiled_image.get_world_max_size_rect().size().max_element()
             / app_settings.min_image_size;
 
@@ -128,7 +134,7 @@ pub(crate) fn touch_input_system(
         transform.translation =
             touch_history.start_translation - touch_moved + Vec3::new(delta_x, delta_y, 0.0);
 
-        if touch_moved.length() != 0.0 && zoom_changed != 0.0 {
+        if touch_moved.length_squared() != 0.0 && zoom_changed != 0.0 {
             tile_mod_state.invalidate();
             redraw_request_writer.write(RequestRedraw);
         }
