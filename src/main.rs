@@ -82,6 +82,7 @@ fn main() {
                     input::mouse::mouse_input_system
                         .run_if(not(egui_wants_any_pointer_input))
                         .run_if(not(minimap::ui_has_mouse_input)),
+                    input::touch::touch_input_system,
                     minimap::mouse_input_system,
                     rendering::tile::asset_event_system,
                     web::load_presentation_system,
@@ -131,13 +132,7 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     commands.insert_resource(TileModState::new());
 
     // App settings.
-    commands.insert_resource(AppSettings::new(
-        4096,
-        64.0,
-        1.0 / 4.0,
-        256.0,
-        crate::iiif::manifest::language::EN.to_string(),
-    ));
+    commands.insert_resource(AppSettings::default());
 
     // Tile mod state.
     commands.insert_resource(TilePruneState::new());
@@ -169,11 +164,12 @@ fn setup_initial_presentation(mut app_state: ResMut<AppState>) -> Result {
     // Try to read the manifest URL from the command line.
     if let Some(presentation_url) = args.manifest {
         web::load_presentation(&mut app_state, &presentation_url);
+    } else {
+        web::load_presentation(
+            &mut app_state,
+            "https://iiif.harvardartmuseums.org/manifests/object/21116",
+        );
     }
-    web::load_presentation(
-        &mut app_state,
-        "https://iiif.harvardartmuseums.org/manifests/object/21116",
-    );
 
     Ok(())
 }

@@ -16,7 +16,7 @@ pub(crate) struct AppSettings {
 }
 
 impl AppSettings {
-    pub(crate) fn new(
+    fn new(
         max_cache_items: usize,
         thumbnail_size: f32,
         min_camera_zoom_scale: f32,
@@ -30,5 +30,17 @@ impl AppSettings {
             min_image_size,
             language,
         }
+    }
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        AppSettings::new(
+            4096,
+            64.0,
+            1.0 / 4.0,
+            256.0,
+            crate::iiif::manifest::language::EN.to_string(),
+        )
     }
 }

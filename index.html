@@ -165,6 +165,10 @@
                             addedNode.addEventListener("dragstart", (event) => {
                                 event.preventDefault();
                             });
+                            // Prevent touch events for the canvas.
+                            addedNode.addEventListener("touchstart", (event) => {
+                                event.preventDefault();
+                            });
 
                             if (addedNode.innerText.trim().length === 0) {
                                 // Add compatibility note
