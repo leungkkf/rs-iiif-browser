@@ -13,7 +13,12 @@
         <title>RS IIIF Browser</title>
 
         <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
-        <link data-trunk rel="rust" data-wasm-opt="2" />
+        <link
+            data-trunk
+            rel="rust"
+            data-wasm-opt="2"
+            data-bin="rs-iiif-browser"
+        />
         <!-- this is the base url relative to which other urls will be constructed. trunk will insert this from the public-url option -->
         <base data-trunk-public-url />
 
@@ -166,9 +171,12 @@
                                 event.preventDefault();
                             });
                             // Prevent touch events for the canvas.
-                            addedNode.addEventListener("touchstart", (event) => {
-                                event.preventDefault();
-                            });
+                            addedNode.addEventListener(
+                                "touchstart",
+                                (event) => {
+                                    event.preventDefault();
+                                },
+                            );
 
                             if (addedNode.innerText.trim().length === 0) {
                                 // Add compatibility note

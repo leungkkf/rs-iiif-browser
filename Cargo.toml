@@ -11,6 +11,10 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
+[lib]
+name = "rs_iiif_browser"
+crate-type = ["lib", "cdylib"]
+
 [dependencies]
 chrono = { version = "0.4.42", features = ["serde"] }
 clap = { version = "4.5.53", features = ["derive"] }
@@ -43,6 +47,7 @@ bevy = { version="0.17", default-features = false, features = [
     "bevy_core_pipeline",
     "bevy_post_process",
     "bevy_ui",
+    "android-native-activity",
     "bevy_render",
     "bevy_core_pipeline",
     "bevy_ui_render",
@@ -54,3 +59,16 @@ bevy = { version="0.17", default-features = false, features = [
     "webp",
     "https"
 ] }
+
+[package.metadata.android]
+package = "org.leungkkf.rs_iiif_browser"
+apk_name = "rs_iiif_browser"
+# This strips debug symbols from the shared libraries, drastically reducing APK size. If you need them, remove the option.
+strip = "strip"
+build_targets = ["aarch64-linux-android"]
+
+[package.metadata.android.sdk]
+target_sdk_version = 34
+
+[package.metadata.android.application]
+label = "RS IIIF Browser"
