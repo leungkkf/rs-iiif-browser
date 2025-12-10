@@ -82,7 +82,8 @@ It is based on the [Bevy](https://bevy.org/) game engine with the [Bevy egui plu
 Bevy allows the easy rendering of the tiles/images with support for camera and input. 
 The project is created as an exercise while learning Rust. 
 
-<!--img src='demo/demo.gif' /-->
+A web demo can be found [here](https://leungkkf.github.io/testbed/). 
+
 
 Existing features: 
 * Limited support of IIIF manifest and image (versions 2 and 3).
