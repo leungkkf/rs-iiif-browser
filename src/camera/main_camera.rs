@@ -1,4 +1,6 @@
-use bevy::prelude::{Camera, Component, GlobalTransform, Rect, Single, Transform, Vec2, With};
+use bevy::prelude::{
+    Camera, Component, GlobalTransform, Rect, Resource, Single, Transform, Vec2, Vec3, With,
+};
 
 use crate::{camera::camera_ext::get_world_viewport_rect, rendering::tiled_image::TiledImage};
 
@@ -7,6 +9,29 @@ pub(crate) struct MainCamera2d;
 
 #[derive(Component)]
 pub(crate) struct MainCamera3d;
+
+#[derive(Resource)]
+pub(crate) struct PanOrbitState {
+    pub(crate) center: Vec3,
+    pub(crate) radius: f32,
+    pub(crate) upside_down: bool,
+    pub(crate) pitch: f32,
+    pub(crate) yaw: f32,
+    pub(crate) is_added: bool,
+}
+
+impl Default for PanOrbitState {
+    fn default() -> Self {
+        PanOrbitState {
+            center: Vec3::ZERO,
+            radius: 1.0,
+            upside_down: false,
+            pitch: 0.0,
+            yaw: 0.0,
+            is_added: true,
+        }
+    }
+}
 
 /// Keep the image within the viewport.
 pub(crate) fn translation_bounding_system(

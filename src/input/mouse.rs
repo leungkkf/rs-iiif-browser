@@ -1,7 +1,7 @@
 use crate::{
     AppState,
     app::app_settings::AppSettings,
-    camera::main_camera::MainCamera2d,
+    camera::main_camera::{MainCamera2d, PanOrbitState},
     rendering::{tile::TileModState, tiled_image::TiledImage},
 };
 use bevy::{
@@ -111,73 +111,17 @@ pub(crate) fn mouse_input_system(
     }
 }
 
-pub(crate) struct PanOrbitState {
-    center: Vec3,
-    radius: f32,
-    upside_down: bool,
-    pitch: f32,
-    yaw: f32,
-    is_added: bool,
-}
-
-impl Default for PanOrbitState {
-    fn default() -> Self {
-        PanOrbitState {
-            center: Vec3::ZERO,
-            radius: 1.0,
-            upside_down: false,
-            pitch: 0.0,
-            yaw: 0.0,
-            is_added: true,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum PanOrbitAction {
-    Pan,
-    Orbit,
-    Zoom,
-}
-
-pub(crate) struct PanOrbitSettings {
-    /// World units per pixel of mouse motion
-    pan_sensitivity: f32,
-    /// Radians per pixel of mouse motion
-    orbit_sensitivity: f32,
-    /// Exponent per pixel of mouse motion
-    zoom_sensitivity: f32,
-    /// What action is bound to the scroll wheel?
-    scroll_action: Option<PanOrbitAction>,
-    /// For devices with a notched scroll wheel, like desktop mice
-    scroll_line_sensitivity: f32,
-    /// For devices with smooth scrolling, like touchpads
-    scroll_pixel_sensitivity: f32,
-}
-
-impl Default for PanOrbitSettings {
-    fn default() -> Self {
-        PanOrbitSettings {
-            pan_sensitivity: 0.002,                 // 2000 pixels per world unit
-            orbit_sensitivity: 0.5f32.to_radians(), // 0.5 degree per pixel
-            zoom_sensitivity: 0.01,
-            scroll_action: Some(PanOrbitAction::Zoom),
-            scroll_line_sensitivity: 16.0, // 1 "line" == 16 "pixels of motion"
-            scroll_pixel_sensitivity: 1.0,
-        }
-    }
-}
-
 /// Mouse input system for 3D.
 /// Taken from https://bevy-cheatbook.github.io/cookbook/pan-orbit-camera.html
 pub(crate) fn mouse_input_system_3d(
+    mouse: Res<ButtonInput<MouseButton>>,
     mut evr_motion: MessageReader<MouseMotion>,
     mut evr_scroll: MessageReader<MouseWheel>,
-    settings: Local<PanOrbitSettings>,
-    mut state: Local<PanOrbitState>,
+    app_settings: Res<AppSettings>,
+    mut state: ResMut<PanOrbitState>,
     mut transform: Single<&mut Transform, With<Camera3d>>,
-    mouse: Res<ButtonInput<MouseButton>>,
 ) {
+    let settings = &app_settings.pan_orbit_settings;
     // First, accumulate the total amount of
     // mouse motion and scroll, from all pending events:
     let mut total_motion: Vec2 = evr_motion.read().map(|ev| ev.delta).sum();
@@ -206,18 +150,9 @@ pub(crate) fn mouse_input_system_3d(
     // based on our configuration settings.
 
     let mut total_pan = Vec2::ZERO;
-    // if settings
-    //     .pan_key
-    //     .map(|key| kbd.pressed(key))
-    //     .unwrap_or(false)
+
     if mouse.pressed(MouseButton::Right) && !mouse.pressed(MouseButton::Left) {
         total_pan -= total_motion * settings.pan_sensitivity;
-    }
-    if settings.scroll_action == Some(PanOrbitAction::Pan) {
-        total_pan -=
-            total_scroll_lines * settings.scroll_line_sensitivity * settings.pan_sensitivity;
-        total_pan -=
-            total_scroll_pixels * settings.scroll_pixel_sensitivity * settings.pan_sensitivity;
     }
 
     let mut total_orbit = Vec2::ZERO;
@@ -225,29 +160,15 @@ pub(crate) fn mouse_input_system_3d(
     if mouse.pressed(MouseButton::Left) && !mouse.pressed(MouseButton::Right) {
         total_orbit -= total_motion * settings.orbit_sensitivity;
     }
-    if settings.scroll_action == Some(PanOrbitAction::Orbit) {
-        total_orbit -=
-            total_scroll_lines * settings.scroll_line_sensitivity * settings.orbit_sensitivity;
-        total_orbit -=
-            total_scroll_pixels * settings.scroll_pixel_sensitivity * settings.orbit_sensitivity;
-    }
 
     let mut total_zoom = Vec2::ZERO;
 
-    if settings.scroll_action == Some(PanOrbitAction::Zoom) {
-        total_zoom -=
-            total_scroll_lines * settings.scroll_line_sensitivity * settings.zoom_sensitivity;
-        total_zoom -=
-            total_scroll_pixels * settings.scroll_pixel_sensitivity * settings.zoom_sensitivity;
-    }
+    total_zoom -= total_scroll_lines * settings.scroll_line_sensitivity * settings.zoom_sensitivity;
+    total_zoom -=
+        total_scroll_pixels * settings.scroll_pixel_sensitivity * settings.zoom_sensitivity;
 
     // Upon starting a new orbit maneuver (key is just pressed),
     // check if we are starting it upside-down
-    // if settings
-    //     .orbit_key
-    //     .map(|key| kbd.just_pressed(key))
-    //     .unwrap_or(false)
-    // {
     if mouse.just_pressed(MouseButton::Left) && !mouse.pressed(MouseButton::Right) {
         state.upside_down = state.pitch < -FRAC_PI_2 || state.pitch > FRAC_PI_2;
     }

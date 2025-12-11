@@ -165,6 +165,9 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     // Tile mod state.
     commands.insert_resource(TilePruneState::new());
 
+    // Camera 3D pan orbit state.
+    commands.insert_resource(camera::main_camera::PanOrbitState::default());
+
     // Egui camera.
     commands.spawn((
         // The `PrimaryEguiContext` component requires everything needed to render a primary context.
