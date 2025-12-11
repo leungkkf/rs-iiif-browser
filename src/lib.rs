@@ -84,6 +84,7 @@ pub fn main() {
                     input::mouse::mouse_input_system
                         .run_if(not(egui_wants_any_pointer_input))
                         .run_if(not(minimap::ui_has_mouse_input)),
+                    input::mouse::mouse_input_system_3d.run_if(not(egui_wants_any_pointer_input)),
                     input::touch::touch_input_system,
                     minimap::mouse_input_system,
                     rendering::tile::asset_event_system,
@@ -143,7 +144,11 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
     ));
 
-    commands.spawn(DirectionalLight::default());
+    // Default ambient light.
+    commands.insert_resource(AmbientLight {
+        brightness: 2000.0,
+        ..default()
+    });
 
     // Tile cache resource.
     commands.insert_resource(TileCache::new());
