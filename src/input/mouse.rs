@@ -1,7 +1,7 @@
 use crate::{
     AppState,
     app::app_settings::AppSettings,
-    camera::main_camera::MainCamera,
+    camera::main_camera::MainCamera2d,
     rendering::{tile::TileModState, tiled_image::TiledImage},
 };
 use bevy::{
@@ -17,7 +17,7 @@ use bevy::{
 pub(crate) fn mouse_input_system(
     camera_query: Single<
         (&Camera, &GlobalTransform, &mut Transform, &mut Projection),
-        With<MainCamera>,
+        With<MainCamera2d>,
     >,
     mut app_state: ResMut<AppState>,
     app_settings: Res<AppSettings>,

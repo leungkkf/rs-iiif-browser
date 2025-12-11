@@ -2,10 +2,10 @@ use crate::{
     UserNotification,
     app::app_state::{AppState, DownloadState, ImageDownloadInfo, ManifestDownloadInfo},
     presentation::{manifest::Manifest, ui::EguiUiState},
-    rendering::tiled_image::TiledImage,
+    rendering::{model_image::ModelImage, tiled_image::TiledImage},
 };
 use bevy::{
-    prelude::{Commands, Entity, MessageWriter, Query, ResMut, Result, Single},
+    prelude::{Commands, Entity, MessageWriter, Query, ResMut, Result, Single, With},
     window::RequestRedraw,
 };
 use std::sync::{Arc, Mutex};
@@ -71,6 +71,7 @@ pub(crate) fn load_presentation_system(
     presentation_query: Query<(Entity, &Manifest)>,
     mut redraw_request_writer: MessageWriter<'_, RequestRedraw>,
     mut messages: MessageWriter<UserNotification>,
+    model_image_query: Query<Entity, With<ModelImage>>,
 ) -> Result {
     let download_state = Arc::clone(&app_state.manifest_json_download_state);
     let mut download_state_mutex = download_state
@@ -92,7 +93,13 @@ pub(crate) fn load_presentation_system(
                     egui_ui_state.canvas_index =
                         (app_state.canvas_index.saturating_add(1)).to_string();
 
-                    match load_canvas(&presentation, &mut app_state, 0) {
+                    match load_canvas(
+                        &mut commands,
+                        &presentation,
+                        &mut app_state,
+                        0,
+                        &model_image_query,
+                    ) {
                         Ok(_) => {
                             commands.spawn(presentation);
                             egui_ui_state.open_left_panel = true;
@@ -135,35 +142,48 @@ pub(crate) fn load_presentation_system(
 
 /// Begin loading the IIIF image from remote URL.
 pub(crate) fn load_canvas(
+    commands: &mut Commands,
     presentation: &Manifest,
     app_state: &mut ResMut<AppState>,
     canvas_index: usize,
+    model_image_query: &Query<Entity, With<ModelImage>>,
 ) -> Result {
     let canvas = presentation
         .model()
         .get_sequence(0)?
         .get_canvas(canvas_index)?;
 
-    let iiif_endpoint = &canvas.get_image(0)?.get_service();
-    let image_url = TiledImage::get_image_info_url(iiif_endpoint);
+    let image = canvas.get_image(0)?;
 
-    load(
-        &image_url,
-        Arc::clone(&app_state.image_json_download_state),
-        ImageDownloadInfo {
-            iiif_endpoint: iiif_endpoint.to_string(),
-            canvas_index,
-        },
-    );
+    if image.get_type() == "Model" {
+        for image_entity in model_image_query {
+            commands.entity(image_entity).despawn();
+        }
+
+        commands.spawn(ModelImage::new(&image.get_id()));
+    } else {
+        let iiif_endpoint = &image.get_service();
+        let image_url = TiledImage::get_image_info_url(iiif_endpoint);
+
+        load(
+            &image_url,
+            Arc::clone(&app_state.image_json_download_state),
+            ImageDownloadInfo {
+                iiif_endpoint: iiif_endpoint.to_string(),
+                canvas_index,
+            },
+        );
+    }
 
     Ok(())
 }
 
 /// Load image system to handle the status of JSON fetch.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn load_canvas_system(
     _presentation: Single<&Manifest>,
     mut commands: Commands,
-    tiled_image_query: Query<(Entity, &TiledImage)>,
+    tiled_image_query: Query<Entity, With<TiledImage>>,
     mut app_state: ResMut<AppState>,
     mut egui_ui_state: ResMut<EguiUiState>,
     mut redraw_request_writer: MessageWriter<'_, RequestRedraw>,
@@ -178,7 +198,7 @@ pub(crate) fn load_canvas_system(
                 Ok(image) => {
                     app_state.canvas_index = info.canvas_index;
 
-                    for (image_entity, _) in tiled_image_query {
+                    for image_entity in tiled_image_query {
                         commands.entity(image_entity).despawn();
                     }
                     commands.spawn(image);

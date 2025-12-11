@@ -136,6 +136,10 @@ pub(crate) struct Image {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ImageResource {
+    #[serde(rename = "@id")]
+    pub(crate) id: String,
+    #[serde(rename = "@type")]
+    pub(crate) type_: String,
     pub(crate) service: Service,
 }
 
@@ -305,6 +309,14 @@ impl IsImage for Image {
     // }
     fn get_service(&self) -> Cow<'_, str> {
         Cow::from(&self.resource.service.id)
+    }
+
+    fn get_id(&self) -> Cow<'_, str> {
+        Cow::from(&self.resource.id)
+    }
+
+    fn get_type(&self) -> Cow<'_, str> {
+        Cow::from(&self.resource.type_)
     }
 }
 

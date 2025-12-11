@@ -156,7 +156,7 @@ pub(crate) struct AnnotationItemBody {
     id: String,
     #[serde(rename = "type")]
     type_: String,
-    service: Vec<Service>,
+    service: Option<Vec<Service>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -323,11 +323,21 @@ impl IsCanvas for CanvasItem {
 
 impl IsImage for AnnotationItem {
     fn get_service(&self) -> Cow<'_, str> {
-        if let Some(service) = self.body.service.first() {
+        if let Some(services) = &self.body.service
+            && let Some(service) = services.first()
+        {
             Cow::from(service.get_id())
         } else {
             Cow::from("")
         }
+    }
+
+    fn get_id(&self) -> Cow<'_, str> {
+        Cow::from(&self.body.id)
+    }
+
+    fn get_type(&self) -> Cow<'_, str> {
+        Cow::from(&self.body.type_)
     }
 }
 
@@ -340,7 +350,8 @@ mod tests {
     // fn test_url_json() {
     //     // let url = "https://bl.digirati.io/iiif/ark:/81055/vdc_100110232122.0x000001";
     //     // let url = "https://iiif.rbge.org.uk/herb/iiif/E00008781/manifest";
-    //     let url = "https://iiif.library.ucla.edu/ark%3A%2F21198%2Fz1bs2wr9/manifest";
+    //     // let url = "https://iiif.library.ucla.edu/ark%3A%2F21198%2Fz1bs2wr9/manifest";
+    //     let url = "https://iiif.github.io/3d/manifests/1_basic_model_in_scene/model_origin.json";
 
     //     let json = ureq::get(url)
     //         .call()
@@ -352,6 +363,16 @@ mod tests {
     //     let presentation_info: Manifest = serde_json::from_str(&json).unwrap();
 
     //     println!("{:?}", presentation_info);
+
+    //     println!(
+    //         "{}",
+    //         presentation_info
+    //             .get_canvas(0)
+    //             .unwrap()
+    //             .get_image(0)
+    //             .unwrap()
+    //             .get_type()
+    //     );
     // }
 
     #[test]
@@ -652,7 +673,6 @@ mod tests {
         // println!("{:?}", presentation_info);
 
         assert_eq!(presentation_info.label.get(language::EN).join(""), "Book 1");
-
         assert_eq!(presentation_info.manifest_type, ManifestType::Manifest);
 
         assert_eq!(
@@ -661,39 +681,42 @@ mod tests {
         );
 
         assert_eq!(
-            presentation_info.rights.unwrap(),
-            "https://creativecommons.org/licenses/by/4.0/"
+            presentation_info
+                .get_attribution(language::EN)
+                .collect::<Vec<_>>(),
+            vec!["Example Organization"]
         );
 
         assert_eq!(
             presentation_info
-                .required_statement
-                .as_ref()
-                .unwrap()
-                .label
-                .get(language::EN)
-                .join(""),
-            "Attribution"
+                .get_required_statements(language::EN)
+                .collect::<Vec<_>>(),
+            vec!["Attribution: Provided by Example Organization"]
         );
+
+        assert_eq!(presentation_info.get_title(language::EN), "Book 1");
+
         assert_eq!(
-            presentation_info
-                .required_statement
-                .as_ref()
-                .unwrap()
-                .value
-                .get(language::EN)
-                .join(""),
-            "Provided by Example Organization"
+            presentation_info.get_logo().collect::<Vec<_>>(),
+            vec!["https://example.org/service/inst1/full/max/0/default.png"]
+        );
+
+        assert_eq!(
+            presentation_info.get_license().collect::<Vec<_>>(),
+            vec!["https://creativecommons.org/licenses/by/4.0/"]
         );
 
         assert_eq!(
             presentation_info
-                .summary
-                .unwrap()
-                .iter()
-                .next()
-                .unwrap()
-                .get(language::EN),
+                .get_label(language::EN)
+                .collect::<Vec<_>>(),
+            Vec::<String>::new()
+        );
+
+        assert_eq!(
+            presentation_info
+                .get_description(language::EN)
+                .collect::<Vec<_>>(),
             vec!["Book 1, written be Anne Author, published in Paris around 1400."]
         );
 
@@ -710,30 +733,32 @@ mod tests {
             provider.label.get(language::EN),
             vec!["Example Organization"]
         );
-        let canvas = &presentation_info.items[0];
 
-        assert_eq!(canvas.id, "https://example.org/iiif/book1/canvas/p1");
-        assert!(canvas.thumbnail.is_none());
+        let sequence = presentation_info.get_sequence(0).unwrap();
+
+        assert_eq!(presentation_info.get_sequences().count(), 1);
+
+        let canvas = sequence.get_canvas(0).unwrap();
+
+        assert_eq!(sequence.get_canvases().count(), 2);
         assert_eq!(
-            canvas.label.as_ref().unwrap().get(language::EN),
+            canvas.get_thumbnail(),
+            "https://example.org/iiif/book1/page1/full/,64/0/default.jpg"
+        );
+        assert_eq!(
+            canvas.get_label(language::EN).collect::<Vec<_>>(),
             vec!["p. 1"]
         );
-        let image = &(&canvas.items[0]).items[0];
+
+        let image = canvas.get_image(0).unwrap();
+
+        assert_eq!(image.get_service(), "https://example.org/iiif/book1/page1");
 
         assert_eq!(
-            image.id,
-            "https://example.org/iiif/book1/annotation/p0001-image"
-        );
-
-        assert_eq!(
-            image.body.id,
+            image.get_id(),
             "https://example.org/iiif/book1/page1/full/max/0/default.jpg"
         );
-
-        assert_eq!(
-            image.body.service[0].get_id(),
-            "https://example.org/iiif/book1/page1"
-        );
+        assert_eq!(image.get_type(), "Image");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::{
     app::app_settings::AppSettings,
-    camera::main_camera::MainCamera,
+    camera::main_camera::MainCamera2d,
     rendering::{tile::TileModState, tiled_image::TiledImage},
 };
 use bevy::{
@@ -29,7 +29,7 @@ fn compute_centre_and_distance_squared(touches: [&Touch; 2]) -> (Vec2, f32) {
 }
 
 pub(crate) fn touch_input_system(
-    camera_query: Single<(&Camera, &mut Transform, &mut Projection), With<MainCamera>>,
+    camera_query: Single<(&Camera, &mut Transform, &mut Projection), With<MainCamera2d>>,
     touches: Res<Touches>,
     app_settings: Res<AppSettings>,
     mut touch_history: Local<TouchHistory>,

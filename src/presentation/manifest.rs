@@ -1,8 +1,12 @@
 use crate::{
     iiif::{IiifError, manifest},
     presentation::model::IsManifest,
+    rendering::{model_image::ModelImage, tiled_image::TiledImage},
 };
-use bevy::prelude::Component;
+use bevy::prelude::{
+    Camera, Commands, Component, Entity, On, Query, Remove, Result, With, Without, info,
+};
+use bevy_egui::EguiContext;
 
 #[derive(Component)]
 /// Presentation manifest.
@@ -32,6 +36,32 @@ impl From<Box<dyn IsManifest>> for Manifest {
     fn from(v: Box<dyn IsManifest>) -> Self {
         Self::new(v)
     }
+}
+
+/// Handler when the manifest is removed.
+pub(crate) fn on_remove_manifest(
+    remove: On<Remove, Manifest>,
+    camera_query: Query<&mut Camera, Without<EguiContext>>,
+    tiled_image_query: Query<Entity, With<TiledImage>>,
+    model_image_query: Query<Entity, With<ModelImage>>,
+    mut commands: Commands,
+) -> Result {
+    info!("Manifest removed (manifest). {:?}", remove.entity);
+
+    // Set all cameras to inactive.
+    for mut camera in camera_query {
+        camera.is_active = false;
+    }
+
+    // Despawn all the images.
+    for image_entity in tiled_image_query {
+        commands.entity(image_entity).despawn();
+    }
+    for image_entity in model_image_query {
+        commands.entity(image_entity).despawn();
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

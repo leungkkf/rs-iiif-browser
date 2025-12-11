@@ -34,6 +34,8 @@ pub(crate) trait IsCanvas {
 /// Trait that represents a image in a canvas in a sequence in IIIF manifest needed by the UI.
 pub(crate) trait IsImage {
     fn get_service(&self) -> Cow<'_, str>;
+    fn get_id(&self) -> Cow<'_, str>;
+    fn get_type(&self) -> Cow<'_, str>;
     // fn get_width(&self) -> u32;
     // fn get_height(&self) -> u32;
 }

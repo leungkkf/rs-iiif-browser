@@ -1,6 +1,6 @@
 use crate::{
-    AppState, app::app_settings::AppSettings, camera::camera_ext, camera::main_camera::MainCamera,
-    rendering::tiled_image::TiledImage,
+    AppState, app::app_settings::AppSettings, camera::camera_ext,
+    camera::main_camera::MainCamera2d, rendering::tiled_image::TiledImage,
 };
 use bevy::{
     asset::LoadState,
@@ -137,7 +137,7 @@ fn get_required_tiles(
 pub(crate) fn update_tiles_system(
     mut commands: Commands,
     mut tile_cache: ResMut<TileCache>,
-    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
+    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera2d>>,
     asset_server: Res<AssetServer>,
     tiles: Query<(Entity, &Tile, &mut MeshMaterial2d<ColorMaterial>), With<Tile>>,
     app_state: Res<AppState>,
@@ -267,7 +267,7 @@ pub(crate) fn asset_event_system(
 pub(crate) fn prune_tiles_system(
     mut commands: Commands,
     mut tile_cache: ResMut<TileCache>,
-    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
+    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera2d>>,
     tiles: Query<&Tile>,
     app_settings: Res<AppSettings>,
     image: Single<&TiledImage>,
@@ -343,7 +343,7 @@ pub(crate) fn prune_tiles_system(
 }
 
 /// Trigged when the tiled image is removed to clean up and despawn related entities.
-pub(crate) fn on_remove_image(
+pub(crate) fn on_remove_tiled_image(
     remove: On<Remove, TiledImage>,
     mut commands: Commands,
     tiles: Query<(Entity, &Tile), With<Tile>>,

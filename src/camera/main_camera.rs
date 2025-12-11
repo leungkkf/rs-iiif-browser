@@ -3,11 +3,14 @@ use bevy::prelude::{Camera, Component, GlobalTransform, Rect, Single, Transform,
 use crate::{camera::camera_ext::get_world_viewport_rect, rendering::tiled_image::TiledImage};
 
 #[derive(Component)]
-pub(crate) struct MainCamera;
+pub(crate) struct MainCamera2d;
+
+#[derive(Component)]
+pub(crate) struct MainCamera3d;
 
 /// Keep the image within the viewport.
 pub(crate) fn translation_bounding_system(
-    camera: Single<(&Camera, &GlobalTransform, &mut Transform), With<MainCamera>>,
+    camera: Single<(&Camera, &GlobalTransform, &mut Transform), With<MainCamera2d>>,
     tiled_image: Single<&TiledImage>,
 ) {
     let (camera, global_transform, mut transform) = camera.into_inner();

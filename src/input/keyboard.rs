@@ -1,7 +1,7 @@
 use crate::{
     AppState,
     app::app_settings::AppSettings,
-    camera::main_camera::MainCamera,
+    camera::main_camera::MainCamera2d,
     rendering::{tile::TileModState, tiled_image::TiledImage},
 };
 use bevy::{
@@ -12,7 +12,7 @@ use bevy::{
 };
 
 pub(crate) fn keyboard_input_system(
-    camera: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
+    camera: Single<(&mut Transform, &mut Projection), With<MainCamera2d>>,
     mut app_state: ResMut<AppState>,
     app_settings: Res<AppSettings>,
     tiled_image: Single<&TiledImage>,

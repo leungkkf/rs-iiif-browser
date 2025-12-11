@@ -109,10 +109,12 @@ pub fn main() {
             Last,
             rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
         )
-        .add_observer(rendering::tile::on_remove_image)
-        .add_observer(minimap::on_remove_image)
-        .add_observer(rendering::tiled_image::on_add_image)
-        .add_observer(minimap::on_add_image)
+        .add_observer(presentation::manifest::on_remove_manifest)
+        .add_observer(rendering::tile::on_remove_tiled_image)
+        .add_observer(minimap::on_remove_tiled_image)
+        .add_observer(rendering::tiled_image::on_add_tiled_image)
+        .add_observer(rendering::model_image::on_add_model_image)
+        .add_observer(minimap::on_add_tiled_image)
         .run();
 }
 
@@ -122,7 +124,26 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     egui_global_settings.auto_create_primary_context = false;
 
     // Main camera
-    commands.spawn((camera::main_camera::MainCamera, Camera2d));
+    commands.spawn((
+        camera::main_camera::MainCamera2d,
+        Camera2d,
+        Camera {
+            is_active: false,
+            ..default()
+        },
+    ));
+
+    commands.spawn((
+        camera::main_camera::MainCamera3d,
+        Camera3d::default(),
+        Camera {
+            is_active: false,
+            ..default()
+        },
+        Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    ));
+
+    commands.spawn(DirectionalLight::default());
 
     // Tile cache resource.
     commands.insert_resource(TileCache::new());
@@ -167,10 +188,14 @@ fn setup_initial_presentation(mut app_state: ResMut<AppState>) -> Result {
     if let Some(presentation_url) = args.manifest {
         web::load_presentation(&mut app_state, &presentation_url);
     } else {
-        web::load_presentation(
-            &mut app_state,
-            "https://iiif.harvardartmuseums.org/manifests/object/21116",
-        );
+        // web::load_presentation(
+        //     &mut app_state,
+        //     "https://iiif.harvardartmuseums.org/manifests/object/21116",
+        // );
+        // web::load_presentation(
+        //     &mut app_state,
+        //     "https://iiif.github.io/3d/manifests/1_basic_model_in_scene/model_origin.json",
+        // );
     }
 
     Ok(())

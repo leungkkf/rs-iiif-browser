@@ -1,5 +1,5 @@
 use crate::{
-    camera::camera_ext, camera::main_camera::MainCamera, rendering::tile::TileModState,
+    camera::camera_ext, camera::main_camera::MainCamera2d, rendering::tile::TileModState,
     rendering::tiled_image::TiledImage,
 };
 use bevy::{
@@ -86,7 +86,7 @@ pub(crate) fn setup(mut commands: Commands) {
 }
 
 /// Trigged when the tiled image is removed to clean up.
-pub(crate) fn on_remove_image(
+pub(crate) fn on_remove_tiled_image(
     remove: On<Remove, TiledImage>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
     mut minimap_image: Single<&mut ImageNode, With<MinimapImage>>,
@@ -105,13 +105,13 @@ pub(crate) fn on_remove_image(
 
     commands
         .entity(minimap_container_entity)
-        .insert((Visibility::Visible,));
+        .insert((Visibility::Hidden,));
 
     Ok(())
 }
 
 /// Triggered when tiled image is added to update the minimap.
-pub(crate) fn on_add_image(
+pub(crate) fn on_add_tiled_image(
     add: On<Add, TiledImage>,
     minimap_image_query: Single<(&mut ImageNode, &mut Node), With<MinimapImage>>,
     tiled_image: Single<&TiledImage>,
@@ -159,7 +159,7 @@ fn get_thumbnail_scale_and_offset(image_size: Rect) -> (f32, Vec2) {
 /// Update the main camera rect in the minimap.
 pub(crate) fn update_view_rect_system(
     mut view_rect: Single<&mut Node, With<MinimapViewRect>>,
-    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera>>,
+    camera_query: Single<(&Camera, &GlobalTransform), With<MainCamera2d>>,
     tiled_image: Single<&TiledImage>,
 ) {
     let (camera, global_transform) = camera_query.into_inner();
@@ -210,7 +210,7 @@ pub(crate) fn ui_has_mouse_input(cursor_query: Query<&RelativeCursorPosition>) -
 pub(crate) fn mouse_input_system(
     interaction: Single<&Interaction, (Changed<Interaction>, With<MinimapImage>)>,
     cursor_query: Query<&RelativeCursorPosition>,
-    camera_query: Single<&mut Transform, With<MainCamera>>,
+    camera_query: Single<&mut Transform, With<MainCamera2d>>,
     tiled_image: Single<&TiledImage>,
     mut tile_mod_state: ResMut<TileModState>,
 ) {

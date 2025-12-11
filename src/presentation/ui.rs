@@ -2,6 +2,7 @@ use crate::UserNotification;
 use crate::app::app_settings::AppSettings;
 use crate::app::app_state::AppState;
 use crate::presentation::manifest::Manifest;
+use crate::rendering::model_image::ModelImage;
 use bevy::camera::Viewport;
 use bevy::prelude::{
     Camera, Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, Resource, Result,
@@ -79,7 +80,7 @@ pub(crate) fn setup(mut contexts: EguiContexts, mut commands: Commands) -> Resul
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn presentation_ui_system(
     mut contexts: EguiContexts,
-    mut camera: Single<&mut Camera, Without<EguiContext>>,
+    mut camera_query: Query<&mut Camera, Without<EguiContext>>,
     window: Single<&mut Window, With<PrimaryWindow>>,
     mut egui_ui_state: ResMut<EguiUiState>,
     app_settings: Res<AppSettings>,
@@ -87,6 +88,8 @@ pub(crate) fn presentation_ui_system(
     presentation_query: Query<(Entity, &Manifest)>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
     mut messages: MessageReader<UserNotification>,
+    mut commands: Commands,
+    model_image_query: Query<Entity, With<ModelImage>>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
@@ -141,6 +144,8 @@ pub(crate) fn presentation_ui_system(
                         presentation_query,
                         ui,
                         num_canvases,
+                        &mut commands,
+                        &model_image_query,
                     );
                 }
             });
@@ -246,6 +251,8 @@ pub(crate) fn presentation_ui_system(
                     app_settings,
                     &mut app_state,
                     presentation,
+                    &mut commands,
+                    &model_image_query,
                 )?;
 
                 // ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
@@ -317,11 +324,13 @@ pub(crate) fn presentation_ui_system(
         - pos
         - UVec2::new(right as u32, bottom as u32);
 
-    camera.viewport = Some(Viewport {
-        physical_position: pos,
-        physical_size: size,
-        ..default()
-    });
+    for mut camera in camera_query.iter_mut() {
+        camera.viewport = Some(Viewport {
+            physical_position: pos,
+            physical_size: size,
+            ..default()
+        });
+    }
 
     egui_ui_state.toasts.show(ctx);
 
@@ -336,6 +345,8 @@ fn add_page_controls(
     presentation_query: Query<'_, '_, (Entity, &Manifest)>,
     ui: &mut egui::Ui,
     num_canvases: usize,
+    commands: &mut Commands,
+    model_image_query: &Query<Entity, With<ModelImage>>,
 ) {
     ui.spacing_mut().item_spacing.x = 1.0;
 
@@ -382,7 +393,13 @@ fn add_page_controls(
             .next()
             .expect("should have a manifest due to prevous check on the number of canvas > 1");
 
-        if let Err(err) = crate::web::load_canvas(manifest, app_state, new_canvas_index) {
+        if let Err(err) = crate::web::load_canvas(
+            commands,
+            manifest,
+            app_state,
+            new_canvas_index,
+            model_image_query,
+        ) {
             let msg = format!("Unable to load canvas.\n'{}'", err);
 
             egui_ui_state
@@ -402,6 +419,8 @@ fn add_canvas_thumbnails(
     app_settings: Res<'_, AppSettings>,
     app_state: &mut ResMut<'_, AppState>,
     presentation: &Manifest,
+    commands: &mut Commands,
+    model_image_query: &Query<Entity, With<ModelImage>>,
 ) -> Result {
     let canvas_iter = presentation
         .model()
@@ -471,9 +490,11 @@ fn add_canvas_thumbnails(
                                     .interact(Sense::CLICK)
                                     .clicked()
                                     && let Err(err) = crate::web::load_canvas(
+                                        commands,
                                         presentation,
                                         app_state,
                                         canvas_index,
+                                        model_image_query,
                                     )
                                 {
                                     let msg = format!("Unable to load canvas.\n'{}'", err);

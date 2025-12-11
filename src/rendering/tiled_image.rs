@@ -1,6 +1,6 @@
 use crate::{
     app::app_state::AppState,
-    camera::main_camera::MainCamera,
+    camera::main_camera::MainCamera2d,
     iiif::{
         IiifError,
         image::{IiifFeature, IiifImageFormat, IiifImageInfo},
@@ -9,8 +9,8 @@ use crate::{
 };
 use bevy::{
     prelude::{
-        Add, Component, MessageWriter, On, Projection, Rect, ResMut, Result, Single, Transform,
-        Vec2, Vec3, With, info,
+        Add, Camera, Component, MessageWriter, On, Projection, Rect, ResMut, Result, Single,
+        Transform, Vec2, Vec3, With, info,
     },
     window::{RequestRedraw, Window},
 };
@@ -35,22 +35,24 @@ impl Size {
     }
 }
 
-pub(crate) fn on_add_image(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn on_add_tiled_image(
     add: On<Add, TiledImage>,
     tiled_image: Single<&TiledImage>,
     window: Single<&mut Window>,
-    camera_query: Single<(&mut Transform, &mut Projection), With<MainCamera>>,
+    camera2d_query: Single<(&mut Camera, &mut Transform, &mut Projection), With<MainCamera2d>>,
     mut app_state: ResMut<AppState>,
     mut tile_mod_state: ResMut<TileModState>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) -> Result {
     info!("Tiled image added (tiled_image). {:?}", add.entity);
 
-    let (mut transform, mut projection) = camera_query.into_inner();
-
+    let (mut camera, mut transform, mut projection) = camera2d_query.into_inner();
     let Projection::Orthographic(orthogonal) = projection.as_mut() else {
         return Ok(());
     };
+
+    camera.is_active = true;
 
     let world_max_rect = tiled_image.get_world_max_size_rect();
     let zoom = Vec2::new(world_max_rect.width(), world_max_rect.height()) / window.size();
