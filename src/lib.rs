@@ -85,7 +85,14 @@ pub fn main() {
                         .run_if(not(egui_wants_any_pointer_input))
                         .run_if(not(minimap::ui_has_mouse_input)),
                     input::mouse::mouse_input_system_3d.run_if(not(egui_wants_any_pointer_input)),
-                    input::touch::touch_input_system,
+                    input::touch::touch_input_system::<
+                        camera::main_camera::MainCamera2d,
+                        camera::pan_zoom_state_2d::PanZoomState2d,
+                    >,
+                    input::touch::touch_input_system::<
+                        camera::main_camera::MainCamera3d,
+                        camera::pan_orbit_state_3d::PanOrbitState3d,
+                    >,
                     minimap::mouse_input_system,
                     rendering::tile::asset_event_system,
                     web::load_presentation_system,
@@ -166,7 +173,10 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
     commands.insert_resource(TilePruneState::new());
 
     // Camera 3D pan orbit state.
-    commands.insert_resource(camera::main_camera::PanOrbitState::default());
+    commands.insert_resource(camera::pan_orbit_state_3d::PanOrbitState3d::default());
+
+    // Camera 2D pan zoom state.
+    commands.insert_resource(camera::pan_zoom_state_2d::PanZoomState2d::default());
 
     // Egui camera.
     commands.spawn((

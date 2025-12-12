@@ -1,21 +1,20 @@
 use crate::{
-    app::app_settings::AppSettings,
-    camera::main_camera::MainCamera2d,
-    rendering::{tile::TileModState, tiled_image::TiledImage},
+    app::{app_settings::AppSettings, app_state::AppState},
+    camera::main_camera::{ApplyCameraState, CameraMode},
+    rendering::tile::TileModState,
 };
 use bevy::{
+    ecs::{component::Component, resource::Resource},
     input::touch::Touch,
     prelude::{
         Camera, Local, MessageWriter, Projection, Res, ResMut, Single, Touches, Transform, Vec2,
-        Vec3, With,
+        With,
     },
     window::RequestRedraw,
 };
 
 #[derive(Default)]
 pub(crate) struct TouchHistory {
-    start_translation: Vec3,
-    start_scale: f32,
     touches: [Option<Touch>; 2],
 }
 
@@ -28,33 +27,36 @@ fn compute_centre_and_distance_squared(touches: [&Touch; 2]) -> (Vec2, f32) {
     (centre, distance)
 }
 
-pub(crate) fn touch_input_system(
-    camera_query: Single<(&Camera, &mut Transform, &mut Projection), With<MainCamera2d>>,
+/// Touch input system for 2D and 3D to collect and process the touch events.
+///
+/// The function handles the logic to collect and process the touch events,
+/// in order to call the following functions when the pan/zoom/orbit operation start.
+/// ApplyCameraState::get_initial_state will be called to remember the initial state
+/// of pan/zoom/orbit operations when the operations are about to start,
+/// ApplyCameraState::apply will be called with the delta changes
+/// and other information to apply the current state to the transform and projection.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn touch_input_system<T: Component, S: Resource + Clone + Default + ApplyCameraState>(
+    camera_query: Single<(&mut Transform, &Camera, &mut Projection), With<T>>,
     touches: Res<Touches>,
     app_settings: Res<AppSettings>,
+    app_state: Res<AppState>,
     mut touch_history: Local<TouchHistory>,
-    tiled_image: Single<&TiledImage>,
+    mut initial_state: Local<S>,
+    mut current_state: ResMut<S>,
     mut tile_mod_state: ResMut<TileModState>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
-    let (camera, mut transform, mut projection) = camera_query.into_inner();
+    let (mut transform, camera, mut projection) = camera_query.into_inner();
 
-    let Projection::Orthographic(orthogonal) = projection.as_mut() else {
-        return;
-    };
+    let viewport_centre = camera
+        .logical_viewport_rect()
+        .expect("camera should have a viewport rect")
+        .center();
 
-    // Reset it when any event is cancelled.
-    if touches.any_just_canceled() {
+    // Reset it when any event is cancelled or is released.
+    if touches.any_just_canceled() || touches.any_just_released() {
         touch_history.touches = [None; 2];
-    }
-
-    // Remove the touch from the history.
-    for just_released in touches.iter_just_released() {
-        for start_touch in touch_history.touches.iter_mut() {
-            if start_touch.is_some_and(|x| x.id() == just_released.id()) {
-                start_touch.take();
-            }
-        }
     }
 
     let all_pressed_events: Vec<_> = touches.iter().collect();
@@ -71,6 +73,7 @@ pub(crate) fn touch_input_system(
         // Just fill in the first one.
         if filled_items == 0 {
             touch_history.touches[0] = Some(*just_pressed);
+            *initial_state = current_state.get_initial_state(&transform, &projection);
         }
         // If the new press is not the same as the existing one,
         // fill it in and mark the start scale and translation.
@@ -90,12 +93,12 @@ pub(crate) fn touch_input_system(
 
             if let Some(index) = index {
                 touch_history.touches[index] = Some(*just_pressed);
-
-                touch_history.start_scale = orthogonal.scale;
-                touch_history.start_translation = transform.translation;
+                *initial_state = current_state.get_initial_state(&transform, &projection);
             }
         }
     }
+
+    let mut invalidate = false;
 
     // If two pressed events and the history records are filled,
     // zoom and translate according to the events.
@@ -106,37 +109,56 @@ pub(crate) fn touch_input_system(
                 .expect("should have two items in the pressed events"),
         );
 
-        let start_1 = touch_history.touches[0].expect("should have two items in the history");
-        let start_2 = touch_history.touches[1].expect("should have two items in the history");
-        let (start_centre, start_distance_squared) =
-            compute_centre_and_distance_squared([&start_1, &start_2]);
+        let initial_touch_1 =
+            touch_history.touches[0].expect("should have two items in the history");
+        let initial_touch_2 =
+            touch_history.touches[1].expect("should have two items in the history");
+        let (initial_centre, start_distance_squared) =
+            compute_centre_and_distance_squared([&initial_touch_1, &initial_touch_2]);
 
         let delta_zoom = start_distance_squared / current_distance_squared.max(0.01);
-        let max_camera_zoom_scale = tiled_image.get_world_max_size_rect().size().max_element()
-            / app_settings.min_image_size;
+        let delta_move = (current_centre - initial_centre).extend(0.0);
 
-        // Clamp the scale.
-        orthogonal.scale = (touch_history.start_scale * delta_zoom)
-            .max(app_settings.min_camera_zoom_scale)
-            .min(max_camera_zoom_scale);
+        current_state.apply(
+            CameraMode::Pan | CameraMode::Zoom,
+            &initial_state,
+            current_centre,
+            viewport_centre,
+            delta_zoom,
+            delta_move,
+            &app_settings,
+            &app_state,
+            &mut transform,
+            &mut projection,
+            &mut invalidate,
+        );
+    } else if all_pressed_events.len() == 1 && touch_history.touches.iter().any(|x| x.is_some()) {
+        let start_pos = touch_history
+            .touches
+            .iter()
+            .filter_map(|x| x.map(|y| y.position()))
+            .next()
+            .expect("should have one item in the history");
+        let current_pos = all_pressed_events[0].position();
+        let delta_move = (current_pos - start_pos).extend(0.0);
 
-        let zoom_changed = touch_history.start_scale - orthogonal.scale;
+        current_state.apply(
+            CameraMode::Orbit,
+            &initial_state,
+            current_pos,
+            viewport_centre,
+            1.0,
+            delta_move,
+            &app_settings,
+            &app_state,
+            &mut transform,
+            &mut projection,
+            &mut invalidate,
+        );
+    }
 
-        let viewport = camera
-            .logical_viewport_rect()
-            .expect("camera should have a viewport rect");
-        let delta_x = (start_centre.x - viewport.center().x) * zoom_changed;
-        let delta_y = -(start_centre.y - viewport.center().y) * zoom_changed;
-
-        let touch_moved =
-            (orthogonal.scale * (current_centre - start_centre).reflect(Vec2::Y)).extend(0.0);
-
-        transform.translation =
-            touch_history.start_translation - touch_moved + Vec3::new(delta_x, delta_y, 0.0);
-
-        if touch_moved.length_squared() != 0.0 && zoom_changed != 0.0 {
-            tile_mod_state.invalidate();
-            redraw_request_writer.write(RequestRedraw);
-        }
+    if invalidate {
+        tile_mod_state.invalidate();
+        redraw_request_writer.write(RequestRedraw);
     }
 }

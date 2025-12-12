@@ -1,4 +1,4 @@
-use bevy::prelude::Resource;
+use bevy::prelude::{Resource, Vec2};
 use std::sync::{Arc, Mutex};
 
 pub(crate) struct ManifestDownloadInfo {
@@ -25,8 +25,12 @@ pub(crate) struct AppState {
     pub(crate) presentation_url: String,
     /// Current canvas index.
     pub(crate) canvas_index: usize,
+    /// Current manifest json download state.
     pub(crate) manifest_json_download_state: Arc<Mutex<DownloadState<ManifestDownloadInfo>>>,
+    // Current image json download state.
     pub(crate) image_json_download_state: Arc<Mutex<DownloadState<ImageDownloadInfo>>>,
+    /// Current image max size in world space.
+    pub(crate) world_image_max_size: Vec2,
 }
 
 impl AppState {
@@ -36,6 +40,7 @@ impl AppState {
         canvas_index: usize,
         manifest_json_download_state: Arc<Mutex<DownloadState<ManifestDownloadInfo>>>,
         image_json_download_state: Arc<Mutex<DownloadState<ImageDownloadInfo>>>,
+        world_image_max_size: Vec2,
     ) -> Self {
         Self {
             level,
@@ -43,6 +48,7 @@ impl AppState {
             canvas_index,
             manifest_json_download_state,
             image_json_download_state,
+            world_image_max_size,
         }
     }
 }
@@ -55,6 +61,7 @@ impl Default for AppState {
             0,
             Arc::new(Mutex::new(DownloadState::None)),
             Arc::new(Mutex::new(DownloadState::None)),
+            Vec2::ZERO,
         )
     }
 }

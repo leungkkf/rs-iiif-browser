@@ -60,6 +60,7 @@ pub(crate) fn on_add_tiled_image(
     let initial_level = tiled_image.get_level_at(zoom_scale);
 
     app_state.level = initial_level;
+    app_state.world_image_max_size = tiled_image.get_world_max_size_rect().size();
     orthogonal.scale = zoom_scale;
 
     transform.translation = Vec3::new(

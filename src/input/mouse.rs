@@ -1,7 +1,7 @@
 use crate::{
     AppState,
     app::app_settings::AppSettings,
-    camera::main_camera::{MainCamera2d, PanOrbitState},
+    camera::{main_camera::MainCamera2d, pan_orbit_state_3d::PanOrbitState3d},
     rendering::{tile::TileModState, tiled_image::TiledImage},
 };
 use bevy::{
@@ -118,7 +118,7 @@ pub(crate) fn mouse_input_system_3d(
     mut evr_motion: MessageReader<MouseMotion>,
     mut evr_scroll: MessageReader<MouseWheel>,
     app_settings: Res<AppSettings>,
-    mut state: ResMut<PanOrbitState>,
+    mut state: ResMut<PanOrbitState3d>,
     mut transform: Single<&mut Transform, With<Camera3d>>,
 ) {
     let settings = &app_settings.pan_orbit_settings;

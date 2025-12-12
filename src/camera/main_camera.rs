@@ -1,8 +1,12 @@
-use bevy::prelude::{
-    Camera, Component, GlobalTransform, Rect, Resource, Single, Transform, Vec2, Vec3, With,
+use crate::{
+    app::{app_settings::AppSettings, app_state::AppState},
+    camera::camera_ext::get_world_viewport_rect,
+    rendering::tiled_image::TiledImage,
 };
-
-use crate::{camera::camera_ext::get_world_viewport_rect, rendering::tiled_image::TiledImage};
+use bevy::prelude::{
+    Camera, Component, GlobalTransform, Projection, Rect, Single, Transform, Vec2, Vec3, With,
+};
+use bitflags::bitflags;
 
 #[derive(Component)]
 pub(crate) struct MainCamera2d;
@@ -10,27 +14,48 @@ pub(crate) struct MainCamera2d;
 #[derive(Component)]
 pub(crate) struct MainCamera3d;
 
-#[derive(Resource)]
-pub(crate) struct PanOrbitState {
-    pub(crate) center: Vec3,
-    pub(crate) radius: f32,
-    pub(crate) upside_down: bool,
-    pub(crate) pitch: f32,
-    pub(crate) yaw: f32,
-    pub(crate) is_added: bool,
+bitflags! {
+    pub(crate) struct CameraMode: u32 {
+        const Pan = 0b00000001;
+        const Zoom = 0b00000010;
+        const Orbit = 0b00000100;
+    }
 }
 
-impl Default for PanOrbitState {
-    fn default() -> Self {
-        PanOrbitState {
-            center: Vec3::ZERO,
-            radius: 1.0,
-            upside_down: false,
-            pitch: 0.0,
-            yaw: 0.0,
-            is_added: true,
-        }
-    }
+pub(crate) trait ApplyCameraState {
+    /// Get the initial state of the camera and
+    /// will be used as the starting point of the running state.
+    fn get_initial_state(&self, transform: &Transform, projection: &Projection) -> Self;
+
+    /// Apply the state to the transform and the projection,
+    /// given the initial state and the deltas and other related information.
+    ///
+    /// * `mode` - Camera mode.
+    /// * `initial_state` - Initial state.
+    /// * `current_pos` - Current position of the operation.
+    /// * `viewport_centre` - Centre of the camera viewport.
+    /// * `delta_zoom` - Amount of zoom changed of the operation.
+    /// * `delta_move` - Amount of move changed of the operation.
+    /// * `app_settings` - Application settings.
+    /// * `app_state` - Application state.
+    /// * `transform` - Camera tranform to be updated.  
+    /// * `projection` - Camera projection to be updated.
+    /// * `invalidate` - Should be set to true if tile update is required.
+    #[allow(clippy::too_many_arguments)]
+    fn apply(
+        &mut self,
+        mode: CameraMode,
+        initial_state: &Self,
+        current_pos: Vec2,
+        viewport_centre: Vec2,
+        delta_zoom: f32,
+        delta_move: Vec3,
+        app_settings: &AppSettings,
+        app_state: &AppState,
+        transform: &mut Transform,
+        projection: &mut Projection,
+        invalidate: &mut bool,
+    );
 }
 
 /// Keep the image within the viewport.
