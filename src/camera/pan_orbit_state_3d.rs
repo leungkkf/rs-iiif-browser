@@ -1,16 +1,16 @@
 use bevy::prelude::{EulerRot, Projection, Quat, Resource, Transform, Vec2, Vec3};
+use bitflags::Flags;
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 use crate::{
     app::{app_settings::AppSettings, app_state::AppState},
-    camera::main_camera::{ApplyCameraState, CameraMode},
+    camera::main_camera::{ApplyCameraState, CameraMode, Invalidate},
 };
 
 #[derive(Resource, Clone)]
 pub(crate) struct PanOrbitState3d {
     pub(crate) center: Vec3,
     pub(crate) radius: f32,
-    pub(crate) upside_down: bool,
     pub(crate) pitch: f32,
     pub(crate) yaw: f32,
     pub(crate) is_added: bool,
@@ -21,7 +21,6 @@ impl Default for PanOrbitState3d {
         PanOrbitState3d {
             center: Vec3::ZERO,
             radius: 10.0,
-            upside_down: false,
             pitch: 0.0,
             yaw: 0.0,
             is_added: true,
@@ -46,8 +45,9 @@ impl ApplyCameraState for PanOrbitState3d {
         _: &AppState,
         transform: &mut Transform,
         _: &mut Projection,
-        invalidate: &mut bool,
+        invalidate: &mut Invalidate,
     ) {
+        // Taken from https://bevy-cheatbook.github.io/cookbook/pan-orbit-camera.html
         let mut any = false;
 
         if mode.intersects(CameraMode::Orbit) && delta_move != Vec3::ZERO {
@@ -124,6 +124,6 @@ impl ApplyCameraState for PanOrbitState3d {
             self.is_added = false;
         }
 
-        *invalidate = false;
+        invalidate.clear();
     }
 }

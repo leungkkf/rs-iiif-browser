@@ -1,6 +1,6 @@
 use crate::{
     app::{app_settings::AppSettings, app_state::AppState},
-    camera::main_camera::{ApplyCameraState, CameraMode},
+    camera::main_camera::{ApplyCameraState, CameraMode, Invalidate},
     rendering::tile::TileModState,
 };
 use bevy::{
@@ -98,7 +98,7 @@ pub(crate) fn touch_input_system<T: Component, S: Resource + Clone + Default + A
         }
     }
 
-    let mut invalidate = false;
+    let mut invalidate = Invalidate::empty();
 
     // If two pressed events and the history records are filled,
     // zoom and translate according to the events.
@@ -157,7 +157,7 @@ pub(crate) fn touch_input_system<T: Component, S: Resource + Clone + Default + A
         );
     }
 
-    if invalidate {
+    if !invalidate.is_empty() {
         tile_mod_state.invalidate();
         redraw_request_writer.write(RequestRedraw);
     }

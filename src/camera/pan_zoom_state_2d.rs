@@ -1,6 +1,6 @@
 use crate::{
     app::{app_settings::AppSettings, app_state::AppState},
-    camera::main_camera::{ApplyCameraState, CameraMode},
+    camera::main_camera::{ApplyCameraState, CameraMode, Invalidate},
 };
 use bevy::prelude::{Projection, Resource, Transform, Vec2, Vec3};
 
@@ -35,34 +35,59 @@ impl ApplyCameraState for PanZoomState2d {
         app_state: &AppState,
         transform: &mut Transform,
         projection: &mut Projection,
-        invalidate: &mut bool,
+        invalidate: &mut Invalidate,
     ) {
+        // Doing pan or zoom?
         if !mode.intersects(CameraMode::Pan | CameraMode::Zoom) {
             return;
         }
-
+        // Are we in orthogonal project?
         let Projection::Orthographic(orthogonal) = projection else {
             return;
         };
 
+        // Set the delta zoom if we are in the zoom mode, 1.0 if not.
+        let delta_zoom_with_mode = if mode.intersects(CameraMode::Zoom) {
+            delta_zoom
+        } else {
+            1.0
+        };
+
+        // Get the max zoom scale for clamping.
         let max_camera_zoom_scale =
             app_state.world_image_max_size.max_element() / app_settings.min_image_size;
-
         // Clamp the scale.
-        orthogonal.scale = (initial_state.scale * delta_zoom)
+        let scale = (initial_state.scale * delta_zoom_with_mode)
             .max(app_settings.min_camera_zoom_scale)
             .min(max_camera_zoom_scale);
 
-        let zoom_changed = initial_state.scale - orthogonal.scale;
+        // Get the change in the scale.
+        let delta_scale = initial_state.scale - scale;
 
-        let zoom_adjustment = (current_pos - viewport_centre) * zoom_changed;
+        // Adjust translation to zoom at the current position.
+        let move_due_to_zoom = (current_pos - viewport_centre).reflect(Vec2::Y) * delta_scale;
 
-        transform.translation = initial_state.translation
-            - orthogonal.scale * delta_move.reflect(Vec3::Y)
-            + zoom_adjustment.extend(0.0);
+        // Set the delta move if we are in the pan mode, 0 if not.
+        let delta_move_with_mode = if mode.intersects(CameraMode::Pan) {
+            delta_move.reflect(Vec3::Y)
+        } else {
+            Vec3::ZERO
+        };
 
-        if delta_move != Vec3::ZERO || zoom_changed != 0.0 {
-            *invalidate = true;
+        // Apply the changes to the projection and transform.
+        if delta_move != Vec3::ZERO || delta_scale != 0.0 {
+            orthogonal.scale = scale;
+
+            transform.translation = initial_state.translation
+                - orthogonal.scale * delta_move_with_mode
+                + move_due_to_zoom.extend(0.0);
+
+            if delta_move != Vec3::ZERO {
+                *invalidate |= Invalidate::Translate;
+            }
+            if delta_scale != 0.0 {
+                *invalidate |= Invalidate::Zoom;
+            }
         }
     }
 }

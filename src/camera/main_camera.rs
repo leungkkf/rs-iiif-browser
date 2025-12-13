@@ -22,6 +22,13 @@ bitflags! {
     }
 }
 
+bitflags! {
+    pub(crate) struct Invalidate: u8 {
+        const Translate = 0b00000001;
+        const Zoom = 0b00000010;
+    }
+}
+
 pub(crate) trait ApplyCameraState {
     /// Get the initial state of the camera and
     /// will be used as the starting point of the running state.
@@ -40,7 +47,7 @@ pub(crate) trait ApplyCameraState {
     /// * `app_state` - Application state.
     /// * `transform` - Camera tranform to be updated.  
     /// * `projection` - Camera projection to be updated.
-    /// * `invalidate` - Should be set to true if tile update is required.
+    /// * `invalidate` - Should be set if tile update is required.
     #[allow(clippy::too_many_arguments)]
     fn apply(
         &mut self,
@@ -54,7 +61,7 @@ pub(crate) trait ApplyCameraState {
         app_state: &AppState,
         transform: &mut Transform,
         projection: &mut Projection,
-        invalidate: &mut bool,
+        invalidate: &mut Invalidate,
     );
 }
 

@@ -81,10 +81,17 @@ pub fn main() {
                 (
                     input::keyboard::keyboard_input_system
                         .run_if(not(egui_wants_any_keyboard_input)),
-                    input::mouse::mouse_input_system
+                    input::mouse::mouse_input_system::<
+                        camera::main_camera::MainCamera2d,
+                        camera::pan_zoom_state_2d::PanZoomState2d,
+                    >
                         .run_if(not(egui_wants_any_pointer_input))
                         .run_if(not(minimap::ui_has_mouse_input)),
-                    input::mouse::mouse_input_system_3d.run_if(not(egui_wants_any_pointer_input)),
+                    input::mouse::mouse_input_system::<
+                        camera::main_camera::MainCamera3d,
+                        camera::pan_orbit_state_3d::PanOrbitState3d,
+                    >
+                        .run_if(not(egui_wants_any_pointer_input)),
                     input::touch::touch_input_system::<
                         camera::main_camera::MainCamera2d,
                         camera::pan_zoom_state_2d::PanZoomState2d,

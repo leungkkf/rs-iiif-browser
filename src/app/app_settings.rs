@@ -5,12 +5,6 @@ pub(crate) struct PanOrbitSettings {
     pub(crate) pan_sensitivity: f32,
     /// Radians per pixel of mouse motion
     pub(crate) orbit_sensitivity: f32,
-    /// Exponent per pixel of mouse motion
-    pub(crate) zoom_sensitivity: f32,
-    /// For devices with a notched scroll wheel, like desktop mice
-    pub(crate) scroll_line_sensitivity: f32,
-    /// For devices with smooth scrolling, like touchpads
-    pub(crate) scroll_pixel_sensitivity: f32,
 }
 
 impl Default for PanOrbitSettings {
@@ -18,9 +12,6 @@ impl Default for PanOrbitSettings {
         PanOrbitSettings {
             pan_sensitivity: 0.002,                 // 2000 pixels per world unit
             orbit_sensitivity: 0.5f32.to_radians(), // 0.5 degree per pixel
-            zoom_sensitivity: 0.01,
-            scroll_line_sensitivity: 16.0, // 1 "line" == 16 "pixels of motion"
-            scroll_pixel_sensitivity: 1.0,
         }
     }
 }
