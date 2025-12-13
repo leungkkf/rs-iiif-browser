@@ -145,6 +145,7 @@ pub(crate) fn update_tiles_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     time: Res<Time>,
     mut tile_prune_state: ResMut<TilePruneState>,
+    mut tile_mod_state: ResMut<TileModState>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
     let (camera, global_transform) = camera_query.into_inner();
@@ -152,6 +153,9 @@ pub(crate) fn update_tiles_system(
     let Some((required_tiles, _, _)) =
         get_required_tiles(camera, global_transform, app_state.level, *image)
     else {
+        // This is mainly for when the system is first up, some values seem to be not there yet.
+        tile_mod_state.invalidate();
+        redraw_request_writer.write(RequestRedraw);
         return;
     };
 
