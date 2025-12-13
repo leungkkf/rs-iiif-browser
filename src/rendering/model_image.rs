@@ -2,8 +2,8 @@ use crate::camera::{main_camera::MainCamera3d, pan_orbit_state_3d::PanOrbitState
 use bevy::{
     asset::AssetId,
     prelude::{
-        Add, AssetServer, Camera, Commands, Component, GltfAssetLabel, MessageWriter, On,
-        Projection, Res, ResMut, Result, SceneRoot, Single, Transform, With, info,
+        Add, AssetServer, Camera, Commands, Component, EulerRot, GltfAssetLabel, MessageWriter, On,
+        Quat, Res, ResMut, Result, SceneRoot, Single, Transform, With, info,
     },
     scene::Scene,
     window::RequestRedraw,
@@ -29,7 +29,7 @@ impl ModelImage {
 pub(crate) fn on_add_model_image(
     add: On<Add, ModelImage>,
     model_image: Single<&ModelImage>,
-    camera3d_query: Single<(&mut Camera, &mut Transform, &mut Projection), With<MainCamera3d>>,
+    camera3d_query: Single<(&mut Camera, &mut Transform), With<MainCamera3d>>,
     mut commands: Commands,
     mut current_state: ResMut<PanOrbitState3d>,
     asset_server: Res<AssetServer>,
@@ -38,11 +38,14 @@ pub(crate) fn on_add_model_image(
     info!("Model image added (model_image). {:?}", add.entity);
 
     // Set the 3D camera active.
-    let (mut camera3d, _transform, _projection) = camera3d_query.into_inner();
+    let (mut camera3d, mut transform) = camera3d_query.into_inner();
 
     camera3d.is_active = true;
     // Reset the initial state for the new model.
     *current_state = PanOrbitState3d::default();
+    transform.rotation =
+        Quat::from_euler(EulerRot::YXZ, current_state.yaw, current_state.pitch, 0.0);
+    transform.translation = current_state.center + transform.back() * current_state.radius;
 
     // Load the 3D model.
     let asset_3d =
