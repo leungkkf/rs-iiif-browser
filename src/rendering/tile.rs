@@ -1,6 +1,8 @@
 use crate::{
-    AppState, app::app_settings::AppSettings, camera::camera_ext,
-    camera::main_camera::MainCamera2d, rendering::tiled_image::TiledImage,
+    AppState,
+    app::app_settings::AppSettings,
+    camera::{camera_ext, main_camera::MainCamera2d},
+    rendering::{model_image::ModelLoading, tiled_image::TiledImage},
 };
 use bevy::{
     asset::LoadState,
@@ -223,14 +225,15 @@ pub(crate) fn asset_event_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     tiles: Query<(Entity, &Tile), With<TileLoading>>,
+    models: Query<(Entity, &ModelLoading)>,
     mut tile_cache: ResMut<TileCache>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut tile_mod_state: ResMut<TileModState>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
-    // Keep polling if tiles are being loaded.
-    if !tiles.is_empty() {
+    // Keep polling if tiles or models are being loaded.
+    if !tiles.is_empty() || !models.is_empty() {
         redraw_request_writer.write(RequestRedraw);
     }
 
@@ -261,6 +264,21 @@ pub(crate) fn asset_event_system(
                 commands.entity(entity).despawn();
                 tile_cache.cache.remove(&tile.index);
                 tile_mod_state.invalidate();
+            }
+            None => {}
+        }
+    }
+
+    for (entity, ModelLoading(id)) in models {
+        match asset_server.get_load_state(*id) {
+            Some(LoadState::NotLoaded) => {}
+            Some(LoadState::Loading) => {}
+            Some(LoadState::Loaded) => {
+                commands.entity(entity).despawn();
+                redraw_request_writer.write(RequestRedraw);
+            }
+            Some(LoadState::Failed(_)) => {
+                warn!("failed to load model ID {:?}.", id);
             }
             None => {}
         }
