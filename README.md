@@ -95,7 +95,7 @@ Existing features:
   * Linux
   * Wasm (with some issues with touch controls and virtual keyboard in Bevy egui)
   * Android (with some issues with touch controls and virtual keyboard in Bevy egui)
-
+* Limited support for 3D. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -157,9 +157,10 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 Some ideas are listed below:
 
-- [ ] Better support for IIIF manifest and image
-- [ ] Support for 3D 
+- [ ] Better support for IIIF manifest and image.
+- [ ] Better support for 3D.
 - [ ] Support for IIIF collection and discovery.
+- [ ] Support for virtual keyboard in mobile devices.
 - [ ] ...
     
 
