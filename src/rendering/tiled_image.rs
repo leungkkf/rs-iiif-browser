@@ -55,7 +55,12 @@ pub(crate) fn on_add_tiled_image(
     camera.is_active = true;
 
     let world_max_rect = tiled_image.get_world_max_size_rect();
-    let zoom = Vec2::new(world_max_rect.width(), world_max_rect.height()) / window.size();
+
+    // Fit the image to the viewport, or falling back to the window size.
+    let zoom = Vec2::new(world_max_rect.width(), world_max_rect.height())
+        / camera
+            .logical_viewport_size()
+            .unwrap_or_else(|| window.size());
     let zoom_scale = zoom.max_element();
     let initial_level = tiled_image.get_level_at(zoom_scale);
 
