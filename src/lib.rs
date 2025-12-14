@@ -12,6 +12,7 @@ use bevy_egui::{EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass, PrimaryE
 use clap::Parser;
 
 mod app;
+mod asset_loading;
 mod camera;
 mod fonts;
 mod iiif;
@@ -101,13 +102,13 @@ pub fn main() {
                         camera::pan_orbit_state_3d::PanOrbitState3d,
                     >,
                     minimap::mouse_input_system,
-                    rendering::tile::asset_event_system,
+                    asset_loading::asset_event_system,
                     web::load_presentation_system,
                     web::load_canvas_system,
                 ),
                 (rendering::tile::update_tiles_system.run_if(resource_changed::<TileModState>)),
             )
-                .chain(),),
+                .chain()),
         )
         .add_systems(
             EguiPrimaryContextPass,
