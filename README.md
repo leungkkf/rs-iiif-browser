@@ -35,7 +35,7 @@
 <h3 align="center">Rust IIIF Browser</h3>
 
   <p align="center">
-    A proof-of-concept IIIF browser for viewing <a href="https://iiif.io">IIIF manifests and images</a> built using Rust.
+    A proof-of-concept IIIF browser built using Rust for viewing <a href="https://iiif.io">IIIF manifests and images</a>.
     <br />
     <br />
     <br />
