@@ -8,7 +8,7 @@ use bevy::{
     input::mouse::MouseWheel,
     prelude::{
         ButtonInput, Camera, Component, Local, MessageReader, MessageWriter, MouseButton,
-        Projection, Res, ResMut, Resource, Single, Time, Transform, Vec2, Window, With, info,
+        Projection, Query, Res, ResMut, Resource, Single, Time, Transform, Vec2, Window, With,
     },
     window::{CursorMoved, PrimaryWindow, RequestRedraw},
 };
@@ -29,7 +29,7 @@ pub(crate) fn mouse_input_system<T: Component, S: Resource + Clone + Default + A
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
     time: Res<Time>,
     mut zoom_debounce: Local<Option<f32>>,
-    tiled_image: Single<&TiledImage>,
+    tiled_image: Query<&TiledImage>,
 ) {
     if let Some(last_zoom) = *zoom_debounce {
         if time.elapsed_secs() - last_zoom > 1.0 / 4.0 {
@@ -83,7 +83,8 @@ pub(crate) fn mouse_input_system<T: Component, S: Resource + Clone + Default + A
         delta_zoom,
         delta_move,
         &app_settings,
-        &app_state,
+        &mut app_state,
+        tiled_image,
         &mut transform,
         &mut projection,
         &mut invalidate,
@@ -93,9 +94,6 @@ pub(crate) fn mouse_input_system<T: Component, S: Resource + Clone + Default + A
         tile_mod_state.invalidate();
         redraw_request_writer.write(RequestRedraw);
     } else if invalidate.intersects(Invalidate::Zoom) {
-        if let Projection::Orthographic(orthogonal) = projection.as_mut() {
-            app_state.level = tiled_image.get_level_at(orthogonal.scale);
-        };
         *zoom_debounce = Some(time.elapsed_secs());
         redraw_request_writer.write(RequestRedraw);
     }

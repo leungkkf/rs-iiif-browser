@@ -1,11 +1,11 @@
-use bevy::prelude::{EulerRot, Projection, Quat, Resource, Transform, Vec2, Vec3};
-use bitflags::Flags;
-use std::f32::consts::{FRAC_PI_2, PI, TAU};
-
 use crate::{
     app::{app_settings::AppSettings, app_state::AppState},
     camera::main_camera::{ApplyCameraState, CameraMode, Invalidate},
+    rendering::tiled_image::TiledImage,
 };
+use bevy::prelude::{EulerRot, Projection, Quat, Query, Resource, Transform, Vec2, Vec3};
+use bitflags::Flags;
+use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
 #[derive(Resource, Clone)]
 pub(crate) struct PanOrbitState3d {
@@ -42,7 +42,8 @@ impl ApplyCameraState for PanOrbitState3d {
         delta_zoom: f32,
         delta_move: Vec3,
         app_settings: &AppSettings,
-        _: &AppState,
+        _: &mut AppState,
+        _: Query<&TiledImage>,
         transform: &mut Transform,
         _: &mut Projection,
         invalidate: &mut Invalidate,

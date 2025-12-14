@@ -1,8 +1,9 @@
 use crate::{
     app::{app_settings::AppSettings, app_state::AppState},
     camera::main_camera::{ApplyCameraState, CameraMode, Invalidate},
+    rendering::tiled_image::TiledImage,
 };
-use bevy::prelude::{Projection, Resource, Transform, Vec2, Vec3};
+use bevy::prelude::{Projection, Query, Resource, Transform, Vec2, Vec3};
 
 #[derive(Resource, Clone, Default)]
 pub(crate) struct PanZoomState2d {
@@ -32,7 +33,8 @@ impl ApplyCameraState for PanZoomState2d {
         delta_zoom: f32,
         delta_move: Vec3,
         app_settings: &AppSettings,
-        app_state: &AppState,
+        app_state: &mut AppState,
+        tiled_image: Query<&TiledImage>,
         transform: &mut Transform,
         projection: &mut Projection,
         invalidate: &mut Invalidate,
@@ -77,6 +79,10 @@ impl ApplyCameraState for PanZoomState2d {
         // Apply the changes to the projection and transform.
         if delta_move != Vec3::ZERO || delta_scale != 0.0 {
             orthogonal.scale = scale;
+
+            if let Ok(tiled_image) = tiled_image.single() {
+                app_state.level = tiled_image.get_level_at(orthogonal.scale);
+            }
 
             transform.translation = initial_state.translation
                 - orthogonal.scale * delta_move_with_mode

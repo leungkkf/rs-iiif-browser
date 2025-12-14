@@ -1,14 +1,14 @@
 use crate::{
     app::{app_settings::AppSettings, app_state::AppState},
     camera::main_camera::{ApplyCameraState, CameraMode, Invalidate},
-    rendering::tile::TileModState,
+    rendering::{tile::TileModState, tiled_image::TiledImage},
 };
 use bevy::{
     ecs::{component::Component, resource::Resource},
     input::touch::Touch,
     prelude::{
-        Camera, Local, MessageWriter, Projection, Res, ResMut, Single, Touches, Transform, Vec2,
-        With,
+        Camera, Local, MessageWriter, Projection, Query, Res, ResMut, Single, Touches, Transform,
+        Vec2, With,
     },
     window::RequestRedraw,
 };
@@ -40,12 +40,13 @@ pub(crate) fn touch_input_system<T: Component, S: Resource + Clone + Default + A
     camera_query: Single<(&mut Transform, &Camera, &mut Projection), With<T>>,
     touches: Res<Touches>,
     app_settings: Res<AppSettings>,
-    app_state: Res<AppState>,
+    mut app_state: ResMut<AppState>,
     mut touch_history: Local<TouchHistory>,
     mut initial_state: Local<S>,
     mut current_state: ResMut<S>,
     mut tile_mod_state: ResMut<TileModState>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
+    tiled_image: Query<&TiledImage>,
 ) {
     let (mut transform, camera, mut projection) = camera_query.into_inner();
 
@@ -127,7 +128,8 @@ pub(crate) fn touch_input_system<T: Component, S: Resource + Clone + Default + A
             delta_zoom,
             delta_move,
             &app_settings,
-            &app_state,
+            &mut app_state,
+            tiled_image,
             &mut transform,
             &mut projection,
             &mut invalidate,
@@ -150,7 +152,8 @@ pub(crate) fn touch_input_system<T: Component, S: Resource + Clone + Default + A
             1.0,
             delta_move,
             &app_settings,
-            &app_state,
+            &mut app_state,
+            tiled_image,
             &mut transform,
             &mut projection,
             &mut invalidate,

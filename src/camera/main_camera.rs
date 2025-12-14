@@ -4,7 +4,8 @@ use crate::{
     rendering::tiled_image::TiledImage,
 };
 use bevy::prelude::{
-    Camera, Component, GlobalTransform, Projection, Rect, Single, Transform, Vec2, Vec3, With,
+    Camera, Component, GlobalTransform, Projection, Query, Rect, Single, Transform, Vec2, Vec3,
+    With,
 };
 use bitflags::bitflags;
 
@@ -58,7 +59,8 @@ pub(crate) trait ApplyCameraState {
         delta_zoom: f32,
         delta_move: Vec3,
         app_settings: &AppSettings,
-        app_state: &AppState,
+        app_state: &mut AppState,
+        tiled_image: Query<&TiledImage>,
         transform: &mut Transform,
         projection: &mut Projection,
         invalidate: &mut Invalidate,
