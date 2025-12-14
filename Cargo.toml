@@ -12,7 +12,7 @@ opt-level = 1
 opt-level = 3
 
 [lib]
-name = "rs_iiif_browser"
+name = "rs_iiif_browser_lib"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
@@ -31,6 +31,7 @@ bevy_egui = { path="/home/kelvin/code/bevy_egui", features = ["accesskit"] }
 egui-notify = { path="/home/kelvin/code/egui-notify" }
 
 bevy = { version="0.17", default-features = false, features = [
+    # "dynamic_linking",
     "async_executor",
     "bevy_asset",
     "bevy_input_focus",
@@ -58,7 +59,12 @@ bevy = { version="0.17", default-features = false, features = [
     "tiff",
     "webp",
     "https",
-    "default"
+    "tonemapping_luts",
+    "smaa_luts",
+    "bevy_scene",
+    "bevy_light",
+    "bevy_gltf",
+    "reflect_auto_register",
 ] }
 bitflags = "2.10.0"
 

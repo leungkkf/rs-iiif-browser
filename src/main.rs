@@ -1,1 +1,1 @@
-use rs_iiif_browser::main;
+use rs_iiif_browser_lib::main;
