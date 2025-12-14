@@ -292,12 +292,15 @@ impl IsCanvas for CanvasItem {
     fn get_thumbnail(&self) -> Cow<'_, str> {
         if let Some(thumbnail) = &self.thumbnail
             && let Some(thumbnail) = thumbnail.iter().next()
+            && !thumbnail.id.is_empty()
         {
             Cow::from(&thumbnail.id)
         } else if let Some(annotation_page) = self.items.first()
             && let Some(image) = annotation_page.items.first()
+            && let service = image.get_service()
+            && !service.is_empty()
         {
-            let canvas_thumbnail = format!("{}/full/,64/0/default.jpg", image.get_service());
+            let canvas_thumbnail = format!("{}/full/,64/0/default.jpg", service);
 
             Cow::from(canvas_thumbnail)
         } else {

@@ -274,10 +274,14 @@ impl IsCanvas for Canvas {
         // Or we will need to peek at the size of the remote image.
         if let Some(content) = &self.thumbnail
             && let Some(url_link) = content.iter().next()
+            && !url_link.id().is_empty()
         {
             Cow::from(url_link.id())
-        } else if let Some(image) = self.images.first() {
-            let canvas_thumbnail = format!("{}/full/,64/0/default.jpg", image.get_service());
+        } else if let Some(image) = self.images.first()
+            && let service = image.get_service()
+            && !service.is_empty()
+        {
+            let canvas_thumbnail = format!("{}/full/,64/0/default.jpg", service);
 
             Cow::from(canvas_thumbnail)
         } else {

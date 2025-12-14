@@ -475,6 +475,11 @@ fn add_canvas_thumbnails(
                                                 bevy_egui::egui::Image::new(canvas_thumbnail)
                                                     .max_size(vec2(thumbnail_size, thumbnail_size)),
                                             );
+                                        } else {
+                                            ui.add_sized(
+                                                vec2(thumbnail_size, thumbnail_size),
+                                                egui::Label::new("🚫").selectable(false),
+                                            );
                                         }
                                         let label = format!(
                                             "({}) {}",
