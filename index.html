@@ -177,6 +177,13 @@
                                     event.preventDefault();
                                 },
                             );
+                            // Prevent context menu events for the canvas.
+                            addedNode.addEventListener(
+                                "contextmenu",
+                                (event) => {
+                                    event.preventDefault();
+                                },
+                            );
 
                             if (addedNode.innerText.trim().length === 0) {
                                 // Add compatibility note
