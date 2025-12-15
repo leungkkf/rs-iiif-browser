@@ -48,7 +48,7 @@ bevy = { version="0.17", default-features = false, features = [
     "bevy_core_pipeline",
     "bevy_post_process",
     "bevy_ui",
-    "android-native-activity",
+    "android-game-activity",
     "bevy_render",
     "bevy_core_pipeline",
     "bevy_ui_render",

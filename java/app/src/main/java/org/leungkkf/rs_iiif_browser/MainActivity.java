@@ -2,9 +2,9 @@ package org.leungkkf.rs_iiif_browser;
 
 import android.view.View;
 
-import android.app.NativeActivity;
+import com.google.androidgamesdk.GameActivity;
 
-public class MainActivity extends NativeActivity {
+public class MainActivity extends GameActivity {
         static {
             System.loadLibrary("rs_iiif_browser_lib");
         }
