@@ -5,9 +5,8 @@ use crate::rendering::{
 use bevy::{
     asset::LoadState,
     prelude::{
-        AssetServer, Assets, ColorMaterial, Commands, Entity, Local, Mesh, Mesh2d, MeshMaterial2d,
-        MessageWriter, Query, Rectangle, Res, ResMut, Time, Transform, Visibility, With, default,
-        warn,
+        AssetServer, Assets, ColorMaterial, Commands, Entity, Mesh, Mesh2d, MeshMaterial2d,
+        MessageWriter, Query, Rectangle, Res, ResMut, Transform, Visibility, With, default, warn,
     },
     window::RequestRedraw,
 };
@@ -23,8 +22,6 @@ pub(crate) fn asset_event_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut tile_mod_state: ResMut<TileModState>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
-    mut refresh_time: Local<Option<f32>>,
-    time: Res<Time>,
 ) {
     // Keep polling if tiles or models are being loaded.
     if !tiles.is_empty() || !models.is_empty() {
@@ -68,13 +65,8 @@ pub(crate) fn asset_event_system(
             Some(LoadState::NotLoaded) => {}
             Some(LoadState::Loading) => {}
             Some(LoadState::Loaded) => {
-                // Hack to keep the system going for a while the first time
-                // to get the rendering system ready to show the model.
-                if refresh_time.is_some_and(|x| x < time.delta_secs()) {
-                    commands.entity(entity).despawn();
-                } else {
-                    *refresh_time = Some(time.delta_secs() + 3.0);
-                }
+                commands.entity(entity).despawn();
+                redraw_request_writer.write(RequestRedraw);
             }
             Some(LoadState::Failed(_)) => {
                 warn!("failed to load model ID {:?}.", id);

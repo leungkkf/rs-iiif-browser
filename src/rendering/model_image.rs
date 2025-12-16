@@ -2,8 +2,9 @@ use crate::camera::{main_camera::MainCamera3d, pan_orbit_state_3d::PanOrbitState
 use bevy::{
     asset::AssetId,
     prelude::{
-        Add, AssetServer, Camera, Commands, Component, EulerRot, GltfAssetLabel, MessageWriter, On,
-        Quat, Res, ResMut, Result, SceneRoot, Single, Transform, With, info,
+        Add, AssetServer, Camera, Commands, Component, Entity, EulerRot, GltfAssetLabel,
+        MessageWriter, On, Quat, Query, Remove, Res, ResMut, Result, SceneRoot, Single, Transform,
+        With, info,
     },
     scene::Scene,
     window::RequestRedraw,
@@ -56,6 +57,25 @@ pub(crate) fn on_add_model_image(
     commands.spawn(SceneRoot(asset_3d));
 
     redraw_request_writer.write(RequestRedraw);
+
+    Ok(())
+}
+
+/// Handler when removing the model image.
+pub(crate) fn on_remove_model_image(
+    remove: On<Remove, ModelImage>,
+    mut commands: Commands,
+    scene: Single<Entity, With<SceneRoot>>,
+    model_loading: Query<Entity, With<ModelLoading>>,
+) -> Result {
+    info!("Model image removed (model_image). {:?}", remove.entity);
+
+    // Despawn the scene.
+    commands.entity(*scene).despawn();
+    // Despawn the loading.
+    for loading in model_loading {
+        commands.entity(loading).despawn();
+    }
 
     Ok(())
 }
