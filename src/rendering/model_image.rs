@@ -1,10 +1,11 @@
 use crate::camera::{main_camera::MainCamera3d, pan_orbit_state_3d::PanOrbitState3d};
 use bevy::{
     asset::AssetId,
+    camera::primitives::{Aabb, Sphere},
     prelude::{
-        Add, AssetServer, Camera, Commands, Component, Entity, EulerRot, GltfAssetLabel,
-        MessageWriter, On, Quat, Query, Remove, Res, ResMut, Result, SceneRoot, Single, Transform,
-        With, info,
+        Add, AssetServer, Camera, Commands, Component, Entity, EulerRot, GlobalTransform,
+        GltfAssetLabel, Mesh3d, MessageWriter, On, Quat, Query, Remove, Res, ResMut, Result,
+        SceneRoot, Single, Transform, Vec3, Vec3A, With, info,
     },
     scene::Scene,
     window::RequestRedraw,
@@ -30,23 +31,11 @@ impl ModelImage {
 pub(crate) fn on_add_model_image(
     add: On<Add, ModelImage>,
     model_image: Single<&ModelImage>,
-    camera3d_query: Single<(&mut Camera, &mut Transform), With<MainCamera3d>>,
     mut commands: Commands,
-    mut current_state: ResMut<PanOrbitState3d>,
     asset_server: Res<AssetServer>,
     mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) -> Result {
     info!("Model image added (model_image). {:?}", add.entity);
-
-    // Set the 3D camera active.
-    let (mut camera3d, mut transform) = camera3d_query.into_inner();
-
-    camera3d.is_active = true;
-    // Reset the initial state for the new model.
-    *current_state = PanOrbitState3d::default();
-    transform.rotation =
-        Quat::from_euler(EulerRot::YXZ, current_state.yaw, current_state.pitch, 0.0);
-    transform.translation = current_state.center + transform.back() * current_state.radius;
 
     // Load the 3D model.
     let asset_3d =
@@ -78,4 +67,57 @@ pub(crate) fn on_remove_model_image(
     }
 
     Ok(())
+}
+
+/// Handler when the model loading is done.
+/// Enable the camera and set up a default transform for the model.
+pub(crate) fn on_remove_model_loading(
+    remove: On<Remove, ModelLoading>,
+    meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
+    camera3d_query: Single<(&mut Camera, &mut Transform), With<MainCamera3d>>,
+    mut current_state: ResMut<PanOrbitState3d>,
+) {
+    info!("Model loading removed (model_image). {:?}", remove.entity);
+
+    let pan_orbit_state = if !meshes.is_empty() {
+        // Find an approximate bounding box of the scene from its meshes
+        // https://bevy.org/examples/tools/scene-viewer/
+        if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
+            return;
+        }
+
+        let mut min = Vec3A::splat(f32::MAX);
+        let mut max = Vec3A::splat(f32::MIN);
+        for (transform, maybe_aabb) in &meshes {
+            let aabb = maybe_aabb.unwrap();
+            // If the Aabb had not been rotated, applying the non-uniform scale would produce the
+            // correct bounds. However, it could very well be rotated and so we first convert to
+            // a Sphere, and then back to an Aabb to find the conservative min and max points.
+            let sphere = Sphere {
+                center: Vec3A::from(transform.transform_point(Vec3::from(aabb.center))),
+                radius: transform.radius_vec3a(aabb.half_extents),
+            };
+            let aabb = Aabb::from(sphere);
+            min = min.min(aabb.min());
+            max = max.max(aabb.max());
+        }
+
+        let size = (max - min).length();
+        let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
+
+        PanOrbitState3d::new(Vec3::from(aabb.center), size, 0.0, 0.0, true)
+    } else {
+        PanOrbitState3d::default()
+    };
+
+    // Set the 3D camera active.
+    let (mut camera3d, mut transform) = camera3d_query.into_inner();
+
+    camera3d.is_active = true;
+
+    *current_state = pan_orbit_state;
+
+    transform.rotation =
+        Quat::from_euler(EulerRot::YXZ, current_state.yaw, current_state.pitch, 0.0);
+    transform.translation = current_state.center + transform.back() * current_state.radius;
 }

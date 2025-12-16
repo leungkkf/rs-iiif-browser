@@ -135,6 +135,7 @@ pub fn main() {
         .add_observer(rendering::tile::on_remove_tiled_image)
         .add_observer(rendering::model_image::on_remove_model_image)
         .add_observer(minimap::on_remove_tiled_image)
+        .add_observer(rendering::model_image::on_remove_model_loading)
         .add_observer(rendering::tiled_image::on_add_tiled_image)
         .add_observer(rendering::model_image::on_add_model_image)
         .add_observer(minimap::on_add_tiled_image);

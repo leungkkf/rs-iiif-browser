@@ -16,11 +16,23 @@ pub(crate) struct PanOrbitState3d {
     pub(crate) is_added: bool,
 }
 
+impl PanOrbitState3d {
+    pub(crate) fn new(center: Vec3, radius: f32, pitch: f32, yaw: f32, is_added: bool) -> Self {
+        Self {
+            center,
+            radius,
+            pitch,
+            yaw,
+            is_added,
+        }
+    }
+}
+
 impl Default for PanOrbitState3d {
     fn default() -> Self {
         PanOrbitState3d {
             center: Vec3::ZERO,
-            radius: 10.0,
+            radius: 0.0,
             pitch: 0.0,
             yaw: 0.0,
             is_added: true,
