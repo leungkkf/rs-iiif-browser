@@ -5,6 +5,7 @@ use bevy::asset::AssetMetaCheck;
 use bevy::asset::io::web::WebAssetPlugin;
 use bevy::camera::visibility::RenderLayers;
 use bevy::prelude::*;
+use bevy::render::RenderApp;
 use bevy::render::render_resource::BlendState;
 use bevy::winit::WinitSettings;
 use bevy_egui::input::{egui_wants_any_keyboard_input, egui_wants_any_pointer_input};
@@ -37,8 +38,9 @@ struct Args {
 // the `bevy_main` proc_macro generates the required boilerplate for Android
 #[bevy_main]
 pub fn main() {
-    App::new()
-        .add_message::<UserNotification>()
+    let mut app = App::new();
+
+    app.add_message::<UserNotification>()
         .add_plugins(
             DefaultPlugins
                 // Meta data is not expected for IIIF.
@@ -102,7 +104,6 @@ pub fn main() {
                         camera::pan_orbit_state_3d::PanOrbitState3d,
                     >,
                     minimap::mouse_input_system,
-                    asset_loading::asset_event_system,
                     web::load_presentation_system,
                     web::load_canvas_system,
                 ),
@@ -123,15 +124,31 @@ pub fn main() {
         )
         .add_systems(
             Last,
-            rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
+            (
+                asset_loading::asset_event_system,
+                rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
+                rendering::pipeline_checker::pipeline_refresh_system
+                    .run_if(resource_changed::<rendering::pipeline_checker::PipelinesModCount>),
+            ),
         )
         .add_observer(presentation::manifest::on_remove_manifest)
         .add_observer(rendering::tile::on_remove_tiled_image)
+        .add_observer(rendering::model_image::on_remove_model_image)
         .add_observer(minimap::on_remove_tiled_image)
         .add_observer(rendering::tiled_image::on_add_tiled_image)
         .add_observer(rendering::model_image::on_add_model_image)
-        .add_observer(minimap::on_add_tiled_image)
-        .run();
+        .add_observer(minimap::on_add_tiled_image);
+
+    // In desktop mode, systems are not always run.
+    // We subscribe to the ExtractSchedule to check the status of the pipeline.
+    // and will refresh until all are ready.
+    // https://github.com/rparrett/bevy_pipelines_ready
+    app.sub_app_mut(RenderApp).add_systems(
+        ExtractSchedule,
+        rendering::pipeline_checker::check_pipelines_ready_system,
+    );
+
+    app.run();
 }
 
 /// Set up the camera.
@@ -170,6 +187,9 @@ fn setup(mut commands: Commands, mut egui_global_settings: ResMut<EguiGlobalSett
 
     // App state.
     commands.insert_resource(AppState::default());
+
+    // Pipeline mod count.
+    commands.insert_resource(rendering::pipeline_checker::PipelinesModCount::default());
 
     // Tile mod state.
     commands.insert_resource(TileModState::new());
