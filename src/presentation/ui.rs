@@ -102,7 +102,7 @@ pub(crate) fn presentation_ui_system(
             .duration(Duration::from_secs(5));
     }
 
-    let mut top = egui::TopBottomPanel::top("top_panel")
+    let mut top = egui::Panel::top("top_panel")
         .resizable(false)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -160,7 +160,7 @@ pub(crate) fn presentation_ui_system(
     // let mut top = 0.0;
 
     let mut left = if egui_ui_state.open_left_panel {
-        egui::SidePanel::left("left_panel")
+        egui::Panel::left("left_panel")
             .resizable(true)
             .show(ctx, |ui| -> Result {
                 // No need to build panel if no presentation.
