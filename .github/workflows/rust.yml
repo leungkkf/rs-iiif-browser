@@ -16,6 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install Linux dependencies
+      uses: ./.github/actions/install-linux-deps       
+      with:
+        wayland: true
+        xkb: true
+        x264: true
     - name: Build
       run: cargo build --verbose
     - name: Run tests
