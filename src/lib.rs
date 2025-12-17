@@ -80,36 +80,31 @@ pub fn main() {
         )
         .add_systems(
             Update,
-            ((
-                (
-                    input::keyboard::keyboard_input_system
-                        .run_if(not(egui_wants_any_keyboard_input)),
-                    input::mouse::mouse_input_system::<
-                        camera::main_camera::MainCamera2d,
-                        camera::pan_zoom_state_2d::PanZoomState2d,
-                    >
-                        .run_if(not(egui_wants_any_pointer_input))
-                        .run_if(not(minimap::ui_has_mouse_input)),
-                    input::mouse::mouse_input_system::<
-                        camera::main_camera::MainCamera3d,
-                        camera::pan_orbit_state_3d::PanOrbitState3d,
-                    >
-                        .run_if(not(egui_wants_any_pointer_input)),
-                    input::touch::touch_input_system::<
-                        camera::main_camera::MainCamera2d,
-                        camera::pan_zoom_state_2d::PanZoomState2d,
-                    >,
-                    input::touch::touch_input_system::<
-                        camera::main_camera::MainCamera3d,
-                        camera::pan_orbit_state_3d::PanOrbitState3d,
-                    >,
-                    minimap::mouse_input_system,
-                    web::load_presentation_system,
-                    web::load_canvas_system,
-                ),
-                (rendering::tile::update_tiles_system.run_if(resource_changed::<TileModState>)),
-            )
-                .chain()),
+            (
+                input::keyboard::keyboard_input_system.run_if(not(egui_wants_any_keyboard_input)),
+                input::mouse::mouse_input_system::<
+                    camera::main_camera::MainCamera2d,
+                    camera::pan_zoom_state_2d::PanZoomState2d,
+                >
+                    .run_if(not(egui_wants_any_pointer_input))
+                    .run_if(not(minimap::ui_has_mouse_input)),
+                input::mouse::mouse_input_system::<
+                    camera::main_camera::MainCamera3d,
+                    camera::pan_orbit_state_3d::PanOrbitState3d,
+                >
+                    .run_if(not(egui_wants_any_pointer_input)),
+                input::touch::touch_input_system::<
+                    camera::main_camera::MainCamera2d,
+                    camera::pan_zoom_state_2d::PanZoomState2d,
+                >,
+                input::touch::touch_input_system::<
+                    camera::main_camera::MainCamera3d,
+                    camera::pan_orbit_state_3d::PanOrbitState3d,
+                >,
+                minimap::mouse_input_system,
+                web::load_presentation_system,
+                web::load_canvas_system,
+            ),
         )
         .add_systems(
             EguiPrimaryContextPass,
@@ -117,18 +112,17 @@ pub fn main() {
         )
         .add_systems(
             PostUpdate,
-            (
-                camera::main_camera::translation_bounding_system,
-                minimap::update_view_rect_system,
-            ),
+            (camera::main_camera::translation_bounding_system),
         )
         .add_systems(
             Last,
             (
                 asset_loading::asset_event_system,
+                minimap::update_view_rect_system,
                 rendering::tile::prune_tiles_system.run_if(resource_changed::<TilePruneState>),
                 rendering::pipeline_checker::pipeline_refresh_system
                     .run_if(resource_changed::<rendering::pipeline_checker::PipelinesModCount>),
+                rendering::tile::update_tiles_system.run_if(resource_changed::<TileModState>),
             ),
         )
         .add_observer(presentation::manifest::on_remove_manifest)
@@ -235,10 +229,10 @@ fn setup_initial_presentation(mut app_state: ResMut<AppState>) -> Result {
     if let Some(presentation_url) = args.manifest {
         web::load_presentation(&mut app_state, &presentation_url);
     } else {
-        // web::load_presentation(
-        //     &mut app_state,
-        //     "https://iiif.harvardartmuseums.org/manifests/object/21116",
-        // );
+        web::load_presentation(
+            &mut app_state,
+            "https://iiif.harvardartmuseums.org/manifests/object/21116",
+        );
         // web::load_presentation(
         //     &mut app_state,
         //     "https://iiif.github.io/3d/manifests/1_basic_model_in_scene/model_origin.json",
