@@ -79,7 +79,7 @@
 
 The IIIF Browser provides a proof-of-concept client built using Rust for viewing IIIF manifests and images. 
 It is based on the [Bevy](https://bevy.org/) game engine with the [Bevy egui plugin](https://github.com/vladbat00/bevy_egui) (which in turn uses [egui](https://github.com/emilk/egui)). 
-Bevy allows the easy rendering of the tiles/images with support for camera and input. 
+Bevy allows easy rendering of the tiles/images with support for camera and input. 
 The project is created as an exercise while learning Rust. 
 
 A web demo can be found [here](https://leungkkf.github.io/testbed/). 
@@ -89,12 +89,12 @@ Existing features:
 * Limited support of IIIF manifest and image (versions 2 and 3).
 * Pan and deep zoom.
 * Minimap.
-* Canvas thumbnals on the side panel.
+* Canvas thumbnails on the side panel.
 * Cross-platform builds (tried on the following platforms)
   * Windows
   * Linux
-  * Wasm (with some issues with touch controls and virtual keyboard in Bevy egui)
-  * Android (with some issues with touch controls and virtual keyboard in Bevy egui)
+  * Wasm (issues with touch controls and virtual keyboard)
+  * Android (issues with touch controls and virtual keyboard)
 * Limited support for 3D. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -153,7 +153,7 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 
 
 <!-- ROADMAP -->
-## Roadmap
+## To-Do List
 
 Some ideas are listed below:
 
@@ -163,8 +163,6 @@ Some ideas are listed below:
 - [ ] Support for virtual keyboard in mobile devices.
 - [ ] ...
     
-
-See the [open issues](https://github.com/github_username/repo_name/issues) for a full list of proposed features (and known issues).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p> 
 
