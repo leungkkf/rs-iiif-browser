@@ -32,7 +32,7 @@ impl Default for PanOrbitState3d {
     fn default() -> Self {
         PanOrbitState3d {
             center: Vec3::ZERO,
-            radius: 0.0,
+            radius: 1.0,
             pitch: 0.0,
             yaw: 0.0,
             is_added: true,

@@ -5,7 +5,7 @@ use bevy::{
     prelude::{
         Add, AssetServer, Camera, Commands, Component, Entity, EulerRot, GlobalTransform,
         GltfAssetLabel, Mesh3d, MessageWriter, On, Quat, Query, Remove, Res, ResMut, Result,
-        SceneRoot, Single, Transform, Vec3, Vec3A, With, info,
+        SceneRoot, Single, Transform, Vec3, Vec3A, With, info, warn,
     },
     scene::Scene,
     window::RequestRedraw,
@@ -79,36 +79,44 @@ pub(crate) fn on_remove_model_loading(
 ) {
     info!("Model loading removed (model_image). {:?}", remove.entity);
 
-    let pan_orbit_state = if !meshes.is_empty() {
-        // Find an approximate bounding box of the scene from its meshes
-        // https://bevy.org/examples/tools/scene-viewer/
-        if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
-            return;
-        }
+    let pan_orbit_state =
+        if !meshes.is_empty() && !meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
+            // Find an approximate bounding box of the scene from its meshes
+            // https://bevy.org/examples/tools/scene-viewer/
+            let mut min = Vec3A::splat(f32::MAX);
+            let mut max = Vec3A::splat(f32::MIN);
+            for (transform, maybe_aabb) in &meshes {
+                let aabb = maybe_aabb.unwrap();
+                // If the Aabb had not been rotated, applying the non-uniform scale would produce the
+                // correct bounds. However, it could very well be rotated and so we first convert to
+                // a Sphere, and then back to an Aabb to find the conservative min and max points.
+                let sphere = Sphere {
+                    center: Vec3A::from(transform.transform_point(Vec3::from(aabb.center))),
+                    radius: transform.radius_vec3a(aabb.half_extents),
+                };
+                let aabb = Aabb::from(sphere);
+                min = min.min(aabb.min());
+                max = max.max(aabb.max());
+            }
 
-        let mut min = Vec3A::splat(f32::MAX);
-        let mut max = Vec3A::splat(f32::MIN);
-        for (transform, maybe_aabb) in &meshes {
-            let aabb = maybe_aabb.unwrap();
-            // If the Aabb had not been rotated, applying the non-uniform scale would produce the
-            // correct bounds. However, it could very well be rotated and so we first convert to
-            // a Sphere, and then back to an Aabb to find the conservative min and max points.
-            let sphere = Sphere {
-                center: Vec3A::from(transform.transform_point(Vec3::from(aabb.center))),
-                radius: transform.radius_vec3a(aabb.half_extents),
-            };
-            let aabb = Aabb::from(sphere);
-            min = min.min(aabb.min());
-            max = max.max(aabb.max());
-        }
+            let size = (max - min).length();
+            let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
 
-        let size = (max - min).length();
-        let aabb = Aabb::from_min_max(Vec3::from(min), Vec3::from(max));
-
-        PanOrbitState3d::new(Vec3::from(aabb.center), size, 0.0, 0.0, true)
-    } else {
-        PanOrbitState3d::default()
-    };
+            // Size cannot be 0 in PanOrbitState3d.
+            if size != 0.0 {
+                info!(
+                    "found meshes in model. init PanOrbitState3d with size {} center {}",
+                    size, aabb.center
+                );
+                PanOrbitState3d::new(Vec3::from(aabb.center), size, 0.0, 0.0, true)
+            } else {
+                warn!("size is 0 in the meshes. use default PanOrbitState3d");
+                PanOrbitState3d::default()
+            }
+        } else {
+            warn!("meshes not found. use default PanOrbitState3d");
+            PanOrbitState3d::default()
+        };
 
     // Set the 3D camera active.
     let (mut camera3d, mut transform) = camera3d_query.into_inner();
