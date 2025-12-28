@@ -1,0 +1,7 @@
+/target
+/dist
+/java/**/.*
+/java/app/build
+/java/build
+/java/**/*.so
+/java/local.properties

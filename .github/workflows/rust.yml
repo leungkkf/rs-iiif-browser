@@ -1,0 +1,33 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_RELEASE_LTO: true
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS: 1
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Linux dependencies
+      uses: ./.github/actions/install-linux-deps       
+      with:
+        wayland: true
+        xkb: true
+        x264: true
+    - name: typos-action
+      uses: crate-ci/typos@v1.40.0
+    - name: Clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    - name: Build
+      run: cargo build --release --locked
+    - name: Run tests
+      run: cargo test --release --locked

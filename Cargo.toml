@@ -1,0 +1,91 @@
+[package]
+name = "rs-iiif-browser"
+version = "0.1.0"
+edition = "2024"
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+strip = true  # Automatically strip symbols from the binary.
+
+[lib]
+name = "rs_iiif_browser_lib"
+crate-type = ["lib", "cdylib"]
+
+[dependencies]
+chrono = { version = "0.4.42", features = ["serde"] }
+clap = { version = "4.5.53", features = ["derive"] }
+image = "0.25.8"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+thiserror = "2.0.17"
+ehttp = "0.6.0"
+egui_extras = { version = "0.33.3", features = ["all_loaders"] }
+bevy_egui = "0.38.0"
+egui-notify = "0.21.0"
+
+bevy = { version="0.17", default-features = false, features = [
+    # "dynamic_linking",
+    "async_executor",
+    "bevy_asset",
+    "bevy_input_focus",
+    "bevy_log",
+    "bevy_state",
+    "bevy_window",
+    "std",
+    "bevy_winit",
+    "default_font",
+    "multi_threaded",
+    "wayland",
+    "webgl2",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_post_process",
+    "bevy_ui",
+    "android-game-activity",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_ui_render",
+    "bevy_picking",
+    "gif",
+    "png",
+    "jpeg",
+    "tiff",
+    "webp",
+    "https",
+    "tonemapping_luts",
+    "smaa_luts",
+    "bevy_scene",
+    "bevy_light",
+    "bevy_gltf",
+    "reflect_auto_register",
+] }
+bitflags = "2.10.0"
+
+[patch.crates-io]
+ehttp = { git="https://github.com/leungkkf/ehttp.git", branch="upgrade-ureq-3" }
+egui = { git="https://github.com/leungkkf/egui.git", branch="fix-media-type-optional-parameters" }
+egui_extras = { git="https://github.com/leungkkf/egui.git", branch="fix-media-type-optional-parameters" }
+bevy_egui = { git="https://github.com/leungkkf/bevy_egui.git", branch="upgrade_egui_0_33_x" }
+
+[dev-dependencies]
+ureq = "3.1.4"
+
+[package.metadata.android]
+package = "org.leungkkf.rs_iiif_browser"
+apk_name = "rs_iiif_browser"
+# This strips debug symbols from the shared libraries, drastically reducing APK size. If you need them, remove the option.
+strip = "strip"
+build_targets = ["aarch64-linux-android"]
+
+[package.metadata.android.sdk]
+target_sdk_version = 34
+
+[package.metadata.android.application]
+label = "RS IIIF Browser"
