@@ -75,7 +75,7 @@ egui_extras = { git="https://github.com/leungkkf/egui.git", branch="fix-media-ty
 bevy_egui = { git="https://github.com/leungkkf/bevy_egui.git", branch="upgrade_egui_0_33_x" }
 
 [dev-dependencies]
-ureq = "3.1.4"
+ureq = "3.2.0"
 
 [package.metadata.android]
 package = "org.leungkkf.rs_iiif_browser"
