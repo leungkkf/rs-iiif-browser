@@ -30,7 +30,7 @@ egui_extras = { version = "0.33.3", features = ["all_loaders"] }
 bevy_egui = "0.38.0"
 egui-notify = "0.21.0"
 
-bevy = { version="0.17", default-features = false, features = [
+bevy = { version="0.18", default-features = false, features = [
     # "dynamic_linking",
     "async_executor",
     "bevy_asset",
